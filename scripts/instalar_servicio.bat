@@ -58,17 +58,11 @@ pause
 exit /b 1
 
 :instalar_elevado
-if exist "%~dp0instalar_gui.ps1" goto :instalar_gui
 if not exist "%~dp0instalar.ps1" goto :sin_ps1
-echo Instalando - el detalle queda en instalacion.log ...
+echo Instalando - el detalle sale en esta misma ventana ...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0instalar.ps1"
 set "RC=%ERRORLEVEL%"
 goto :instalar_fin
-
-:instalar_gui
-echo Abriendo el instalador grafico ...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0instalar_gui.ps1"
-set "RC=%ERRORLEVEL%"
 
 :instalar_fin
 echo.
@@ -82,8 +76,8 @@ exit /b 0
 
 :fin_mal
 echo.
-echo [ERROR] La instalacion no termino bien - revise instalacion.log
-echo         y C:\CytvAncon\logs\stderr.log
+echo [ERROR] La instalacion no termino bien - el paso que fallo
+echo         esta impreso arriba en esta misma ventana.
 pause
 exit /b 1
 

@@ -58,7 +58,6 @@
   C:\CytvAncon\logs\servidor.log    - log principal en espanol
   C:\CytvAncon\logs\stderr.log      - errores de arranque python
   C:\CytvAncon\logs\stdout.log      - salida estandar
-  C:\CytvAncon\instalacion.log      - del ultimo instalador
 
   Cola en vivo (Ctrl+C para salir):
       Get-Content C:\CytvAncon\logs\servidor.log -Wait -Tail 20

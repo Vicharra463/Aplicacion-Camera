@@ -29,12 +29,10 @@ if (-not (Test-Path -LiteralPath (Join-Path $raiz 'ftp_server.py'))) {
 }
 $dest = 'C:\CytvAncon'
 $serv = 'CamaraCytvAncon'
-$log  = Join-Path $raiz 'instalacion.log'
 
 function L($m) {
-    $l = '{0} {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $m
-    Add-Content -LiteralPath $log -Value $l -Encoding UTF8
-    Write-Host $l
+    # Todo a la consola de la ventana de CMD - sin archivos de log.
+    Write-Host ('{0} {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $m)
 }
 
 # Puerto en escucha -> PID  (netstat: funciona en PS4; Get-NetTCPConnection no)
@@ -136,12 +134,15 @@ if ($raiz -ne $dest) {
     L "Paso 3: copiando proyecto $raiz -> $dest"
     New-Item -ItemType Directory -Path $dest -Force | Out-Null
     robocopy $raiz $dest /E /XD venv __pycache__ logs ftp_recibidos imagenes_procesadas descartadas `
-        /XF instalacion.log /R:1 /W:1 /NFL /NDL /NJH /NJS | Out-Null
+        /R:1 /W:1 /NFL /NDL /NJH /NJS | Out-Null
     if ($LASTEXITCODE -ge 8) { L "ERROR: robocopy fallo (codigo $LASTEXITCODE)"; exit 1 }
     L '       Copia terminada (sin venv, sin imagenes de maquinas anteriores)'
 } else {
     L "Paso 3: ya se corre desde $dest - no hace falta copiar"
 }
+# Borra restos de versiones viejas que usaban instalacion.log
+Remove-Item -LiteralPath (Join-Path $dest 'instalacion.log') -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath (Join-Path $PSScriptRoot 'instalacion.log') -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path (Join-Path $dest 'logs') -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $dest 'ftp_recibidos') -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $dest 'imagenes_procesadas') -Force | Out-Null

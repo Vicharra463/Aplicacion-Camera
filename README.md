@@ -231,7 +231,8 @@ Luego: `Restart-Service CamaraCytvAncon`.
 | `logs/servidor.log` | Flujo principal, rotado a medianoche (30 días) |
 | `logs/stderr.log` | Errores de arranque (imports, puerto ocupado, permisos) |
 | `logs/stdout.log` | Salida estándar del proceso |
-| `instalacion.log` | Última corrida del instalador |
+
+El instalador no escribe ningún archivo: todo el detalle se imprime en su ventana de CMD.
 
 Tail en vivo: `Get-Content C:\CytvAncon\logs\servidor.log -Wait -Tail 20`
 
