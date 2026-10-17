@@ -306,14 +306,14 @@ if ($build -lt 14393) {
         if (Test-Path -LiteralPath $mfplat) {
             L '       Media Foundation habilitado OK'
         } elseif ($exitDism -eq 3010) {
-            L '       Media Foundation quedo pendiente de REINICIO.'
-            L '       Reinicie la Windows Server y vuelva a correr instalar_servicio.bat'
-            L '       (el instalador es repebile - continuara donde quedo).'
-            exit 1
+            L '       Media Foundation quedo pendiente de REINICIO (codigo 3010).'
+            L '       NO corta la instalacion: requirements-py39 fija opencv-python-headless,'
+            L '       que carga sin Media Foundation. Despues del reinicio mfplat.dll quedara'
+            L '       disponible y el instalador lo detectara (paso 5.6).'
         } else {
-            L '       ERROR: DISM no habilito Media Foundation y no pide reinicio.'
-            L '       Revise Servicio de actualizaciones de Windows / imagen de instalacion.'
-            exit 1
+            L '       AVISO: DISM no habilito Media Foundation y no pide reinicio.'
+            L '       Sigue igual - el headless no la necesita. Revise despues con:'
+            L '       dism /Online /Enable-Feature /FeatureName:ServerMediaFoundation /All'
         }
     }
 }
@@ -354,10 +354,40 @@ if (-not (Test-Path -LiteralPath $vp)) { L '       ERROR: no se pudo crear el ve
 
 $reqPath = Join-Path $dest $req
 if (-not (Test-Path -LiteralPath $reqPath)) { L ("ERROR: falta $req en $dest"); exit 1 }
+
+# Truco headless (solo Windows viejo): rapidocr declara dependencia del
+# paquete "opencv-python" (el nombre normal). Si pip lo baja encima del
+# headless, cv2 queda corrupto ("partially initialized module 'cv2'").
+# Metadato falso de opencv-python 4.5.3.56 -> pip lo da por instalado y
+# no toca nada; requirements trae solo opencv-python-headless.
+if ($req -eq 'requirements-py39.txt') {
+    $di = Join-Path $dest 'venv\Lib\site-packages\opencv_python-4.5.3.56.dist-info'
+    New-Item -ItemType Directory -Path $di -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $di 'METADATA') -Value "Metadata-Version: 2.1`nName: opencv-python`nVersion: 4.5.3.56" -Encoding ASCII
+    Set-Content -LiteralPath (Join-Path $di 'INSTALLER') -Value 'manual' -Encoding ASCII
+    Set-Content -LiteralPath (Join-Path $di 'RECORD') -Value '' -Encoding ASCII
+    L '       metadato falso opencv-python 4.5.3.56 listo (pip no instalara el normal)'
+}
+
 L ('       pip install -r ' + $req + ' (varios minutos)')
 & $vp -m pip install --disable-pip-version-check --quiet -r $reqPath 2>&1 |
     Select-Object -Last 5 | ForEach-Object { L ('       pip: ' + $_) }
 if ($LASTEXITCODE -ne 0) { L '       ERROR: fallo pip. Revise internet/config.'; exit 1 }
+
+# Guarda: si a pesar de todo pip instalo opencv-python normal (dist-info
+# con OTRA version que nuestro falso 4.5.3.56), cv2 quedo con dos
+# paquetes encima (corrupto). Se desinstala el normal y se vuelve al
+# headless pinneado. El escaneo por carpeta distingue el falso del real.
+if ($req -eq 'requirements-py39.txt') {
+    $sp = Join-Path $dest 'venv\Lib\site-packages'
+    $malos = Get-ChildItem -LiteralPath $sp -Directory -Filter 'opencv_python-*' -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne 'opencv_python-4.5.3.56.dist-info' }
+    if ($malos) {
+        L ('       AVISO: pip instalo opencv-python normal (' + (($malos | ForEach-Object { $_.Name }) -join ', ') + ') - se corrige al headless')
+        & $vp -m pip uninstall -y opencv-python 2>&1 | Out-Null
+        & $vp -m pip install --disable-pip-version-check --quiet 'opencv-python-headless==4.5.3.56' 2>&1 | Out-Null
+    }
+}
 
 L '       prueba de humo: imports criticos'
 $humo = & $vp -c "import pyftpdlib, cv2, numpy, onnxruntime; from rapidocr_onnxruntime import RapidOCR; print('imports OK')" 2>&1 | Out-String

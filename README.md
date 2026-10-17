@@ -55,6 +55,45 @@ Puerto 2121: libre
 Firewall:  regla presente
 ```
 
+### Server 2012 R2: Media Foundation y OpenCV (resuelto, por si aparece)
+
+El problema de fondo: **Server 2012 R2 no trae Media Foundation activa** (`mfplat.dll`). El instalador la habilita con DISM, Windows responde **3010 = reinicio pendiente** y las DLL no existen hasta reiniciar. OpenCV normal las necesita (`DLL load failed while importing cv2`) y, encima, `rapidocr-onnxruntime` declara dependencia de `opencv-python`: si pip instala esa versión normal encima del headless, `cv2` queda corrupto (`partially initialized module 'cv2'`).
+
+**El instalador ya lo resuelve solo** — no hace falta ningún parche ni script extra:
+
+1. El **3010 ya no corta** la instalación: solo avisa y continúa.
+2. `requirements-py39.txt` fija `opencv-python-headless==4.5.3.56`, que carga **sin** Media Foundation (y sigue funcionando después del reinicio).
+3. Antes de `pip install`, crea un metadato falso de `opencv-python 4.5.3.56` en el venv para que pip **no** instale el normal encima.
+4. Si igual apareciera el paquete normal, una guarda lo desinstala y repone el headless.
+5. El paso final de humo prueba los imports reales (`cv2`, `onnxruntime`, `RapidOCR`) y solo dice `imports OK` si todo cargó.
+
+Si tenés que recrear el venv **a mano** sin el instalador (o verificar a posteriori):
+
+```powershell
+$py = "C:\CytvAncon\venv\Scripts\python.exe"
+
+# metadato falso (solo si el venv es nuevo y sin él):
+$d = "C:\CytvAncon\venv\Lib\site-packages\opencv_python-4.5.3.56.dist-info"
+New-Item -ItemType Directory $d -Force | Out-Null
+Set-Content "$d\METADATA" "Metadata-Version: 2.1`nName: opencv-python`nVersion: 4.5.3.56" -Encoding ASCII
+Set-Content "$d\INSTALLER" "manual" -Encoding ASCII
+Set-Content "$d\RECORD" "" -Encoding ASCII
+
+# verificación final (debe imprimir TODO OK):
+& $py -c "import pyftpdlib, cv2, numpy, onnxruntime; from rapidocr_onnxruntime import RapidOCR; print('TODO OK', cv2.__version__)"
+```
+
+### Cómo reconocer cada fallo
+
+| Error en la consola del instalador | Causa |
+|---|---|
+| `DLL load failed while importing cv2` | OpenCV normal sin Media Foundation (no debería pasar con el headless pineado) |
+| `partially initialized module 'cv2'` | Se mezclaron opencv normal y headless — la guarda del instalador lo corrige |
+| Se detiene en "pendiente de REINICIO" con error | Instalador viejo sin el parche del 3010 — actualizá `scripts\` |
+| `imports OK` pero el servicio no levanta | Mirá el detalle que imprime justo debajo (stderr se vuelca en la misma ventana) |
+
+Reinicio opcional: cuando reinicies el servidor, `mfplat.dll` queda disponible para siempre; el instalador lo detecta en el paso 5.6 y omite el aviso. Con el headless pineado no hace falta apurarse a reiniciar.
+
 ## Puesta en marcha de la cámara (Hikvision)
 
 1. Abre `C:\CytvAncon\INFO_CAMARA.txt` (se regenera en cada arranque; **no se sube a git** porque contiene credenciales).
