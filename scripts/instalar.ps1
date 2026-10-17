@@ -1,4 +1,5 @@
 #requires -Version 3.0
+param([switch]$Check)
 # ============================================================
 #  Instalador universal - Servidor FTP Camara CYTV Ancon
 #  Compatible con PowerShell 3.0+ (Windows Server 2012 R2 = PS4
@@ -32,7 +33,13 @@ $serv = 'CamaraCytvAncon'
 
 function L($m) {
     # Todo a la consola de la ventana de CMD - sin archivos de log.
-    Write-Host ('{0} {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $m)
+    # Colores: OK/EXITO verde, ERROR/FALTA rojo, AVISO amarillo, Pasos cian.
+    $c = [ConsoleColor]::Gray
+    if ($m -match '(^|\s)OK(\s|$)|EXITO|INSTALACION TERMINADA|RUNNING') { $c = [ConsoleColor]::Green }
+    if ($m -match 'AVISO|OCUPADO|pendiente') { $c = [ConsoleColor]::Yellow }
+    if ($m -match 'ERROR|FALTA') { $c = [ConsoleColor]::Red }
+    if ($m -match '^\s*Paso ') { $c = [ConsoleColor]::Cyan }
+    Write-Host ('{0} {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $m) -ForegroundColor $c
 }
 
 # Puerto en escucha -> PID  (netstat: funciona en PS4; Get-NetTCPConnection no)
@@ -70,6 +77,66 @@ function Find-PythonBase($lo, $hi) {
         }
     }
     return $null
+}
+
+# --- [-C] Diagnostico de solo lectura (instalar_servicio.bat --check) ---
+# Mismos datos que antes imprima el CMD, ahora con OK/FALTA/AVISO en color.
+if ($Check) {
+    L '============================================================'
+    L ' Diagnostico - no modifica nada'
+    L '============================================================'
+    L ('Carpeta:   ' + $dest)
+
+    $idC = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $prC = New-Object Security.Principal.WindowsPrincipal($idC)
+    if ($prC.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        L 'OK     Elevacion: SI - ya se ejecuta como administrador'
+    } else {
+        L 'AVISO  Elevacion: NO - al instalar Windows pedira permiso'
+    }
+
+    $cv = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction SilentlyContinue
+    $b = 0; try { $b = [int]$cv.CurrentBuild } catch { $b = 0 }
+    L ('Sistema:    ' + $cv.ProductName + ' build ' + $cv.CurrentBuild)
+    if ($b -lt 9600)      { L 'ERROR  Soporte:    NO - se necesita 8.1 / Server 2012 R2 o superior (64 bits)' }
+    elseif ($b -lt 14393) { L 'OK     Soporte:    SI - se instalara Python 3.9' }
+    else                  { L 'OK     Soporte:    SI - se instalara Python 3.13' }
+
+    $pyHallado = $false
+    foreach ($pexe in @('C:\Program Files\Python313\python.exe', 'C:\Program Files\Python39\python.exe')) {
+        if (Test-Path -LiteralPath $pexe) {
+            L ('OK     Python:     presente (' + (Split-Path -Parent $pexe) + ')')
+            $pyHallado = $true
+        }
+    }
+    if (-not $pyHallado) { L 'FALTA  Python:     no encontrado - lo instala el instalador' }
+
+    if (Test-Path -LiteralPath (Join-Path $dest 'scripts\nssm.exe')) {
+        L ('OK     NSSM:       presente en ' + $dest + '\scripts')
+    } else {
+        L 'FALTA  NSSM:       falta - va junto al proyecto (scripts\)'
+    }
+
+    if (Test-Path -LiteralPath (Join-Path $dest 'ftp_server.py')) {
+        L ('OK     Proyecto:   instalado en ' + $dest)
+    } else {
+        L 'FALTA  Proyecto:   aun no instalado'
+    }
+
+    $svc = Get-Service -Name $serv -ErrorAction SilentlyContinue
+    if (-not $svc)                     { L 'FALTA  Servicio:   no instalado' }
+    elseif ($svc.Status -eq 'Running') { L ('OK     Servicio:   ' + $svc.Status) }
+    else                               { L ('FALTA  Servicio:   ' + $svc.Status) }
+
+    $pid2121 = Get-PidEnPuerto 2121
+    if (-not $pid2121) { L 'OK     Puerto 2121: libre' }
+    else { L ('AVISO  Puerto 2121: OCUPADO (PID ' + $pid2121 + ' - ver con netstat -ano ^| findstr :2121)') }
+
+    & netsh advfirewall firewall show rule name='CYTV Ancon FTP' > $null 2>&1
+    if ($LASTEXITCODE -eq 0) { L 'OK     Firewall:   regla presente' }
+    else { L 'FALTA  Firewall:   sin regla - se crea al instalar' }
+
+    exit 0
 }
 
 L '============================================================'

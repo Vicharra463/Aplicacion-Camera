@@ -92,29 +92,8 @@ REM  Diagnostico de solo lectura  (--check)
 REM ============================================================
 
 :check
-echo ============================================================
-echo   Diagnostico - no modifica nada
-echo ============================================================
-echo Carpeta:   %RUTA%
-fltmc >nul 2>&1
-if errorlevel 1 echo Elevacion: NO - al instalar Windows pedira permiso
-if not errorlevel 1 echo Elevacion: SI - ya se ejecuta como administrador
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$cv=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -EA SilentlyContinue; Write-Host ('Sistema:    ' + $cv.ProductName + ' build ' + $cv.CurrentBuild); $b=[int]$cv.CurrentBuild; if ($b -lt 9600) { Write-Host 'Soporte:    NO - se necesita 8.1 / Server 2012 R2 o superior (64 bits)' } elseif ($b -lt 14393) { Write-Host 'Soporte:    SI - se instalara Python 3.9' } else { Write-Host 'Soporte:    SI - se instalara Python 3.13' }"
-if exist "C:\Program Files\Python313\python.exe" echo Python:     presente (C:\Program Files\Python313)
-if exist "C:\Program Files\Python39\python.exe" echo Python:     presente (C:\Program Files\Python39)
-if exist "C:\CytvAncon\scripts\nssm.exe" echo NSSM:       presente en C:\CytvAncon\scripts
-if not exist "C:\CytvAncon\scripts\nssm.exe" echo NSSM:       falta - va junto al proyecto (scripts\)
-if exist "C:\CytvAncon\ftp_server.py" echo Proyecto:   instalado en C:\CytvAncon
-if not exist "C:\CytvAncon\ftp_server.py" echo Proyecto:   aun no instalado
-sc query %SERVICIO% >nul 2>&1
-if errorlevel 1 echo Servicio:   no instalado
-if not errorlevel 1 sc query %SERVICIO% | findstr /i "STATE" 
-netstat -ano -p tcp | findstr ":2121 " | findstr "LISTENING" >nul 2>&1
-if errorlevel 1 echo Puerto 2121: libre
-if not errorlevel 1 echo Puerto 2121: OCUPADO (abajo el PID con netstat -ano ^| findstr :2121)
-netsh advfirewall firewall show rule name="CYTV Ancon FTP" >nul 2>&1
-if errorlevel 1 echo Firewall:   sin regla - se crea al instalar
-if not errorlevel 1 echo Firewall:   regla presente
+if not exist "%~dp0instalar.ps1" goto :sin_ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0instalar.ps1" -Check
 exit /b 0
 
 REM ============================================================
