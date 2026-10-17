@@ -1,4 +1,4 @@
-﻿pyftpdlib>=1.5.9
+pyftpdlib>=1.5.9
 opencv-python>=4.9.0
 numpy>=1.26.0
 # Fase detector + OCR: si faltan, el worker arranca SIN modelo y SIN lectura

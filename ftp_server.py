@@ -7,7 +7,7 @@ Diseno:
     heartbeat  -> toca heartbeat.txt cada 15 s para el watchdog externo
     barrido    -> recupera archivos que quedaron a medias si el servicio se cayo
 
-Para correr 24/7 en Windows ver instalar_servicio.bat (NSSM).
+Para correr 24/7 en Windows ver scripts\\instalar_servicio.bat (NSSM).
 """
 from __future__ import annotations
 
@@ -26,6 +26,10 @@ from pathlib import Path
 from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.handlers import FTPHandler
 from pyftpdlib.servers import FTPServer
+
+# El codigo de la app vive en app\: se agrega al path para que los imports
+# planos de worker/ocr/modelo/reconocedor sigan funcionando igual.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "app"))
 
 import worker
 
@@ -93,6 +97,13 @@ def cargar_config() -> dict:
         "umbral_bordes": ini.getfloat("filtros", "umbral_bordes", fallback=2.0),
         "umbral_dedup": ini.getint("filtros", "umbral_dedup_dist", fallback=12),
         "descartes": opt("filtros", "descartes", "descartadas"),
+        # Control de pasadas (Fase 1): ventana entre visitas de la misma
+        # placa y tope de pasadas por periodo.
+        "ventana_reinspeccion_min": ini.getfloat("camara", "ventana_reinspeccion_min",
+                                                 fallback=60.0),
+        "ventana_reinspeccion_dias": ini.getint("camara", "ventana_reinspeccion_dias",
+                                                fallback=30),
+        "max_pasadas": ini.getint("camara", "max_pasadas", fallback=3),
         "nivel_log": ini.get("log", "nivel"),
         "retencion": ini.getint("log", "retencion_dias"),
         "_relativas": relativas,
@@ -183,6 +194,24 @@ def escribir_info_camara(cfg: dict) -> Path:
     ip = _ip_local()
     ruta = BASE / "INFO_CAMARA.txt"
     inicio, fin = cfg["pasivos"]
+
+    # Texto segun instalacion (2026-10-16): mapeo corregido de canales,
+    # sin vista_forzada. Canal 01 = PT (placa), canal 02 = panoramico.
+    texto_vistas = (
+        "  IMPORTANTE - las DOS vistas tienen que subir:\n"
+        "    Canal 01 (PT) y Canal 02 (panoramico): en\n"
+        "    Storage -> Schedule Settings -> Picture Capture y en el linkage de\n"
+        "    movimiento (MD_WITH_TARGET), active la subida por FTP en AMBOS\n"
+        "    canales. Si solo sube el 01, la carpeta vehiculo\\ no recibe fotos."
+    )
+    texto_garantia = (
+        "  imagenes_procesadas\\placa\\AAAA-MM-DD\\      canal 01 (PT): ~2x\n"
+        "      pixeles en la placa, modelo + OCR, nombre = placa canonica\n"
+        "      (ABC-123.jpg) con rectangulo ROJO sobre la deteccion.\n"
+        "  imagenes_procesadas\\vehiculo\\AAAA-MM-DD\\   canal 02: vehiculo\n"
+        "      completo en crudo (sin OCR), nombre por hora."
+    )
+
     contenido = f"""\
 ================================================================
  INFO DE CONEXION - Servidor FTP Camara CYTV Ancon
@@ -211,22 +240,14 @@ def escribir_info_camara(cfg: dict) -> Path:
     Ruta destino ........ /   (o el subcarpeta que prefiera)
     Modo ............... Pasivo  (si la camara lo pide)
 
-  IMPORTANTE - las DOS vistas tienen que subir:
-    Canal 01 (panoramico) y Canal 02 (PT): en
-    Storage -> Schedule Settings -> Picture Capture y en el linkage de
-    movimiento (MD_WITH_TARGET), active la subida por FTP en AMBOS
-    canales. Si solo sube el 01, la carpeta placa\\ no recibe fotos.
+{texto_vistas}
 
 --- QUE GUARDA EL SERVIDOR ------------------------------------
-  imagenes_procesadas\\vehiculo\\AAAA-MM-DD\\  canal 01: vehiculo
-      completo (comparar precios por categoria)
-  imagenes_procesadas\\placa\\AAAA-MM-DD\\     canal 02: vista con
-      ~2x pixeles en la placa (entrenar el modelo)
-  Cada foto lleva su etiqueta YOLO (.txt) al lado.
+{texto_garantia}
 
 --- CAMBIOS DE CONFIGURACION ----------------------------------
-  instalar_servicio.bat config              ver config.ini
-  instalar_servicio.bat config set CLAVE V  cambiar un valor
+  scripts\\instalar_servicio.bat config              ver config.ini
+  scripts\\instalar_servicio.bat config set CLAVE V  cambiar un valor
       (puerto usuario password cooldown_segundos umbral_modelo ...)
 
   NOTA: si cambia la password aqui, cambielo TAMBIEN en la camara.
@@ -334,7 +355,7 @@ def main() -> int:
     logger.info("Servidor FTP CYTV Ancon - IP %s, puerto %s",
                 _ip_local(), cfg["puerto"])
     logger.info("Entrada : %s", cfg["recibidos"])
-    logger.info("Salida  : %s  (vehiculo\\ = canal 01, placa\\ = canal 02)",
+    logger.info("Salida : %s  (placa\\ = canal 01, vehiculo\\ = canal 02)",
                 cfg["procesadas"])
     logger.info("Registro : %s", cfg["registro"])
     try:

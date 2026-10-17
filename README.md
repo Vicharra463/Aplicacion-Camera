@@ -1,4 +1,4 @@
-﻿# Servidor FTP de Placas CYTV Ancon
+# Servidor FTP de Placas CYTV Ancon
 
 Sistema 24/7 que recibe imágenes de una cámara Hikvision TandemVu (2 canales), detecta y lee placas peruanas, y las organiza en carpetas diarias con reportes JSON listos para consumir.
 
@@ -23,20 +23,49 @@ Sistema 24/7 que recibe imágenes de una cámara Hikvision TandemVu (2 canales),
            │  placa/       │          │  YYYY-MM-DD   │          │   retener)    │
            │  vehiculo/    │          │  .json        │          └───────────────┘
            └───────────────┘          └───────────────┘
-                                 ▲
-                                 │
-                        ┌───────┴────────┐
-                        │  consola.py /  │
-                        │  cytv.ps1      │
-                        │  (operación)   │
-                        └────────────────┘
+                    ▲                          ▲
+                    │                          │
+           ┌────────┴────────┐         ┌───────┴────────┐
+           │  webapp/        │         │  consola.py /  │
+           │  (React + Node) │         │  cytv.ps1      │
+           │  localhost:3000 │         │  (operación)   │
+           └─────────────────┘         └────────────────┘
 ```
 
 **Hilos del servicio:**
 - **FTP** (`ftp_server.py`) — recibe `STOR`, encola en `worker.COLA`, devuelve 226 al instante.
-- **Worker** (`worker.py`) — único consumidor; cadena de filtros estricta, dedup por hash perceptual + texto OCR, renombrado por placa.
+- **Worker** (`app/worker.py`) — único consumidor; cadena de filtros estricta, dedup por hash perceptual + texto OCR, renombrado por placa.
 - **Heartbeat** — toca `heartbeat.txt` cada 15 s (watchdog externo).
 - **Barrido** — cada 60 s recupera archivos huérfanos en `ftp_recibidos/`.
+
+---
+
+## Estructura del proyecto
+
+```
+CytvAncon\
+├── ftp_server.py        ← ÚNICA entrada (la referencia NSSM; no mover)
+├── config.ini           ← rutas absolutas de datos (no mover)
+├── cytv.cmd             ← acceso rápido: cytv estado | placas | log ...
+├── README.md, requirements*.txt
+│
+├── app\                 ← código del servicio (Python)
+│   ├── worker.py        cola de trabajo y filtros
+│   ├── ocr.py           lector de placas (CRNN + motor 6 intentos)
+│   ├── reconocedor.py   CRNN propio (ONNX + flota cerrada)
+│   ├── modelo.py        detector ONNX (YOLOv8n)
+│   ├── consola.py       consola interactiva (scripts\consola.bat)
+│   ├── decodificador_flota.py, gt_placas.py
+│
+├── modelo\              ← pesos ONNX (placas.onnx, reconocedor.onnx)
+├── scripts\             ← operación: nssm.exe, instalar*, cytv.ps1,
+│                          consola.bat, reiniciar/reinstalar, limpieza
+├── docs\                ← GUIA-COMANDOS.txt, INFO_CAMARA.txt, respaldos\
+├── entrenamiento\       ← CRNN, validación, herramientas de diagnóstico
+│
+└── (datos, en rutas absolutas de config.ini — NO mover):
+    ftp_recibidos\  imagenes_procesadas\  reportes\  registro.db  logs\  descartadas\
+```
 
 ---
 
@@ -44,6 +73,7 @@ Sistema 24/7 que recibe imágenes de una cámara Hikvision TandemVu (2 canales),
 
 - **Windows** 8.1 / Server 2012 R2 o superior (64 bits)
 - **Python** 3.9 (Win ≤ 10 build < 14393) o 3.13 (Win 10 1607+) — lo instala el script
+- **Node.js** 18+ (solo para la app web opcional)
 - **Firewall** puertos TCP **2121** (FTP) y **60000–60099** (pasivo)
 - **Reserva DHCP** en el router para la IP fija del servidor
 
@@ -53,7 +83,7 @@ Sistema 24/7 que recibe imágenes de una cámara Hikvision TandemVu (2 canales),
 
 ```cmd
 REM 1. Copia la carpeta COMPLETA del proyecto a C:\CytvAncon
-REM 2. Doble clic en instalar_servicio.bat  (pide UAC)
+REM 2. Doble clic en scripts\instalar_servicio.bat  (pide UAC)
 REM 3. Espera: crea venv, instala deps, registra servicio NSSM, abre firewall
 ```
 
@@ -62,7 +92,7 @@ El instalador es **idempotente**: volver a correrlo reutiliza lo que ya esté bi
 ### Verificar sin tocar nada
 
 ```cmd
-instalar_servicio.bat --check
+scripts\instalar_servicio.bat --check
 ```
 
 Salida típica:
@@ -126,13 +156,13 @@ retencion_dias = 30
 ### Cambiar un valor y reiniciar en un comando
 
 ```cmd
-instalar_servicio.bat config set password MiNuevaClave
-instalar_servicio.bat config set umbral_modelo 0.45
+scripts\instalar_servicio.bat config set password MiNuevaClave
+scripts\instalar_servicio.bat config set umbral_modelo 0.45
 ```
 
 O editar a mano y reiniciar:
 ```cmd
-instalar_servicio.bat config editar
+scripts\instalar_servicio.bat config editar
 Restart-Service CamaraCytvAncon
 ```
 
@@ -140,93 +170,21 @@ Restart-Service CamaraCytvAncon
 
 ## Puesta en marcha de la cámara (Hikvision)
 
-Sigue estos 5 pasos EN ORDEN. El servidor FTP debe estar corriendo ANTES de configurar la cámara.
-
-### Paso 1 — Instalar y verificar el servidor FTP
-
-```cmd
-REM Copia la carpeta COMPLETA del proyecto a C:\CytvAncon
-cd C:\CytvAncon
-instalar_servicio.bat
-```
-
-```powershell
-# El servicio debe decir Running y el puerto 2121 debe ESCUCHAR
-cytv estado
-netstat -ano | findstr ":2121"
-```
-
-Esperado: `TCP 0.0.0.0:2121 ... LISTENING`. Si no escucha, revisa
-`Get-Content C:\CytvAncon\logs\stderr.log -Tail 20` antes de seguir.
-
-### Paso 2 — Tomar los datos de conexión
-
-```cmd
-notepad C:\CytvAncon\INFO_CAMARA.txt
-```
-
-Ese archivo se regenera solo en cada arranque y trae la IP real del
-servidor (si cambias de PC o de red, vuelve a mirarlo — no lo memorices).
-
-### Paso 3 — Configurar la cámara (web de la cámara)
-
-Abre la web de la cámara (`http://192.168.18.42` o la IP que tenga) y
-en **AMBOS canales** (01 panorámico y 02 PT/placa):
-
-1. **Storage → Schedule Settings → Picture Capture** → activar subida **FTP**
-2. **Event → Motion Detection (MD_WITH_TARGET)** → linkage **FTP**
-
-Datos FTP a completar (valores de `INFO_CAMARA.txt`):
-
-```
-Server:     <IP del servidor, p. ej. 192.168.1.26>
-Port:       2121
-User:       admin
-Password:   <la misma de config.ini — si la cambias aquí, cámbiala TAMBIÉN en la cámara>
-Protocol:   FTP
-Remote Dir: /
-Mode:       Passive
-```
-
-> **Si solo sube el canal 01, la carpeta `placa\` no recibe fotos** y no
-> habrá lectura de matrículas. Verifica los dos canales.
-
-### Paso 4 — Confirmar que la cámara está subiendo
-
-```powershell
-# Deja el log abierto y pasa un carro frente a la cámara:
-Get-Content C:\CytvAncon\logs\servidor.log -Wait -Tail 20
-```
-
-Esperado con cada foto que llega:
-
-```
-Imagen recibida: ...MD_WITH_TARGET.jpg
-Placa detectada: CBN-449 (confianza 91%)
-```
-
-Si no aparece nada:
-1. `netstat -ano | findstr ":2121"` → ¿sigue LISTENING?
-2. Firewall: `Get-NetFirewallRule | Where-Object DisplayName -like "*CYTV*"` (o revisa que la regla 2121 exista)
-3. IP cambió sin reserva DHCP → vuelve al Paso 2 y actualiza la cámara
-
-### Paso 5 — Prueba de humo con una foto de prueba
-
-```cmd
-cytv fotos C:\ruta\de\una\foto.jpg -Canal 02
-cytv placas
-```
-
-`cytv fotos` sube la foto por el MISMO FTP que usa la cámara (prueba el
-camino completo: red → firewall → FTP → worker → OCR). `cytv placas`
-muestra las placas detectadas HOY con hora y confianza.
-
-Para ver el reporte JSON del día:
-
-```powershell
-Get-Content C:\CytvAncon\reportes\placas-$(Get-Date -Format yyyy-MM-dd).json -Raw |
-  ConvertFrom-Json | ForEach-Object { $_.placas.placa }
-```
+1. Abre `C:\CytvAncon\INFO_CAMARA.txt` (se regenera en cada arranque).
+2. En la web de la cámara (`http://192.168.18.42` o su IP):
+   - **Storage → Schedule Settings → Picture Capture** → activa FTP en **AMBOS canales**
+   - **Event → Motion Detection (MD_WITH_TARGET)** → linkage FTP en **AMBOS canales**
+3. Datos del servidor FTP:
+   ```
+   Server:     <IP de INFO_CAMARA.txt>
+   Port:       2121
+   User:       admin
+   Password:   <la de config.ini>
+   Protocol:   FTP
+   Remote Dir: /
+   Mode:       Passive
+   ```
+4. **Importante**: si solo sube el canal 01, la carpeta `placa\` no recibe fotos.
 
 ---
 
@@ -243,6 +201,7 @@ cytv log -Lineas 50
 cytv fotos C:\fotos\auto.jpg -Canal 02
 cytv servicios reiniciar -Fuerza
 cytv config -Abrir
+cytv web
 cytv limpiar          # borra imagenes con mas de 14 dias (manual)
 cytv ayuda
 ```
@@ -256,6 +215,23 @@ Con ~20+ carros/día las fotos llenan el disco en semanas. Hay una **tarea de Wi
 - archivos sueltos viejos en `ftp_recibidos\`
 
 Log en `logs\limpieza.log`. Ejecución manual: `cytv limpiar`. El equipo debe estar encendido el domingo 3 AM (si está apagada, Windows la ejecuta al próximo encendido gracias a `StartWhenAvailable`).
+
+### App Web (localhost:3000)
+
+```cmd
+cd C:\CytvAncon\webapp
+npm install
+npm run build
+node server.js
+```
+Abre `http://localhost:3000`. La UI tiene dos filas:
+
+1. **Subir foto** — arrastre o clic; se muestra el preview.
+2. **Resultado** — al instante el servidor corre el **mismo modelo ONNX + OCR** que la cámara real:
+   - Si hay placa: bandera verde **PLACA DETECTADA**, texto OCR, confianza, **dónde está** (bbox `x / y` en px) y el recorte + foto anotada.
+   - Si no: **X grande** roja **SIN DETECTAR PLACA**.
+
+El endpoint es `POST /api/evaluar` (multer → `evaluar_web.py` → JSON con base64). No toca el pipeline del servicio: es solo evaluación sincrónica para feedback inmediato.
 
 ---
 
@@ -273,13 +249,25 @@ C:\CytvAncon\imagenes_procesadas\
     └── vehiculo_16-32-28_107.jpg
 ```
 
-**Reporte JSON diario** (`reportes/placas-YYYY-MM-DD.json`) — solo placas, sin rutas de imagen:
+**Reporte JSON diario** (`reportes/placas-YYYY-MM-DD.json`):
 ```json
 {
   "fecha": "2026-11-11",
+  "generado": "2026-11-11T17:20:45",
+  "total_placas": 3,
+  "total_detecciones": 5,
   "placas": [
-    { "placa": "CBN-449",   "hora": "17:20:45", "confianza": 0.91 },
-    { "placa": "ABC-1234",  "hora": "18:03:12", "confianza": 0.87 }
+    {
+      "placa": "CBN-449",
+      "primera_vez": "2026-11-11T17:20:45",
+      "ultima_vez": "2026-11-11T17:20:47",
+      "detecciones": 2,
+      "confianza_max": 0.91,
+      "imagenes": {
+        "placa": ["C:\\CytvAncon\\imagenes_procesadas\\placa\\2026-11-11\\CBN-449.jpg"],
+        "panoramica": ["C:\\CytvAncon\\imagenes_procesadas\\vehiculo\\2026-11-11\\placa-panoramica_CBN-449.jpg"]
+      }
+    }
   ]
 }
 ```
@@ -377,7 +365,7 @@ Select-String -Path C:\CytvAncon\logs\servidor.log -Pattern "placa"
 ```cmd
 Stop-Service CamaraCytvAncon
 REM Copia los archivos nuevos encima de C:\CytvAncon
-instalar_servicio.bat
+scripts\instalar_servicio.bat
 ```
 El instalador reutiliza venv y Python si ya están bien.
 
@@ -386,7 +374,7 @@ El instalador reutiliza venv y Python si ya están bien.
 ## En otra máquina
 
 1. Copia la **carpeta completa del proyecto** a cualquier ruta.
-2. Corre `instalar_servicio.bat` (instala Python, venv, deps, NSSM, firewall, servicio).
+2. Corre `scripts\instalar_servicio.bat` (instala Python, venv, deps, NSSM, firewall, servicio).
 3. Edita `config.ini` con las rutas absolutas de **esa** máquina.
 4. `Restart-Service CamaraCytvAncon`.
 5. Configura la cámara con la nueva IP (`INFO_CAMARA.txt`).
@@ -395,7 +383,7 @@ El instalador reutiliza venv y Python si ya están bien.
 
 ## Reglas de oro
 
-- **NUNCA** corras `instalar_servicio.bat` desde una copia vieja (Escritorio, etc.): re-apuntaría el servicio.
+- **NUNCA** corras `scripts\instalar_servicio.bat` desde una copia vieja (Escritorio, etc.): re-apuntaría el servicio.
 - **NUNCA** muevas `C:\CytvAncon` con el servicio corriendo.
 - **NUNCA** pongas rutas relativas en `config.ini`.
 - Puerto **2121 = UN solo servidor**. Para migrar: para el viejo, recién arranca el nuevo.
@@ -405,4 +393,4 @@ El instalador reutiliza venv y Python si ya están bien.
 
 ## Licencia
 
-Uso interno — CYTV Ancon. Código basado en Python estándar, OpenCV, ONNX Runtime, RapidOCR, pyftpdlib, NSSM.
+Uso interno — CYTV Ancon. Código basado en Python estándar, OpenCV, ONNX Runtime, RapidOCR, pyftpdlib, NSSM, React/Vite/Express.
