@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Backups manuales
+*.bak-*
+*.bak
+
+# Logs y runtime (no van al repo)
+logs/
+heartbeat.txt
+registro.db
+ftp_recibidos/
+descartadas/
+imagenes_procesadas/
+reportes/
+
+# Documentación con credenciales (solo local)
+INFO_CAMARA.txt
+
+# Respaldos de modelos pesados (solo local)
+modelo/respaldo/
+
+# Webapp
+webapp/node_modules/
+webapp/dist/assets/*.map
+
+# Windows
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,16 @@
+# Dependencias para Windows viejo (8.1 / Server 2012 R2) con Python 3.9.
+# PINNEADAS a la ultima version con ruedas cp39 comprobadas: sin pins,
+# pip resuelve a paquetes que ya no publican ruedas para 3.9 y la
+# instalacion cae en una compilacion desde fuente que falla.
+pyftpdlib==2.2.0
+numpy==1.26.4
+# headless SIN Media Foundation: opencv-python normal exige mfplat.dll,
+# que en Server 2012 R2 recien existe despues de habilitar la feature y
+# reiniciar (DLL load failed while importing cv2). El headless 4.5.3.56
+# carga igual de bien para el pipeline de imagenes. El instalador crea un
+# metadato falso de opencv-python 4.5.3.56 para que pip -que rapidocr
+# declara dependencia de ese nombre- NO instale el normal encima (si lo
+# hace, cv2 queda corrupto: "partially initialized module 'cv2'").
+opencv-python-headless==4.5.3.56
+onnxruntime==1.18.1
+rapidocr-onnxruntime==1.2.3

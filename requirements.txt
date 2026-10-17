@@ -1,0 +1,8 @@
+pyftpdlib>=1.5.9
+opencv-python>=4.9.0
+numpy>=1.26.0
+# Fase detector + OCR: si faltan, el worker arranca SIN modelo y SIN lectura
+# de placas (degrada en silencio). onnxruntime carga placas.onnx; el paquete
+# de OCR se pinnea a la version probada porque cambiaron su API de import.
+onnxruntime>=1.17.0
+rapidocr-onnxruntime==1.2.3
