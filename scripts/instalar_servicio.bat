@@ -20,6 +20,10 @@ REM ============================================================
 set "SERVICIO=CamaraCytvAncon"
 set "RUTA=%~dp0"
 
+REM El .bat vive en scripts\ (layout nuevo): la raiz del proyecto es el
+REM padre (la carpeta que contiene ftp_server.py).
+if exist "%~dp0..\ftp_server.py" set "RUTA=%~dp0.."
+
 REM Si ya existe la instalacion en C:\CytvAncon y este .bat se corre
 REM desde otra copia (el "bundle" copiado a otro equipo), los comandos
 REM config/--check operan sobre la instalacion real.

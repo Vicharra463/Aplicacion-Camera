@@ -20,6 +20,13 @@
 # ============================================================
 $ErrorActionPreference = 'Continue'
 $raiz = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+# Layout nuevo: este script vive en <proyecto>\scripts; el bundle real es la
+# carpeta que contiene ftp_server.py (padre). En el layout viejo (plano) el
+# ftp_server.py esta junto al script y $raiz no cambia.
+if (-not (Test-Path -LiteralPath (Join-Path $raiz 'ftp_server.py'))) {
+    $padre = Split-Path -Parent $raiz
+    if (Test-Path -LiteralPath (Join-Path $padre 'ftp_server.py')) { $raiz = $padre }
+}
 $dest = 'C:\CytvAncon'
 $serv = 'CamaraCytvAncon'
 $log  = Join-Path $raiz 'instalacion.log'
