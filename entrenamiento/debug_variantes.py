@@ -8,7 +8,7 @@ import numpy as np
 BASE = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE))
 sys.path.insert(0, str(BASE.parent / "app"))
-from ocr import _obtener_motor, _recorte  # noqa: E402
+from ocr import _obtener_motor, _recorte  
 
 RAIZ = BASE.parent / "imagenes_procesadas" / "placa"
 CASOS = [

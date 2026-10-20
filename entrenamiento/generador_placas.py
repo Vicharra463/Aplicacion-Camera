@@ -28,7 +28,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 BASE = Path(__file__).resolve().parent
 FONTS = [
-    r"C:\Windows\Fonts\ARIALNB.TTF",   # Arial Narrow Bold (mas parecida)
+    r"C:\Windows\Fonts\ARIALNB.TTF",   
     r"C:\Windows\Fonts\arialbd.ttf",
     r"C:\Windows\Fonts\consolab.ttf",
     r"C:\Windows\Fonts\verdanab.ttf",
@@ -36,8 +36,8 @@ FONTS = [
 ]
 LETRAS = string.ascii_uppercase
 DIGITOS = string.digits
-CHARSET = DIGITOS + LETRAS + "-"          # CTC: el guion tambien se predice
-ANCHO, ALTO = 160, 32                     # entrada del CRNN (grayscale)
+CHARSET = DIGITOS + LETRAS + "-"          
+ANCHO, ALTO = 160, 32                     
 
 
 def placa_aleatoria(rng: random.Random) -> str:
@@ -47,13 +47,13 @@ def placa_aleatoria(rng: random.Random) -> str:
     def N(n): return "".join(rng.choice(DIGITOS) for _ in range(n))
     if r < 0.35:
         return f"{L(3)}-{N(3)}"
-    if r < 0.75:                            # LNL mixto: letra, digito, letra
+    if r < 0.75:                            
         return f"{L(1)}{N(1)}{L(1)}-{N(3)}"
-    if r < 0.80:                            # LNN (B71-923)
+    if r < 0.80:                            
         return f"{L(1)}{N(2)}-{N(3)}"
-    if r < 0.92:                            # moto nueva
+    if r < 0.92:                            
         return f"{L(3)}-{N(4)}"
-    return f"{L(2)}-{N(4)}"                 # moto vieja
+    return f"{L(2)}-{N(4)}"                 
 
 
 def _render_placa(texto: str, rng: random.Random) -> Image.Image:
@@ -61,10 +61,10 @@ def _render_placa(texto: str, rng: random.Random) -> Image.Image:
     ancho, alto = 400, 100
     img = Image.new("RGB", (ancho, alto),
                     (rng.randint(225, 255), rng.randint(222, 250),
-                     rng.randint(205, 240)))     # blanco/hueso variable
+                     rng.randint(205, 240)))     
     draw = ImageDraw.Draw(img)
 
-    banda = rng.random() < 0.5                  # banda "PERU" superior
+    banda = rng.random() < 0.5                  
     if banda:
         draw.rectangle([0, 0, ancho, 18], fill=(15, 40, 120))
         try:
@@ -79,7 +79,7 @@ def _render_placa(texto: str, rng: random.Random) -> Image.Image:
         font = ImageFont.truetype(fuente_path, tam)
     except OSError:
         font = ImageFont.load_default()
-    # centrado vertical del texto de la placa (respetando la banda si hay)
+    
     bbox = draw.textbbox((0, 0), texto, font=font)
     tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
     x = (ancho - tw) // 2 - rng.randint(-8, 8)
@@ -111,18 +111,18 @@ def _degradar(img: Image.Image, rng: random.Random) -> Image.Image:
     """De lo limpio a algo que se parezca a un crop de camara 4MP a 30 m."""
     arr = np.asarray(img).astype(np.float32)
 
-    # brillo/contraste (acotado: sin esto el blanco de la placa se funde
-    # con el fondo y la muestra sale vacia)
+    
+    
     arr *= rng.uniform(0.80, 1.15)
     arr += rng.uniform(-18, 18)
-    # ruido gaussiano
+    
     arr += np.random.default_rng(rng.randrange(2**31)).normal(
         0, rng.uniform(2, 12), arr.shape)
 
     img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
 
-    # perspectiva leve + rotacion (fillcolor gris: simula fondo de escena,
-    # no blanco que se confunde con la placa)
+    
+    
     fondo = (rng.randint(110, 170),) * 3
     ang = rng.uniform(-4, 4)
     img = img.rotate(ang, resample=Image.BILINEAR, expand=False,
@@ -130,20 +130,20 @@ def _degradar(img: Image.Image, rng: random.Random) -> Image.Image:
     if rng.random() < 0.6:
         w, h = img.size
         dx, dy = rng.uniform(3, 12), rng.uniform(2, 7)
-        # esquinas de la SALIDA (donde caen las esquinas de la placa)
+        
         pa = [(dx, dy), (w - dx * 0.4, 0), (w, h - dy), (0, h)]
-        # esquinas de la ENTRADA (placa completa)
+        
         pb = [(0, 0), (w, 0), (w, h), (0, h)]
         img = img.transform((w, h), Image.PERSPECTIVE, _find_coeffs(pa, pb),
                             resample=Image.BILINEAR, fillcolor=fondo)
 
-    # blur (camara lejana + movimiento) — leve: en GT la mayoria es legible
+    
     if rng.random() < 0.45:
         img = img.filter(ImageFilter.GaussianBlur(rng.uniform(0.3, 1.0)))
     if rng.random() < 0.10:
-        img = img.filter(ImageFilter.GaussianBlur(1.8))   # caso malo
+        img = img.filter(ImageFilter.GaussianBlur(1.8))   
 
-    # suciedad / motas
+    
     draw = ImageDraw.Draw(img)
     for _ in range(rng.randint(0, 12)):
         x, y = rng.randint(0, img.size[0] - 1), rng.randint(0, img.size[1] - 1)
@@ -164,7 +164,7 @@ def _escena(rng: random.Random, ancho: int, alto: int) -> Image.Image:
                                                 (alto, ancho, 3))
     img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
     draw = ImageDraw.Draw(img)
-    # manchas oscuras/claras grandes (contornos difusos de la escena)
+    
     for _ in range(rng.randint(2, 6)):
         x0 = rng.randint(-20, ancho)
         y0 = rng.randint(-20, alto)
@@ -187,14 +187,14 @@ def generar(rng: random.Random | None = None) -> tuple[Image.Image, str]:
     texto = placa_aleatoria(rng)
     placa = _render_placa(texto, rng)
 
-    aspecto = rng.uniform(0.74, 1.92)              # rango real GT
+    aspecto = rng.uniform(0.74, 1.92)              
     alto_c = rng.randint(60, 222)
     ancho_c = max(48, int(alto_c * aspecto))
     lienzo = _escena(rng, ancho_c, alto_c)
 
-    # placa: ancho toca/sobrepasa bordes; ALTO como fraccion del crop
-    # (medido en GT: la placa ocupa ~55-75% de la altura del crop ->
-    # letras grandes, que es lo que el modelo ve en produccion)
+    
+    
+    
     ancho_p = int(ancho_c * rng.uniform(0.90, 1.15))
     alto_p = int(alto_c * rng.uniform(0.52, 0.78))
     placa = placa.resize((ancho_p, alto_p), Image.BILINEAR)

@@ -16,7 +16,7 @@ BASE = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE))
 sys.path.insert(0, str(BASE.parent / "app"))
 
-from gt_placas import DIAGNOSTICOS, RAIZ  # noqa: E402
+from gt_placas import DIAGNOSTICOS, RAIZ  
 
 TILE_W, TILE_H, BANDA = 400, 160, 28
 POR_HOJA = 9

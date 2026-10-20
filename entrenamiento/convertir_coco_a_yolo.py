@@ -40,8 +40,8 @@ def convertir_split(carpeta: Path) -> tuple[int, int, int]:
 
     coco = json.loads(ruta_json.read_text(encoding="utf-8"))
 
-    # Mapa categoria COCO -> indice YOLO contiguo (0, 1, 2...). Nunca se
-    # usa el id de COCO tal cual: a veces arranca en 1 y romperia el .txt.
+    
+    
     categorias = sorted(c["id"] for c in coco["categories"])
     indice = {cid: i for i, cid in enumerate(categorias)}
     imagenes = {im["id"]: im for im in coco["images"]}
@@ -67,7 +67,7 @@ def convertir_split(carpeta: Path) -> tuple[int, int, int]:
             cx = (x + w / 2.0) / ancho
             cy = (y + h / 2.0) / alto
             nw, nh = w / ancho, h / alto
-            # Recorte defensivo: un bbox fuera de cuadro rompe el entrenamiento.
+            
             if not (0.0 < nw <= 1.0 and 0.0 < nh <= 1.0):
                 continue
             clase = indice[ann["category_id"]]

@@ -8,8 +8,8 @@ BASE = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE))
 sys.path.insert(0, str(BASE.parent / "app"))
 from ocr import (_obtener_motor, _normalizar, _recorte, _clahe_gamma,
-                 _umbral_invertido)  # noqa: E402
-from modelo import DetectorPlacas, RUTA_ONNX  # noqa: E402
+                 _umbral_invertido)  
+from modelo import DetectorPlacas, RUTA_ONNX  
 
 RAIZ = BASE.parent / "imagenes_procesadas" / "placa"
 FALLOS = [

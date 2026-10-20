@@ -33,12 +33,12 @@ BASE = Path(__file__).resolve().parent
 PROYECTO = BASE.parent
 sys.path.insert(0, str(BASE))
 sys.path.insert(0, str(PROYECTO))
-sys.path.insert(0, str(PROYECTO / "app"))       # gt_placas vive en app\
+sys.path.insert(0, str(PROYECTO / "app"))       
 
-from crnn import CRNN, N_CLASSES                      # noqa: E402
-from generador_placas import CHARSET, a_tensor, generar  # noqa: E402
-from gt_placas import RAIZ                            # noqa: E402
-from entrenar import (BLANK, cargar_gt, decodificar,   # noqa: E402
+from crnn import CRNN, N_CLASSES                      
+from generador_placas import CHARSET, a_tensor, generar  
+from gt_placas import RAIZ                            
+from entrenar import (BLANK, cargar_gt, decodificar,   
                       evaluar_gt, exportar_onnx, _collate)
 
 CSV_REALES = BASE / "etiquetas_reales.csv"
@@ -46,7 +46,7 @@ RUTA_INICIO = BASE / "crnn_placas.pt"
 RUTA_PESOS = BASE / "crnn_reales.pt"
 
 
-# ----------------------------------------------------------------------
+
 class Reales(Dataset):
     """Crops reales con augmentation on-the-fly y jitter de bbox."""
 
@@ -84,7 +84,7 @@ def _bbox_txt(ruta: Path, ancho: int, alto: int, rng: random.Random):
     linea = ruta.with_suffix(".txt").read_text(encoding="utf-8")
     _c, cx, cy, w, h = (float(v) for v in linea.strip().splitlines()[0].split())
     bw, bh = w * ancho, h * alto
-    # margen extra por lado: 0-22% del tamano
+    
     ex0, ey0 = bw * rng.uniform(0, 0.22), bh * rng.uniform(0, 0.22)
     ex1, ey1 = bw * rng.uniform(0, 0.22), bh * rng.uniform(0, 0.22)
     x = int(cx * ancho - bw / 2 - ex0)
@@ -103,7 +103,7 @@ def _augmentar(img: Image.Image, rng: random.Random) -> Image.Image:
     img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
     if rng.random() < 0.35:
         img = img.filter(ImageFilter.GaussianBlur(rng.uniform(0.3, 0.9)))
-    if rng.random() < 0.6:                      # recomprender JPEG
+    if rng.random() < 0.6:                      
         buf = io.BytesIO()
         img.save(buf, "JPEG", quality=rng.randint(35, 85))
         buf.seek(0)
@@ -124,7 +124,7 @@ class Mix(Dataset):
     def __getitem__(self, i: int):
         if i % 2 == 0:
             return self.reales[i]
-        img, texto = generar()                      # rng de entropia del SO
+        img, texto = generar()                      
         tensor = torch.from_numpy(a_tensor(img))
         etiqueta = torch.tensor([CHARSET.index(c) for c in texto],
                                 dtype=torch.long)

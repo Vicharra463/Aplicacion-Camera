@@ -22,8 +22,8 @@ BASE = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE))
 sys.path.insert(0, str(BASE.parent / "app"))
 
-from ocr import leer_placa_6  # noqa: E402
-from gt_placas import DIAGNOSTICOS, RAIZ  # noqa: E402
+from ocr import leer_placa_6  
+from gt_placas import DIAGNOSTICOS, RAIZ  
 
 
 def _bbox_desde_txt(ruta_txt: Path, ancho: int, alto: int):
@@ -67,7 +67,7 @@ def main() -> int:
             fallos.append(f"{dia}/{nombre}: FOTO NO ENCONTRADA")
             continue
         if detector is not None:
-            # Mismo criterio que el worker: area mayor primero.
+            
             detecciones = detector.detectar(img)
             bboxes = [bb for (bb, _c) in
                       sorted(detecciones, key=lambda par: par[0][2] * par[0][3],

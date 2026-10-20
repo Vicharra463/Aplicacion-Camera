@@ -1,32 +1,32 @@
 @echo off
 setlocal EnableExtensions
-REM ============================================================
-REM  Instala / administra el servidor FTP CYTV Ancon como SERVICIO
-REM  UNIVERSAL: Windows 8.1 / Server 2012 R2 o superior, 64 bits.
-REM  Instala el Python que corresponda al SO y todo lo demas solo.
-REM
-REM  Uso:
-REM    instalar_servicio.bat                 instala (pide permiso de admin)
-REM    instalar_servicio.bat --check         diagnostico, no cambia nada
-REM    instalar_servicio.bat config          muestra config.ini
-REM    instalar_servicio.bat config set CLAVE VALOR
-REM    instalar_servicio.bat config editar   abre config.ini en el Bloc
-REM
-REM  La instalacion SIEMPRE termina en C:\CytvAncon (fuera del perfil
-REM  de usuario: el servicio corre como SYSTEM y SYSTEM no puede
-REM  ejecutar .exe dentro de C:\Users - leccion comprobada).
-REM ============================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 set "SERVICIO=CamaraCytvAncon"
 set "RUTA=%~dp0"
 
-REM El .bat vive en scripts\ (layout nuevo): la raiz del proyecto es el
-REM padre (la carpeta que contiene ftp_server.py).
+
+
 if exist "%~dp0..\ftp_server.py" set "RUTA=%~dp0.."
 
-REM Si ya existe la instalacion en C:\CytvAncon y este .bat se corre
-REM desde otra copia (el "bundle" copiado a otro equipo), los comandos
-REM config/--check operan sobre la instalacion real.
+
+
+
 if exist "C:\CytvAncon\config.ini" if /i not "%RUTA%"=="C:\CytvAncon\" set "RUTA=C:\CytvAncon\"
 
 if /i "%~1"=="--check" goto :check
@@ -34,9 +34,9 @@ if /i "%~1"=="config" goto :config
 if /i "%~1"=="" goto :instalar
 goto :uso
 
-REM ============================================================
-REM  Instalacion (eleva y delega en instalar.ps1)
-REM ============================================================
+
+
+
 
 :instalar
 fltmc >nul 2>&1
@@ -87,18 +87,18 @@ echo         Copie la carpeta COMPLETA del proyecto y vuelva a correrlo.
 pause
 exit /b 1
 
-REM ============================================================
-REM  Diagnostico de solo lectura  (--check)
-REM ============================================================
+
+
+
 
 :check
 if not exist "%~dp0instalar.ps1" goto :sin_ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0instalar.ps1" -Check
 exit /b 0
 
-REM ============================================================
-REM  Configuracion desde consola  (config ...)
-REM ============================================================
+
+
+
 
 :config
 if /i "%~2"=="" goto :config_mostrar
@@ -161,9 +161,9 @@ exit /b 1
 echo [ERROR] No existe config.ini en %RUTA%
 exit /b 1
 
-REM ============================================================
-REM  Ayuda
-REM ============================================================
+
+
+
 
 :uso
 echo.

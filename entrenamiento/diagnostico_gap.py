@@ -13,8 +13,8 @@ BASE = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE))
 sys.path.insert(0, str(BASE.parent / "app"))
 
-from generador_placas import generar  # noqa: E402
-from entrenar import cargar_gt  # noqa: E402
+from generador_placas import generar  
+from entrenar import cargar_gt  
 
 
 def stats(img: Image.Image) -> tuple[float, float, float]:
@@ -40,7 +40,7 @@ def main() -> None:
     resumen("REAL GT", reales)
     resumen("SINTETICO", sintes)
 
-    # composicion: reales que no se parecen al aspecto 4:1 de la placa
+    
     raros = [(im.size, im.width / im.height, t)
              for (im, t) in casos if not (3.0 <= im.width / im.height <= 6.0)]
     print(f"\ncrops con aspecto fuera de 3-6 (placa llena el marco?): "
@@ -48,7 +48,7 @@ def main() -> None:
     for tam, asp, t in raros:
         print(f"  {t}: {tam} aspecto={asp:.2f}")
 
-    # hoja lado a lado: 6 reales + 6 sinteticos
+    
     tiles = [im.resize((320, 64), Image.BILINEAR) for im, _ in casos[:6]]
     tiles += [generar(rng)[0].resize((320, 64), Image.BILINEAR)
               for _ in range(6)]

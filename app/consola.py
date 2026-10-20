@@ -23,16 +23,16 @@ import webbrowser
 from datetime import datetime
 from pathlib import Path
 
-RUTA = Path(__file__).resolve().parents[1]    # raiz del proyecto (config, db, webapp)
+RUTA = Path(__file__).resolve().parents[1]    
 RUTA_CONFIG = RUTA / "config.ini"
 SERVICIO = "CamaraCytvAncon"
-_INTERACTIVO = True          # False al correr con argumento (consola.py estado)
-SIN_VENTANA = 0x08000000          # CREATE_NO_WINDOW: no abrir consolas fantasma
-DESACOPLADO = 0x00000008          # DETACHED_PROCESS para node
+_INTERACTIVO = True          
+SIN_VENTANA = 0x08000000          
+DESACOPLADO = 0x00000008          
 
-# --------------------------------------------------------------------------
-# Banner de bloques (5 filas, glifos de 6 columnas)
-# --------------------------------------------------------------------------
+
+
+
 _LETRAS = {
     "C": [" ████ ", "█     ", "█     ", "█     ", " ████ "],
     "Y": ["█   █ ", "█   █ ", " █ █  ", "  █   ", "  █   "],
@@ -54,9 +54,9 @@ def banner(texto: str) -> list[str]:
     return filas
 
 
-# --------------------------------------------------------------------------
-# Utilidades
-# --------------------------------------------------------------------------
+
+
+
 def habilitar_ansi() -> None:
     """Windows 10+ acepta colores ANSI en la consola (Windows Terminal o
     conhost con VT habilitado). Si falla, la consola sigue en texto plano."""
@@ -78,7 +78,7 @@ def limpiar() -> None:
 
 def leer_config() -> dict:
     p = configparser.ConfigParser(inline_comment_prefixes=(";",))
-    # utf-8-sig: el config.ini tiene BOM (\ufeff) que rompe configparser
+    
     p.read(RUTA_CONFIG, encoding="utf-8-sig")
     return {
         "puerto": p.getint("ftp", "puerto", fallback=2121),
@@ -100,7 +100,7 @@ def tcp_abierto(puerto: int, host: str = "127.0.0.1", espera: float = 1.0) -> bo
 def estado_servicio() -> str:
     r = subprocess.run(["sc", "query", SERVICIO], capture_output=True,
                        text=True, creationflags=SIN_VENTANA)
-    # Windows en espanol localiza la salida: ESTADO en vez de STATE.
+    
     for linea in r.stdout.splitlines():
         if "STATE" in linea or "ESTADO" in linea:
             if "RUNNING" in linea:
@@ -137,9 +137,9 @@ def pausa() -> None:
         pass
 
 
-# --------------------------------------------------------------------------
-# Comandos
-# --------------------------------------------------------------------------
+
+
+
 def cmd_estado(_args: list[str] | None = None) -> None:
     cfg = leer_config()
     serv = estado_servicio()
@@ -200,8 +200,8 @@ def cmd_placas(_args: list[str] | None = None) -> None:
               "(total 0, detecciones 0)")
         print("  Todavia ninguna placa guardada hoy.")
         return
-    # Agrupa variantes de la MISMA placa (B1Y-756 / BIY-756 / B1V-756):
-    # mismo criterio que el worker (Levenshtein <= 2).
+    
+    
     grupos: list[dict] = []
     for p in placas:
         texto = p.get("placa", "?")
@@ -275,7 +275,7 @@ def cmd_fotos(_args: list[str] | None = None) -> None:
         print("  Canal invalido (use 01 o 02).")
         return
     cfg = leer_config()
-    # Nombre al estilo de la camara: el worker elige la vista con _(\\d{2})_
+    
     nombre = f"web_{canal}_{time.strftime('%Y%m%d%H%M%S')}_MD_WITH_TARGET.jpg"
     try:
         with ftplib.FTP() as ftp:
@@ -306,8 +306,8 @@ def cmd_servicios(_args: list[str] | None = None) -> None:
     if not confirmar("  ¿Reiniciar el servicio ahora? (s/N): "):
         print("  Cancelado.")
         return
-    # NSSM corre como servicio: reiniciar necesita elevacion. Se lanza un
-    # powershell elevado y se espera en la consola actual.
+    
+    
     inner = f"Restart-Service {SERVICIO} -Force"
     outer = (
         "Start-Process powershell -Verb RunAs -Wait -ArgumentList "
@@ -369,8 +369,11 @@ def cmd_ayuda(_args: list[str] | None = None) -> None:
       consola.py estado
       consola.py log
 
-  Las fotos rechazadas por el worker se borran; para revisar por que
-  una placa no guardo, busque su nombre en 'log' o 'historial'.""")
+  descartadas\\<dia>\\ SOLO guarda duplicados de placa (purga
+  diaria 7:00 PM); lo demas (sin placa, sobreexpuesta, texto
+  invalido) se reevalua hasta 10 veces y si no se lee se ELIMINA.
+  Para revisar por que una placa no guardo, busque su nombre en
+  'log' o 'historial'.""")
 
 
 OPCIONES = [
@@ -386,9 +389,9 @@ OPCIONES = [
 ]
 
 
-# --------------------------------------------------------------------------
-# Menu interactivo
-# --------------------------------------------------------------------------
+
+
+
 def imprimir_cabecera() -> None:
     print()
     for fila in banner("CYTV ANCON"):
@@ -415,7 +418,7 @@ def leer_linea_comando() -> str:
         if t in (b"\r", b"\n"):
             print()
             return b"".join(caracteres).decode("utf-8", "replace")
-        if t in (b"\x08", b"\x7f"):          # backspace
+        if t in (b"\x08", b"\x7f"):          
             if caracteres:
                 caracteres.pop()
                 sys.stdout.write("\b \b")
@@ -439,14 +442,14 @@ def ejecutar(nombre: str, args: list[str] | None = None) -> None:
 
 
 def menu() -> None:
-    import msvcrt                      # solo Windows; el proyecto vive ahi
+    import msvcrt                      
     sel = 0
     while True:
         limpiar()
         imprimir_cabecera()
         imprimir_menu(sel)
         t = msvcrt.getch()
-        if t in (b"\x00", b"\xe0"):         # tecla extendida (flechas)
+        if t in (b"\x00", b"\xe0"):         
             sig = msvcrt.getch()
             if sig == b"H":
                 sel = (sel - 1) % len(OPCIONES)

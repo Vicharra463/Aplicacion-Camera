@@ -28,21 +28,21 @@ import torch.nn as nn
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 
-BASE = Path(__file__).resolve().parent          # entrenamiento/
-PROYECTO = BASE.parent                          # raiz del proyecto
+BASE = Path(__file__).resolve().parent          
+PROYECTO = BASE.parent                          
 sys.path.insert(0, str(BASE))
 sys.path.insert(0, str(PROYECTO))
-sys.path.insert(0, str(PROYECTO / "app"))       # gt_placas vive en app\
+sys.path.insert(0, str(PROYECTO / "app"))       
 
-from crnn import CRNN, N_CLASSES                # noqa: E402
-from generador_placas import CHARSET, a_tensor, generar  # noqa: E402
+from crnn import CRNN, N_CLASSES                
+from generador_placas import CHARSET, a_tensor, generar  
 
-BLANK = len(CHARSET)                            # 37
+BLANK = len(CHARSET)                            
 RUTA_ONNX = PROYECTO / "modelo" / "reconocedor.onnx"
 RUTA_PESOS = BASE / "crnn_placas.pt"
 
 
-# ----------------------------------------------------------------------
+
 class Sinteticos(Dataset):
     """Placas sinteticas on-the-fly. Cada __getitem__ genera una distinta."""
 
@@ -69,7 +69,7 @@ def _collate(batch):
     return imgs, etiquetas, longitudes, textos
 
 
-# ----------------------------------------------------------------------
+
 def _bbox_desde_txt(ruta_txt: Path, ancho: int, alto: int):
     linea = ruta_txt.read_text(encoding="utf-8").strip().splitlines()[0]
     _c, cx, cy, w, h = (float(v) for v in linea.split())
@@ -133,7 +133,7 @@ def evaluar_gt(modelo, dispositivo, casos) -> tuple[float, list[str]]:
     return aciertos / len(casos), fallos
 
 
-# ----------------------------------------------------------------------
+
 def exportar_onnx(modelo) -> None:
     modelo.eval()
     dummy = torch.zeros(1, 1, 32, 160, device=next(modelo.parameters()).device)
@@ -144,7 +144,7 @@ def exportar_onnx(modelo) -> None:
         opset_version=13)
     print(f"ONNX exportado: {RUTA_ONNX} "
           f"({RUTA_ONNX.stat().st_size / 1e6:.1f} MB)")
-    # sanidad con onnxruntime si esta instalado
+    
     try:
         import onnxruntime as ort
         sesion = ort.InferenceSession(str(RUTA_ONNX),
@@ -205,7 +205,7 @@ def main() -> int:
             imgs = imgs.to(dispositivo, non_blocking=True)
             optim.zero_grad(set_to_none=True)
             with torch.autocast("cuda", enabled=usar_amp):
-                logits = modelo(imgs)                       # (B, T, C)
+                logits = modelo(imgs)                       
                 log_probs = logits.log_softmax(-1).permute(1, 0, 2)
                 perdida = ctc(log_probs, etiquetas, torch.full_like(longitudes, logits.size(1)), longitudes)
             perdida.backward()
@@ -226,7 +226,7 @@ def main() -> int:
                       f"faltan~{restante:.0f}s", flush=True)
         programador.step()
 
-        # val sintetico
+        
         modelo.eval()
         val_loss, n_val = 0.0, 0
         con_gt, sin_gt = 0, 0

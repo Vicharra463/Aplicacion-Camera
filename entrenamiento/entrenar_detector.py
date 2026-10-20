@@ -39,7 +39,7 @@ DATA_YAML = RAIZ_ANPR / "dataset_fuente" / "raw" / "data.yaml"
 DIR_RUNS = RAIZ_ANPR / "runs"
 DIR_SALIDA = Path(r"C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\modelo")
 
-MODELO_BASE = "yolov8n.pt"   # pesos COCO descargados por ultralytics
+MODELO_BASE = "yolov8n.pt"   
 NOMBRE_RUN = "placas"
 
 
@@ -110,11 +110,11 @@ def main() -> int:
         imgsz=args.imgsz,
         batch=args.batch,
         device="cpu",
-        workers=0,           # imprescindible en Windows
+        workers=0,           
         project=str(DIR_RUNS),
         name=NOMBRE_RUN,
         exist_ok=True,
-        patience=10,         # early stopping si la validacion se estanca
+        patience=10,         
         cache=False,
         verbose=True,
         plots=True,

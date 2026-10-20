@@ -19,9 +19,9 @@ BASE = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE))
 sys.path.insert(0, str(BASE.parent / "app"))
 
-from decodificador_flota import canon, corregir, flota  # noqa: E402
-from eval_rapido import RUTA_ONNX, decodificar  # noqa: E402
-from entrenar import cargar_gt, _tensor_desde_crop  # noqa: E402
+from decodificador_flota import canon, corregir, flota  
+from eval_rapido import RUTA_ONNX, decodificar  
+from entrenar import cargar_gt, _tensor_desde_crop  
 
 
 def main() -> int:

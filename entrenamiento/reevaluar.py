@@ -28,8 +28,8 @@ BASE = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE))
 sys.path.insert(0, str(BASE.parent / "app"))
 
-from ocr import leer_placa_6  # noqa: E402
-from gt_placas import DIAGNOSTICOS  # noqa: E402
+from ocr import leer_placa_6  
+from gt_placas import DIAGNOSTICOS  
 
 RAIZ_DEFECTO = BASE.parent / "imagenes_procesadas" / "placa"
 CSV_ETIQUETAS = BASE / "etiquetas_reales.csv"
@@ -102,7 +102,7 @@ def main() -> int:
         return 1
 
     etiquetas = _cargar_etiquetas()
-    detector = None  # se carga una sola vez, solo si hace falta
+    detector = None  
 
     dias = sorted(d for d in raiz.iterdir() if d.is_dir())
     if args.dia:
@@ -154,8 +154,8 @@ def main() -> int:
                           file=sys.stderr)
                     return 1
                 bboxes = _bbox_mayor_area(detector, img)
-            else:  # auto: .txt si existe (mismo pipeline que la validacion),
-                   # si no ONNX (camino de produccion para fotos nuevas)
+            else:  
+                   
                 b = _bbox_desde_txt(txt, ancho, alto) if txt.is_file() else None
                 if b:
                     bboxes = [b]

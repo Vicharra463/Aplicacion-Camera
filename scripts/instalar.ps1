@@ -1,29 +1,29 @@
-#requires -Version 3.0
+﻿#requires -Version 3.0
 param([switch]$Check)
-# ============================================================
-#  Instalador universal - Servidor FTP Camara CYTV Ancon
-#  Compatible con PowerShell 3.0+ (Windows Server 2012 R2 = PS4
-#  incluido). Corre en cualquier Windows de 64 bits:
-#    - Win 10/11 (Home, Pro...) y Server 2016+  -> Python 3.13
-#    - Win 8.1 y Server 2012 R2                 -> Python 3.9
-#
-#  Lecciones aplicadas (no quitar, vuelven a romper el servicio):
-#    1. Python SIEMPRE de python.org en C:\Program Files, nunca
-#       del PATH ni de Microsoft Store (alias por usuario).
-#    2. El servicio vive en C:\CytvAncon - FUERA de C:\Users:
-#       SYSTEM no puede ejecutar .exe dentro del perfil de usuario.
-#    3. Comillas de AppParameters via REGISTRO: PowerShell se come
-#       las comillas si pasan por nssm set.
-#    4. Rutas absolutas en config.ini y verificacion+aviso de
-#       cada carpeta al arrancar.
-#
-#  Uso (elevado): powershell -ExecutionPolicy Bypass -File instalar.ps1
-# ============================================================
+                                                              
+                                                        
+                                                               
+                                                    
+                                                              
+                                                             
+ 
+                                                                 
+                                                               
+                                                           
+                                                             
+                                                                   
+                                                                  
+                                           
+                                                             
+                                 
+ 
+                                                                       
+                                                              
 $ErrorActionPreference = 'Continue'
 $raiz = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
-# Layout nuevo: este script vive en <proyecto>\scripts; el bundle real es la
-# carpeta que contiene ftp_server.py (padre). En el layout viejo (plano) el
-# ftp_server.py esta junto al script y $raiz no cambia.
+                                                                            
+                                                                           
+                                                       
 if (-not (Test-Path -LiteralPath (Join-Path $raiz 'ftp_server.py'))) {
     $padre = Split-Path -Parent $raiz
     if (Test-Path -LiteralPath (Join-Path $padre 'ftp_server.py')) { $raiz = $padre }
@@ -32,8 +32,8 @@ $dest = 'C:\CytvAncon'
 $serv = 'CamaraCytvAncon'
 
 function L($m) {
-    # Todo a la consola de la ventana de CMD - sin archivos de log.
-    # Colores: OK/EXITO verde, ERROR/FALTA rojo, AVISO amarillo, Pasos cian.
+                                                                   
+                                                                            
     $c = [ConsoleColor]::Gray
     if ($m -match '(^|\s)OK(\s|$)|EXITO|INSTALACION TERMINADA|RUNNING') { $c = [ConsoleColor]::Green }
     if ($m -match 'AVISO|OCUPADO|pendiente') { $c = [ConsoleColor]::Yellow }
@@ -42,7 +42,7 @@ function L($m) {
     Write-Host ('{0} {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $m) -ForegroundColor $c
 }
 
-# Puerto en escucha -> PID  (netstat: funciona en PS4; Get-NetTCPConnection no)
+                                                                               
 function Get-PidEnPuerto($puerto) {
     $pat = ':' + $puerto + ' '
     foreach ($ln in (& netstat -ano -p tcp)) {
@@ -54,7 +54,7 @@ function Get-PidEnPuerto($puerto) {
     return $null
 }
 
-# Localiza python.org Python3* en Program Files con version en rango
+                                                                    
 function Find-PythonBase($lo, $hi) {
     $dirs = @()
     foreach ($pf in @($env:ProgramFiles, ${env:ProgramFiles(x86)})) {
@@ -79,8 +79,8 @@ function Find-PythonBase($lo, $hi) {
     return $null
 }
 
-# --- [-C] Diagnostico de solo lectura (instalar_servicio.bat --check) ---
-# Mismos datos que antes imprima el CMD, ahora con OK/FALTA/AVISO en color.
+                                                                          
+                                                                           
 if ($Check) {
     L '============================================================'
     L ' Diagnostico - no modifica nada'
@@ -143,7 +143,7 @@ L '============================================================'
 L ' Instalador universal - Servidor FTP Camara CYTV Ancon'
 L '============================================================'
 
-# --- [0] Administrador ---
+                           
 $id = [Security.Principal.WindowsIdentity]::GetCurrent()
 $pr = New-Object Security.Principal.WindowsPrincipal($id)
 if (-not $pr.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -151,7 +151,7 @@ if (-not $pr.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     exit 1
 }
 
-# --- [1] Arquitectura y sistema ---
+                                    
 if ($env:PROCESSOR_ARCHITECTURE -ne 'AMD64') {
     L "ERROR: se necesita Windows de 64 bits (detectado: $env:PROCESSOR_ARCHITECTURE)."
     exit 1
@@ -180,7 +180,7 @@ if ($build -lt 14393) {
     L 'Ruta: Windows moderno -> Python 3.13.14 + requirements.txt'
 }
 
-# --- [2] Puerto 2121 libre ---
+                               
 $pid2121 = Get-PidEnPuerto 2121
 if ($pid2121) {
     $dueno = Get-CimInstance Win32_Process -Filter "ProcessId=$pid2121" -ErrorAction SilentlyContinue
@@ -191,7 +191,7 @@ if ($pid2121) {
 }
 L 'Puerto 2121: libre'
 
-# --- [3] Destino y copia del proyecto ---
+                                          
 if ($dest -like ($env:UserProfile + '\*')) {
     L "ERROR: el destino ($dest) no puede vivir en el perfil de usuario:"
     L '       el servicio corre como SYSTEM y SYSTEM no ejecuta .exe de C:\Users.'
@@ -207,14 +207,14 @@ if ($raiz -ne $dest) {
 } else {
     L "Paso 3: ya se corre desde $dest - no hace falta copiar"
 }
-# Borra restos de versiones viejas que usaban instalacion.log
+                                                             
 Remove-Item -LiteralPath (Join-Path $dest 'instalacion.log') -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath (Join-Path $PSScriptRoot 'instalacion.log') -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path (Join-Path $dest 'logs') -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $dest 'ftp_recibidos') -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $dest 'imagenes_procesadas') -Force | Out-Null
 
-# --- [4] config.ini con rutas absolutas del destino ---
+                                                        
 $cfg = Join-Path $dest 'config.ini'
 if (-not (Test-Path -LiteralPath $cfg)) {
     L "ERROR: falta config.ini en $dest - copie el proyecto completo."
@@ -239,7 +239,7 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
 [IO.File]::WriteAllLines($cfg, $lines, (New-Object System.Text.UTF8Encoding($false)))
 L '       OK'
 
-# --- [5] Python oficial en Program Files ---
+                                             
 L ('Paso 5: localizando/instalando Python ' + $pyVer)
 $pyBase = Find-PythonBase $loNum $hiNum
 if (-not $pyBase) {
@@ -265,14 +265,14 @@ if (-not $pyBase) {
 }
 L ('       Python base: ' + $pyBase)
 
-# --- [5.5] Visual C++ Redistributable (solo Windows viejo) ---
-# Verificado con parseo de PE: onnxruntime 1.18 (lo usa RapidOCR) importa
-# MSVCP140.dll, MSVCP140_1.dll, VCRUNTIME140.dll, VCRUNTIME140_1.dll y el
-# UCRT (api-ms-win-crt-*.dll). VCRUNTIME140_1 es de VS2019: el VC++ 2015
-# Update 3 NO lo trae. El VC++ 2022 mas nuevo ya no soporta Server 2012 R2.
-# Estrategia: si falta el UCRT -> instalar VC++ 2015 U3 (lo trae embebido);
-# si falta cualquier CRT de VS2015/2019 -> instalar el redist de VS2019
-# (14.29 LTSC, soporta Server 2012 R2).
+                                                               
+                                                                         
+                                                                         
+                                                                        
+                                                                           
+                                                                           
+                                                                       
+                                       
 if ($build -lt 14393) {
     L 'Paso 5.5: Windows viejo - verificando Visual C++ Runtime (VS2015/2019)'
     $sys32 = Join-Path $env:SystemRoot 'System32'
@@ -285,8 +285,8 @@ if ($build -lt 14393) {
     } else {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         if ($faltaUcrt) {
-            # VC++ 2015 Update 3 x64 - unico que trae el UCRT embebido y
-            # soportado en Server 2012 R2 (id=53840)
+                                                                        
+                                                    
             L '       Falta Universal CRT - instalando VC++ 2015 Update 3...'
             $url15 = 'https://download.microsoft.com/download/6/A/A/6AA4EDFF-645B-48C5-81CC-ED5963AEAD48/vc_redist.x64.exe'
             $exe15 = Join-Path $env:TEMP 'vc_redist_2015u3_x64.exe'
@@ -304,8 +304,8 @@ if ($build -lt 14393) {
             $faltaCrt = @($dllsCrt | Where-Object { -not (Test-Path -LiteralPath (Join-Path $sys32 $_)) })
         }
         if ($faltaCrt.Count -gt 0) {
-            # Redist de Visual Studio 2019 14.29 (LTSC) - trae VCRUNTIME140_1 y
-            # MSVCP140_1, y si aun soporta Server 2012 R2. El 2022 no.
+                                                                               
+                                                                      
             L ('       Faltan: ' + ($faltaCrt -join ', ') + ' - instalando VC++ VS2019 Runtime...')
             $url19 = 'https://aka.ms/vs/16/release/vc_redist.x64.exe'
             $exe19 = Join-Path $env:TEMP 'vc_redist_vs2019_x64.exe'
@@ -321,7 +321,7 @@ if ($build -lt 14393) {
             $p = Start-Process -FilePath $exe19 -ArgumentList '/install','/quiet','/norestart' -Wait -PassThru
             L ('       VC++ VS2019 exit=' + $p.ExitCode + ' (0 o 3010 = OK)')
         }
-        # Verificacion final de las 5 piezas
+                                            
         $aunFaltan = @()
         foreach ($d in $dllsCrt) { if (-not (Test-Path -LiteralPath (Join-Path $sys32 $d))) { $aunFaltan += $d } }
         if (-not (Test-Path -LiteralPath $ucrtDll)) { $aunFaltan += 'api-ms-win-crt-runtime-l1-1-0.dll' }
@@ -334,25 +334,25 @@ if ($build -lt 14393) {
     }
 }
 
-# --- [5.6] Media Foundation (solo Windows viejo) ---
-# Verificado con parseo de PE: cv2.pyd (opencv-python normal o headless)
-# importa MFPlat.DLL, MF.dll y MFReadWrite.dll - Media Foundation es
-# OBLIGATORIO para el import de cv2. Server 2012 R2 no lo trae de fabrica:
-# habilitar la feature con DISM (en DISM el nombre es ServerMediaFoundation,
-# sin guiones; ver detalle en el paso).
+                                                     
+                                                                        
+                                                                    
+                                                                          
+                                                                            
+                                       
 if ($build -lt 14393) {
     $mfplat = Join-Path $env:SystemRoot 'System32\mfplat.dll'
     if (Test-Path -LiteralPath $mfplat) {
         L 'Paso 5.6: Media Foundation ya presente - se omite'
     } else {
         L 'Paso 5.6: habilitando feature Media Foundation con DISM...'
-        # VERIFICADO en 2012 R2: el nombre de feature SEGUN LA HERRAMIENTA:
-        #  - dism.exe /Enable-Feature -> "ServerMediaFoundation" (sin guiones)
-        #  - Install-WindowsFeature   -> "Server-Media-Foundation" (con guiones)
-        #  - Windows client 8.1/10    -> "MediaFoundation"
-        # DISM con nombre desconocido falla con 0x800f080c (-2146498548):
-        # probamos la lista de candidatos y nos queda la verdad ultima
-        # en disco: mfplat.dll.
+                                                                           
+                                                                              
+                                                                                
+                                                          
+                                                                         
+                                                                      
+                               
         $dism = Join-Path $env:SystemRoot 'System32\dism.exe'
         $candidatos = @('ServerMediaFoundation', 'Server-Media-Foundation', 'MediaFoundation')
         $featOk = $null
@@ -385,17 +385,17 @@ if ($build -lt 14393) {
     }
 }
 
-# --- [6] venv + dependencias ---
+                                 
 $vp = Join-Path $dest 'venv\Scripts\python.exe'
 $venvOk = $false
 if (Test-Path -LiteralPath $vp) {
-    # 1) Version compatible
+                           
     $v = & $vp -c "import sys; print(str(sys.version_info[0])+'.'+str(sys.version_info[1]))" 2>$null
     $n = 0
     if ($v -match '^(\d+)\.(\d+)$') { $n = [int]$Matches[1] * 100 + [int]$Matches[2] }
     if ($n -ge $loNum -and ($hiNum -eq 0 -or $n -le $hiNum)) {
-        # 2) Que los imports criticos carguen (cv2 trae DLLs de la maquina
-        #    donde se creo el venv; si se copio de otra, falla aqui)
+                                                                          
+                                                                    
         $smoke = & $vp -c "import cv2, numpy, onnxruntime, pyftpdlib; print('OK')" 2>&1 | Out-String
         if ($smoke -match 'OK') {
             $venvOk = $true
@@ -422,11 +422,11 @@ if (-not (Test-Path -LiteralPath $vp)) { L '       ERROR: no se pudo crear el ve
 $reqPath = Join-Path $dest $req
 if (-not (Test-Path -LiteralPath $reqPath)) { L ("ERROR: falta $req en $dest"); exit 1 }
 
-# Truco headless (solo Windows viejo): rapidocr declara dependencia del
-# paquete "opencv-python" (el nombre normal). Si pip lo baja encima del
-# headless, cv2 queda corrupto ("partially initialized module 'cv2'").
-# Metadato falso de opencv-python 4.5.3.56 -> pip lo da por instalado y
-# no toca nada; requirements trae solo opencv-python-headless.
+                                                                       
+                                                                       
+                                                                      
+                                                                       
+                                                              
 if ($req -eq 'requirements-py39.txt') {
     $di = Join-Path $dest 'venv\Lib\site-packages\opencv_python-4.5.3.56.dist-info'
     New-Item -ItemType Directory -Path $di -Force | Out-Null
@@ -441,10 +441,10 @@ L ('       pip install -r ' + $req + ' (varios minutos)')
     Select-Object -Last 5 | ForEach-Object { L ('       pip: ' + $_) }
 if ($LASTEXITCODE -ne 0) { L '       ERROR: fallo pip. Revise internet/config.'; exit 1 }
 
-# Guarda: si a pesar de todo pip instalo opencv-python normal (dist-info
-# con OTRA version que nuestro falso 4.5.3.56), cv2 quedo con dos
-# paquetes encima (corrupto). Se desinstala el normal y se vuelve al
-# headless pinneado. El escaneo por carpeta distingue el falso del real.
+                                                                        
+                                                                 
+                                                                    
+                                                                        
 if ($req -eq 'requirements-py39.txt') {
     $sp = Join-Path $dest 'venv\Lib\site-packages'
     $malos = Get-ChildItem -LiteralPath $sp -Directory -Filter 'opencv_python-*' -ErrorAction SilentlyContinue |
@@ -486,10 +486,10 @@ $humo = & $vp -c "import pyftpdlib, cv2, numpy, onnxruntime; from rapidocr_onnxr
                         L '       AVISO: falta modelo\placas.onnx - arrancara SIN detector de placas.'
                     }
 
-                    # --- [6.5] Comando cytv en el PATH del sistema ---
-                    # cytv.cmd usa %~dp0 (ruta relativa al wrapper), asi que basta
-                    # con que la CARPETA este en el PATH. Sin esto, "cytv estado"
-                    # no responde en consolas nuevas.
+                                                                       
+                                                                                  
+                                                                                 
+                                                     
                     $cytvCmd = Join-Path $dest 'cytv.cmd'
                     if (-not (Test-Path -LiteralPath $cytvCmd)) {
                         L '       AVISO: falta cytv.cmd - el comando cytv no estara disponible.'
@@ -519,7 +519,7 @@ $humo = & $vp -c "import pyftpdlib, cv2, numpy, onnxruntime; from rapidocr_onnxr
                         }
                     }
 
-                    # --- [7] NSSM + servicio ---
+                                                 
 $nssm = Join-Path $dest 'scripts\nssm.exe'
 if (-not (Test-Path -LiteralPath $nssm)) { L '       AVISO: falta nssm.exe en la carpeta - el servicio no se puede registrar.'; exit 1 }
 L ('Paso 7: registrando servicio ' + $serv)
@@ -530,7 +530,7 @@ if (-not $existe) {
 }
 & $nssm set $serv Application $vp 2>&1 | Out-Null
 & $nssm set $serv AppDirectory $dest 2>&1 | Out-Null
-# AppParameters CON comillas via registro (nssm set + PowerShell se come las comillas)
+                                                                                      
 $par = 'HKLM:\SYSTEM\CurrentControlSet\Services\' + $serv + '\Parameters'
 Set-ItemProperty -LiteralPath $par -Name AppDirectory -Value $dest -Type String
 Set-ItemProperty -LiteralPath $par -Name AppParameters -Value ('"' + (Join-Path $dest 'ftp_server.py') + '"') -Type String
@@ -548,7 +548,7 @@ L ('       verif AppDirectory  = ' + $regAppDir)
 L ('       verif AppParameters = ' + $regAppArgs)
 if ($regAppDir -ne $dest) { L '       ERROR: AppDirectory quedo mal.'; exit 1 }
 
-# --- [8] Firewall ---
+                      
 L 'Paso 8: firewall'
 $puerto = '2121'; $pas = '60000-60099'
 foreach ($ln in (Get-Content -LiteralPath $cfg)) {
@@ -563,7 +563,7 @@ if ($LASTEXITCODE -ne 0) {
     L ('       OK: TCP ' + $puerto + ' y pasivos ' + $pas)
 }
 
-# --- [9] Arranque y verificacion final ---
+                                           
 L 'Paso 9: iniciando servicio...'
 Start-Service -Name $serv -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 15

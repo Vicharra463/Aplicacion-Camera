@@ -20,28 +20,48 @@ from PIL import Image
 
 logger = logging.getLogger("cytv.reconocedor")
 
-BASE = Path(__file__).resolve().parents[1]      # raiz del proyecto
+BASE = Path(__file__).resolve().parents[1]      
 RUTA_ONNX = BASE / "modelo" / "reconocedor.onnx"
 
-# Debe calzar con generador_placas.CHARSET (entrenamiento); el blank CTC
-# vive al final. Si cambia el charset hay que reexportar el ONNX.
+
+
 CHARSET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-"
 _BLANK = len(CHARSET)
 
 _sesion = None
+_sesion_mtime: float | None = None
 _flota: list[str] | None = None
 _conjunto: set[str] | None = None
 
 
 def _obtener_sesion():
-    global _sesion
+    global _sesion, _sesion_mtime
+    if not RUTA_ONNX.is_file():
+        raise FileNotFoundError(f"modelo no encontrado: {RUTA_ONNX}")
+    try:
+        mtime = RUTA_ONNX.stat().st_mtime
+    except OSError:
+        if _sesion is not None:
+            return _sesion
+        raise
+    if _sesion is not None and mtime == _sesion_mtime:
+        return _sesion
+    import onnxruntime as ort
+    try:
+        nueva = ort.InferenceSession(str(RUTA_ONNX),
+                                     providers=["CPUExecutionProvider"])
+    except Exception:
+        if _sesion is not None:
+            logger.warning("El ONNX nuevo no se pudo abrir; sigo con los "
+                           "pesos anteriores", exc_info=True)
+            return _sesion
+        raise
     if _sesion is None:
-        import onnxruntime as ort
-        if not RUTA_ONNX.is_file():
-            raise FileNotFoundError(f"modelo no encontrado: {RUTA_ONNX}")
-        _sesion = ort.InferenceSession(str(RUTA_ONNX),
-                                       providers=["CPUExecutionProvider"])
         logger.info("CRNN cargado (%s)", RUTA_ONNX.name)
+    else:
+        logger.info("CRNN recargado con pesos nuevos (%s)", RUTA_ONNX.name)
+    _sesion = nueva
+    _sesion_mtime = mtime
     return _sesion
 
 
@@ -99,8 +119,8 @@ def leer_placa(crop: np.ndarray) -> tuple[str, float]:
         if not leido:
             return "", 0.0
         corregido = corregir(leido, conjunto, 2)
-        # Contrato closed-set: solo responde si aterriza en flota. Si no,
-        # se abstiene y el motor heredado toma la decision.
+        
+        
         if canon(corregido) not in canonicos:
             return "", 0.0
         probs = np.exp(logits - logits.max(axis=-1, keepdims=True))

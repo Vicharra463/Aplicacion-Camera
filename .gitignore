@@ -17,6 +17,7 @@ ftp_recibidos/
 descartadas/
 imagenes_procesadas/
 reportes/
+cola_entrenamiento/
 
 # Documentación con credenciales (solo local)
 INFO_CAMARA.txt
