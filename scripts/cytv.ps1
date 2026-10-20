@@ -1,28 +1,31 @@
-<#
-.SYNOPSIS
-  Comandos del servidor de placas CYTV Ancon (estilo artisan).
+﻿  
+         
+                                                              
 
-.DESCRIPTION
-  Un comando por accion. Sin menu, sin TUI: se escribe y se ejecuta.
+            
+                                                                    
 
-.EXAMPLE
-  cytv estado
-  cytv placas
-  cytv historial
-  cytv log -Lineas 50
-  cytv fotos C:\Users\felip\foto.jpg -Canal 02
-  cytv servicios reiniciar
-  cytv servicios parar
-  cytv servicios arrancar
-  cytv config -Abrir
-  cytv web
-  cytv ayuda
-#>
+        
+             
+             
+                
+                     
+                                              
+                          
+                      
+                         
+                    
+                          
+                                       
+              
+            
+  
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
     [ValidateSet('estado', 'placas', 'historial', 'log', 'fotos',
-                 'servicios', 'config', 'web', 'ayuda', 'reiniciar', 'limpiar')]
+                 'servicios', 'config', 'ayuda', 'reiniciar', 'limpiar',
+                 'entrenador', 'replay', 'heatmap')]
     [string]$Comando = 'ayuda',
 
     [Parameter(Position = 1)]
@@ -35,7 +38,12 @@ param(
 
     [switch]$Abrir,
 
-    [switch]$Fuerza
+    [switch]$Fuerza,
+
+    [string]$Fecha,
+    [string]$Motivo,
+    [string]$Salida,
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = 'Stop'
@@ -43,9 +51,9 @@ $RutaBase = 'C:\CytvAncon'
 $Servicio = 'CamaraCytvAncon'
 $ConfigIni = Join-Path $RutaBase 'config.ini'
 
-# --------------------------------------------------------------------------
-# Utilidades
-# --------------------------------------------------------------------------
+                                                                            
+            
+                                                                            
 function Write-Titulo {
     Write-Host ''
     Write-Host 'CYTV Ancon - servidor de placas' -ForegroundColor Cyan
@@ -97,14 +105,13 @@ function Get-RutaReporteHoy {
     Join-Path $carpeta "placas-$hoy.json"
 }
 
-# --------------------------------------------------------------------------
-# Comandos
-# --------------------------------------------------------------------------
+                                                                            
+          
+                                                                            
 function Invoke-Estado {
     $puertoFtp   = [int](Get-IniValor 'ftp' 'puerto' '2121')
     $servicio    = Get-EstadoServicio
     $ftpOk       = Test-Tcp $puertoFtp
-    $webOk       = Test-Tcp 3000
     $onnx        = Join-Path $RutaBase 'modelo\placas.onnx'
     $hoy         = Get-Date -Format 'yyyy-MM-dd'
     $total       = '?'
@@ -123,9 +130,6 @@ function Invoke-Estado {
     Write-Host ('  FTP 127.0.0.1:{0,-10} ' -f $puertoFtp) -NoNewline
     if ($ftpOk) { Write-Host 'OK' -ForegroundColor Green } else { Write-Host 'FALLA' -ForegroundColor Red }
 
-    Write-Host '  App web :3000             ' -NoNewline
-    if ($webOk) { Write-Host 'OK' -ForegroundColor Green } else { Write-Host 'FALLA' -ForegroundColor Red }
-
     if (Test-Path $onnx) {
         $mb = [math]::Round((Get-Item $onnx).Length / 1MB, 1)
         Write-Host '  Modelo ONNX               OK  ' -NoNewline -ForegroundColor Green
@@ -138,14 +142,14 @@ function Invoke-Estado {
 }
 
 function Get-Levenshtein {
-    # Distancia de edicion (mismo criterio que el worker: <= 2 = misma placa).
-    # Index LINEAL (sin comas en $d[...]): Windows PowerShell 5.1 no parsea
-    # $d[$i - 1, $j] (la coma del indice tiene prioridad sobre la resta).
+                                                                              
+                                                                           
+                                                                         
     param([string]$a, [string]$b)
     $m = $a.Length; $n = $b.Length
     if ($m -eq 0) { return $n }
     if ($n -eq 0) { return $m }
-    $w = $n + 1                      # ancho de cada fila en la matriz lineal
+    $w = $n + 1                                                              
     $d = New-Object 'int[]' (($m + 1) * $w)
     for ($i = 0; $i -le $m; $i++) { $d[$i * $w] = $i }
     for ($j = 0; $j -le $n; $j++) { $d[$j] = $j }
@@ -173,8 +177,8 @@ function Invoke-Placas {
         Write-Host '  Todavia ninguna placa guardada hoy.'
         return
     }
-    # Agrupa variantes de la MISMA placa (B1Y-756 / BIY-756 / B1V-756):
-    # mismo criterio que el worker (Levenshtein <= 2).
+                                                                       
+                                                      
     $grupos = @()
     foreach ($p in $rep.placas) {
         $texto = $p.placa
@@ -367,29 +371,6 @@ function Invoke-Config {
     }
 }
 
-function Invoke-Web {
-    Write-Titulo
-    if (Test-Tcp 3000) {
-        Start-Process 'http://localhost:3000'
-        Write-Host '  Abriendo http://localhost:3000 ...'
-        return
-    }
-    Write-Host '  La app web no esta corriendo en el puerto 3000.'
-    $resp = Read-Host '  ¿Iniciarla ahora? (s/N)'
-    if ($resp -in @('s', 'si', 'sí')) {
-        Start-Process node -ArgumentList 'server.js' -WorkingDirectory (Join-Path $RutaBase 'webapp') -WindowStyle Hidden
-        Start-Sleep -Seconds 2
-        if (Test-Tcp 3000) {
-            Start-Process 'http://localhost:3000'
-            Write-Host '  App web iniciada; abriendo el navegador.' -ForegroundColor Green
-        } else {
-            Write-Host '  No arranco; revise que exista webapp\server.js y node.' -ForegroundColor Red
-        }
-    } else {
-        Write-Host '  Iniciela despues con webapp\abrir_app.bat'
-    }
-}
-
 function Invoke-Limpiar {
     $script = Join-Path $RutaBase 'scripts\limpiar_almacenamiento.ps1'
     Write-Titulo
@@ -405,44 +386,139 @@ function Invoke-Limpiar {
     Write-Host '  La tarea automatica corre cada 2 semanas (domingo 3:00 AM).'
 }
 
+function Invoke-Entrenador {
+    $py = Join-Path $RutaBase 'venv\Scripts\python.exe'
+    $script = Join-Path $RutaBase 'entrenamiento\entrenador_continuo.py'
+    $log = Join-Path $RutaBase 'cola_entrenamiento\entrenador.log'
+    if (Test-Path $ConfigIni) {
+        $cfgTxt = Get-Content -LiteralPath $ConfigIni -Raw
+        if ($cfgTxt -match '(?m)^\s*entrenador_python\s*=\s*(\S[^\r\n]*)') {
+            $pyEntrenador = $Matches[1].Trim()
+            if ($pyEntrenador) { $py = $pyEntrenador }
+        }
+    }
+    Write-Titulo
+    $accion = if ($Ruta) { $Ruta.ToLower() } else { 'estado' }
+    if ($accion -eq 'arrancar') {
+        if (-not (Test-Path $py)) {
+            Write-Host "  No se encontro el python del venv: $py" -ForegroundColor Red
+            return
+        }
+        if (-not (Test-Path $script)) {
+            Write-Host "  No existe el script: $script" -ForegroundColor Red
+            return
+        }
+        $enEjecucion = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandLine -like '*entrenador_continuo.py*' }
+        if ($enEjecucion) {
+            Write-Host "  Ya esta corriendo (PID $($enEjecucion.ProcessId))."
+            return
+        }
+        Start-Process -FilePath $py -ArgumentList "`"$script`"" -WindowStyle Hidden
+        Start-Sleep -Seconds 2
+        Write-Host '  Entrenador continuo arrancado.'
+        Write-Host '  Entrena solo en el reposo (cola estable y sin entrada nueva)'
+        Write-Host '  y solo publica pesos si el examen GT no baja.'
+        return
+    }
+    if (-not (Test-Path $log)) {
+        Write-Host "  Sin log todavia: $log"
+        return
+    }
+    Write-Host "  Entrenador continuo (ultimas lineas de $log):"
+    Write-Host ''
+    Get-Content $log -Tail 15 | ForEach-Object { Write-Host "  $_" }
+}
+
+function Invoke-Replay {
+                                                                      
+    $py = Join-Path $RutaBase 'venv\Scripts\python.exe'
+    $script = Join-Path $RutaBase 'scripts\replay_descartes.py'
+    Write-Titulo
+    if (-not (Test-Path $py)) {
+        Write-Host "  No se encontro el python del venv: $py" -ForegroundColor Red
+        return
+    }
+    if (-not (Test-Path $script)) {
+        Write-Host "  No existe el script: $script" -ForegroundColor Red
+        return
+    }
+    $argumentos = @($script)
+    if ($Fecha)  { $argumentos += @('--fecha', $Fecha) }
+    if ($Motivo) { $argumentos += @('--motivo', $Motivo) }
+    if ($DryRun) { $argumentos += '--dry-run' }
+    Write-Host ''
+    & $py @argumentos
+}
+
+function Invoke-Heatmap {
+                                                                  
+    $py = Join-Path $RutaBase 'venv\Scripts\python.exe'
+    $script = Join-Path $RutaBase 'scripts\heatmap_placas.py'
+    Write-Titulo
+    if (-not (Test-Path $py)) {
+        Write-Host "  No se encontro el python del venv: $py" -ForegroundColor Red
+        return
+    }
+    if (-not (Test-Path $script)) {
+        Write-Host "  No existe el script: $script" -ForegroundColor Red
+        return
+    }
+    $argumentos = @($script)
+    if ($Salida) { $argumentos += @('--salida', $Salida) }
+    Write-Host ''
+    & $py @argumentos
+}
+
 function Invoke-Ayuda {
     Write-Titulo
     Write-Host @'
   Comandos del servidor de placas CYTV Ancon
   -------------------------------------------
-  cytv estado                 Servicio, FTP, web, modelo y placas de hoy
+  cytv estado                 Servicio, FTP, modelo y placas de hoy
   cytv placas                 Placas detectadas hoy (reporte JSON)
   cytv historial              Ultimos 15 registros de la base SQLite
   cytv log [-Lineas 50]       Ultimas lineas del log del servidor
   cytv fotos RUTA [-Canal]    Sube una foto de prueba (01 pano / 02 placa)
+  cytv replay [-Fecha dia] [-Motivo motivo] [-DryRun]
+                              Devuelve a la cola las fotos de descartadas
+  cytv entrenador [arrancar]  Entrenamiento continuo en el reposo: con
+                              "arrancar" lo pone a correr; sin argumento
+                              muestra el log (estado actual)
+  cytv heatmap [-Salida a.csv]  Banda espacial tipica de las placas
   cytv servicios [reiniciar]  Estado o reinicio del servicio (Fuerza = sin preguntar)
   cytv config [-Abrir]        Ver el config.ini (o abrirlo en el bloc)
-  cytv web                    Abrir/iniciar la app web (localhost:3000)
   cytv limpiar                Borrar imagenes con mas de 14 dias (manual)
   cytv ayuda                  Esta ayuda
 
   La limpieza automatica corre cada 2 semanas (domingo 3:00 AM) via
   Task Scheduler; "cytv limpiar" la ejecuta a mano cuando quiera.
 
-  Las fotos rechazadas por el worker se borran; para revisar por que una
-  placa no guardo, busque su nombre en "cytv log" o "cytv historial".
+  descartadas\<dia>\ SOLO guarda duplicados de placa (purga diaria
+  7:00 PM); lo demas se reevalua hasta 10 veces y se borra si no
+  se lee. Los rescatados entran como PLACA (DUDOSA) con recuadro
+  verde fino.
+  Cada registro nuevo trae evidencia (0-100) y semaforo (verde/amarillo/
+  rojo); revise "cytv historial".
 '@
 }
 
-# --------------------------------------------------------------------------
-# Despacho
-# --------------------------------------------------------------------------
+                                                                            
+          
+                                                                            
 switch ($Comando) {
-    'estado'    { Invoke-Estado }
-    'placas'    { Invoke-Placas }
-    'historial' { Invoke-Historial }
-    'log'       { Invoke-Log }
-    'fotos'     { Invoke-Fotos }
-    'servicios' { Invoke-Servicios }
-    'reiniciar' { $Ruta = 'reiniciar'; Invoke-Servicios }
-    'config'    { Invoke-Config }
-    'web'       { Invoke-Web }
-    'limpiar'   { Invoke-Limpiar }
-    'ayuda'     { Invoke-Ayuda }
+    'estado'     { Invoke-Estado }
+    'placas'     { Invoke-Placas }
+    'entrenador' { Invoke-Entrenador }
+    'historial'  { Invoke-Historial }
+    'log'        { Invoke-Log }
+    'fotos'      { Invoke-Fotos }
+    'servicios'  { Invoke-Servicios }
+    'reiniciar'  { $Ruta = 'reiniciar'; Invoke-Servicios }
+    'config'     { Invoke-Config }
+    'replay'     { Invoke-Replay }
+    'heatmap'    { Invoke-Heatmap }
+    'limpiar'    { Invoke-Limpiar }
+    'ayuda'      { Invoke-Ayuda }
 }
 Write-Host ''

@@ -18,7 +18,7 @@ from pathlib import Path
 import cv2
 
 RUTA_ONNX = Path(__file__).resolve().parents[1] / "modelo" / "placas.onnx"
-UMBRAL = 0.40  # igual que config.ini (umbral_modelo)
+UMBRAL = 0.40  
 
 
 def b64(img) -> str:
@@ -29,8 +29,8 @@ def b64(img) -> str:
 
 
 def main(ruta: str) -> int:
-    # Import perezoso para que el primer arranque de la web no cargue el
-    # modelo si nadie subio nada.
+    
+    
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "app"))
     from modelo import DetectorPlacas, RUTA_ONNX as ONNX
     from ocr import leer_placa
@@ -56,12 +56,12 @@ def main(ruta: str) -> int:
         }))
         return 0
 
-    # Mejor deteccion (mayor confianza)
+    
     (x, y, w, h), conf = dets[0]
     recorte = img[y:y + h, x:x + w]
     texto = leer_placa(recorte) if recorte.size else ""
 
-    # Anotar la foto completa con el bbox (verde si hay texto, amarillo si no)
+    
     anotada = img.copy()
     color = (0, 200, 0) if texto else (0, 200, 255)
     cv2.rectangle(anotada, (x, y), (x + w, y + h), color, 3)

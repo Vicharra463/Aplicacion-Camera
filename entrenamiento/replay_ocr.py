@@ -30,7 +30,7 @@ BASE = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE))
 sys.path.insert(0, str(BASE.parent / "app"))
 
-from ocr import leer_placa_6, _normalizar  # noqa: E402
+from ocr import leer_placa_6, _normalizar  
 
 RAIZ = BASE.parent / "imagenes_procesadas" / "placa"
 
@@ -51,7 +51,7 @@ def _leer_bbox_txt(ruta_txt: Path, ancho: int, alto: int):
 def _esperado_canonico(stem: str) -> str:
     """Nombre del archivo (lectura historica) -> forma canonica comparable."""
     if stem.startswith("placa_"):
-        return ""  # guardado sin lectura (nombre por hora)
+        return ""  
     return _normalizar(stem) or re.sub(r"[^A-Za-z0-9]", "", stem).upper()
 
 
@@ -147,7 +147,7 @@ def main() -> int:
             if coincide and not args.solo_diferencias:
                 print(f"  OK   {dia.name}/{jpg.name}: {placa}")
 
-    # Resumen por dia
+    
     print("\n=== RESUMEN ===")
     por_dia: dict[str, list[int]] = {}
     for f in filas_csv:

@@ -25,19 +25,19 @@ import numpy as np
 logger = logging.getLogger("cytv.modelo")
 
 RUTA_ONNX = Path(__file__).resolve().parents[1] / "modelo" / "placas.onnx"
-FONDO = 114          # valor de padding del letterbox (estandar YOLO)
-IOU = 0.45           # umbral de non-max suppression
-MAX_CANDIDATOS = 8   # igual que el detector geometrico
+FONDO = 114          
+IOU = 0.45           
+MAX_CANDIDATOS = 8   
 
-# Zonas del OSD que la camara quema en el frame (fecha arriba a la izquierda,
-# "Camera 01" abajo a la derecha), en fracciones del ancho/alto. Se enmascaran
-# ANTES de inferir: el modelo se entreno con placas y ese texto rectangular le
-# parece una placa (medido en produccion: conf 0.34 sobre el timestamp).
-# Medido sobre las capturas reales del dia: la placa llega hasta x=0.685, por
-# lo que la zona de la derecha recien abre en 0.70 -- NO toca nunca la placa.
+
+
+
+
+
+
 ZONAS_OSD = (
-    (0.00, 0.00, 0.34, 0.12),    # "10-09-2026 Fri 15:16:33"
-    (0.70, 0.85, 1.00, 1.00),    # "Camera 01"
+    (0.00, 0.00, 0.34, 0.12),    
+    (0.70, 0.85, 1.00, 1.00),    
 )
 
 
@@ -54,31 +54,31 @@ class DetectorPlacas:
     """Carga el ONNX una vez y lo reutiliza en cada imagen."""
 
     def __init__(self, ruta: Path, umbral: float = 0.25) -> None:
-        import onnxruntime as ort  # import perezoso: sin onnxruntime no hay modelo
+        import onnxruntime as ort  
 
         self.umbral = float(umbral)
         self.sesion = ort.InferenceSession(
             str(ruta), providers=["CPUExecutionProvider"])
         entrada = self.sesion.get_inputs()[0]
         self.nombre_entrada = entrada.name
-        forma = entrada.shape                      # (1, 3, 640, 640)
+        forma = entrada.shape                      
         lado = forma[2] if len(forma) == 4 else 640
         self.lado = int(lado) if isinstance(lado, (int, float)) else 640
         logger.info("Modelo ONNX cargado: %s (entrada %dx%d, umbral %.2f)",
                     ruta.name, self.lado, self.lado, self.umbral)
 
-    # ------------------------------------------------------------------
+    
     def detectar(self, img: np.ndarray) -> list[tuple[tuple[int, int, int, int], float]]:
         """Devuelve [((x, y, w, h), confianza)] en coordenadas de la imagen."""
         alto, ancho = img.shape[:2]
         lado = self.lado
 
-        # El OSD (fecha de la camara) se tapa antes de inferir: si no, el
-        # modelo lo detecta como placa. La imagen que se GUARDA no se toca.
+        
+        
         entrada = enmascarar_osd(img)
 
-        # Letterbox: se escala manteniendo proporcion y se centra en un lienzo
-        # gris para que la red vea cuadrado sin deformar.
+        
+        
         escala = min(lado / ancho, lado / alto)
         nw, nh = max(1, int(round(ancho * escala))), max(1, int(round(alto * escala)))
         redim = cv2.resize(entrada, (nw, nh), interpolation=cv2.INTER_LINEAR)
@@ -86,16 +86,16 @@ class DetectorPlacas:
         dx, dy = (lado - nw) // 2, (lado - nh) // 2
         lienzo[dy:dy + nh, dx:dx + nw] = redim
 
-        blob = lienzo[:, :, ::-1].transpose(2, 0, 1)          # BGR->RGB, HWC->CHW
+        blob = lienzo[:, :, ::-1].transpose(2, 0, 1)          
         blob = np.ascontiguousarray(blob, dtype=np.float32) / 255.0
 
         salida = self.sesion.run(None, {self.nombre_entrada: blob[None]})[0]
         return self._postprocesar(salida, escala, dx, dy, ancho, alto)
 
-    # ------------------------------------------------------------------
+    
     def _postprocesar(self, salida: np.ndarray, escala: float,
                       dx: int, dy: int, ancho: int, alto: int):
-        # Forma del export YOLOv8: (1, 4 + clases, 8400) -> (8400, 4 + clases)
+        
         cajas = salida[0]
         if cajas.shape[0] < cajas.shape[1]:
             cajas = cajas.T
@@ -104,8 +104,8 @@ class DetectorPlacas:
         puntuaciones = cajas[:, 4:]
         conf = puntuaciones.max(axis=1) if puntuaciones.shape[1] else np.zeros(0)
 
-        # Defensa: si salieron logits (fuera de 0..1) hay que pasarlos por
-        # sigmoid. Algunas versiones del export ya lo traen aplicado.
+        
+        
         if conf.size and (conf.min() < 0.0 or conf.max() > 1.0):
             conf = 1.0 / (1.0 + np.exp(-conf))
 
@@ -115,7 +115,7 @@ class DetectorPlacas:
 
         cuadros = xywh[candidatos]
         puntajes = conf[candidatos]
-        # NMS de OpenCV pide [x, y, w, h] enteros en pixeles del recorte.
+        
         x0 = np.clip(cuadros[:, 0] - cuadros[:, 2] / 2.0, 0, self.lado)
         y0 = np.clip(cuadros[:, 1] - cuadros[:, 3] / 2.0, 0, self.lado)
         boxes = np.stack([x0, y0, cuadros[:, 2], cuadros[:, 3]], axis=1)
@@ -129,7 +129,7 @@ class DetectorPlacas:
         resultados = []
         for i in np.array(indice).flatten()[:MAX_CANDIDATOS]:
             bx, by, bw, bh = boxes[i]
-            # Deshacer letterbox: quitar el padding y devolver la escala.
+            
             x = int(round((bx - dx) / escala))
             y = int(round((by - dy) / escala))
             w = int(round(bw / escala))
@@ -144,9 +144,9 @@ class DetectorPlacas:
         return resultados
 
 
-# ----------------------------------------------------------------------
-# Prueba rapida desde la terminal (no levanta el servidor).
-# ----------------------------------------------------------------------
+
+
+
 def _probar(ruta_imagen: str) -> int:
     logging.basicConfig(level=logging.INFO,
                         format="%(levelname)s %(message)s")

@@ -7,16 +7,16 @@ import cv2
 BASE = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE))
 sys.path.insert(0, str(BASE.parent / "app"))
-from ocr import _obtener_motor, _normalizar, _recorte  # noqa: E402
+from ocr import _obtener_motor, _normalizar, _recorte  
 
 RAIZ = BASE.parent / "imagenes_procesadas" / "placa"
 CASOS = [
     ("2026-10-13", "12-790.jpg"),
-    ("2026-10-13", "AFH-559.jpg"),   # este SI pasa
-    ("2026-10-16", "BTU394.jpg"),    # este SI pasa
-    ("2026-10-16", "F8E876.jpg"),    # historico OK, ahora sin lectura
-    ("2026-10-15", "ZIS-508.jpg"),   # historico OK, ahora sin lectura
-    ("2026-10-13", "A3E726.jpg"),    # historico OK, ahora sin lectura
+    ("2026-10-13", "AFH-559.jpg"),   
+    ("2026-10-16", "BTU394.jpg"),    
+    ("2026-10-16", "F8E876.jpg"),    
+    ("2026-10-15", "ZIS-508.jpg"),   
+    ("2026-10-13", "A3E726.jpg"),    
 ]
 
 motor = _obtener_motor()

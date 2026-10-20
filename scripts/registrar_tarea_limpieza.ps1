@@ -1,12 +1,12 @@
-# Registra la tarea programada de limpieza de almacenamiento.
-# Corre cada 2 semanas (domingo) a las 3:00 AM con privilegios elevados.
-# Se lanza elevado (UAC) una sola vez; despues Windows la ejecuta solo.
+﻿                                                             
+                                                                        
+                                                                       
 
 $ErrorActionPreference = 'Stop'
 $tarea = 'CYTV_LimpiezaAlmacenamiento'
 $script = 'C:\CytvAncon\scripts\limpiar_almacenamiento.ps1'
 
-# Si ya existe, eliminarla para recrearla limpia
+                                                
 $existente = Get-ScheduledTask -TaskName $tarea -ErrorAction SilentlyContinue
 if ($existente) {
     Unregister-ScheduledTask -TaskName $tarea -Confirm:$false
@@ -39,7 +39,39 @@ Write-Output "  Usuario    : SYSTEM (no requiere login)"
 Write-Output "  Script     : $script"
 Write-Output "  Retencion  : 14 dias"
 
-# Verificar
-$t = Get-ScheduledTask -TaskName $tarea
-$t | Format-List TaskName, State
-$t.Triggers | Format-List
+                                                                            
+                                                                           
+                                                                     
+                                                                            
+$tareaDiaria = 'CYTV_DescartadasDiaria'
+
+$existenteDiaria = Get-ScheduledTask -TaskName $tareaDiaria -ErrorAction SilentlyContinue
+if ($existenteDiaria) {
+    Unregister-ScheduledTask -TaskName $tareaDiaria -Confirm:$false
+    Write-Output "Tarea anterior '$tareaDiaria' eliminada."
+}
+
+$accionDiaria = New-ScheduledTaskAction -Execute 'powershell.exe' `
+    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$script`" -DescartadasDiaria"
+
+$triggerDiaria = New-ScheduledTaskTrigger -Daily -At 19:00
+
+Register-ScheduledTask -TaskName $tareaDiaria `
+    -Action $accionDiaria `
+    -Trigger $triggerDiaria `
+    -Principal $principal `
+    -Settings $settings `
+    -Description 'Purga de duplicados CYTV Ancon: descartadas solo contiene duplicados y se borran todos los dias a las 7:00 PM.' | Out-Null
+
+Write-Output "Tarea '$tareaDiaria' registrada correctamente."
+Write-Output "  Frecuencia : diaria 7:00 PM (duplicados)"
+Write-Output "  Usuario    : SYSTEM (no requiere login)"
+Write-Output "  Script     : $script -DescartadasDiaria"
+
+           
+Write-Output ''
+Write-Output 'Estado de las tareas:'
+Get-ScheduledTask -TaskName $tarea, $tareaDiaria -ErrorAction SilentlyContinue |
+    Format-List TaskName, State
+(Get-ScheduledTask -TaskName $tarea -ErrorAction SilentlyContinue).Triggers | Format-List
+(Get-ScheduledTask -TaskName $tareaDiaria -ErrorAction SilentlyContinue).Triggers | Format-List

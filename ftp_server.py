@@ -27,8 +27,8 @@ from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.handlers import FTPHandler
 from pyftpdlib.servers import FTPServer
 
-# El codigo de la app vive en app\: se agrega al path para que los imports
-# planos de worker/ocr/modelo/reconocedor sigan funcionando igual.
+
+
 sys.path.insert(0, str(Path(__file__).resolve().parent / "app"))
 
 import worker
@@ -43,13 +43,13 @@ def cargar_config() -> dict:
         print(f"[FATAL] No se encontro el archivo de configuracion: {ruta}", file=sys.stderr)
         raise SystemExit(1)
 
-    # utf-8-sig: tolera el BOM que escribe el Bloc de notas de Windows
+    
     ini = configparser.ConfigParser()
     ini.read(ruta, encoding="utf-8-sig")
 
-    # Caida a rutas relativas: se resuelven igual (un config viejo sigue
-    # funcionando) pero se anotan para avisar al arrancar: el camino
-    # correcto es rutas absolutas.
+    
+    
+    
     relativas: list[str] = []
 
     def ruta_rel(seccion: str, clave: str) -> Path:
@@ -82,10 +82,12 @@ def cargar_config() -> dict:
         "logs": ruta_rel("rutas", "logs"),
         "heartbeat": ruta_rel("rutas", "heartbeat"),
         "reportes": opt("rutas", "reportes", "reportes"),
-        "cooldown": ini.getfloat("duplicados", "cooldown_segundos"),
         "umbral": ini.getfloat("duplicados", "umbral_diferencia"),
-        # Filtros de placa. Van con fallback: un config.ini viejo sigue
-        # funcionando sin tocar nada (evita romper el servicio actualizado).
+        "replay_inicio": ini.get("inicio", "replay_descartes", fallback="si"),
+        "replay_pausa_seg": ini.getfloat("inicio", "replay_pausa_seg",
+                                         fallback=1.0),
+        
+        
         "modo_descarte": ini.get("filtros", "modo_descarte", fallback="retener"),
         "umbral_modelo": ini.getfloat("filtros", "umbral_modelo", fallback=0.25),
         "ocr_requerido": ini.get("filtros", "ocr_requerido", fallback="si"),
@@ -97,8 +99,8 @@ def cargar_config() -> dict:
         "umbral_bordes": ini.getfloat("filtros", "umbral_bordes", fallback=2.0),
         "umbral_dedup": ini.getint("filtros", "umbral_dedup_dist", fallback=12),
         "descartes": opt("filtros", "descartes", "descartadas"),
-        # Control de pasadas (Fase 1): ventana entre visitas de la misma
-        # placa y tope de pasadas por periodo.
+        
+        
         "ventana_reinspeccion_min": ini.getfloat("camara", "ventana_reinspeccion_min",
                                                  fallback=60.0),
         "ventana_reinspeccion_dias": ini.getint("camara", "ventana_reinspeccion_dias",
@@ -195,8 +197,8 @@ def escribir_info_camara(cfg: dict) -> Path:
     ruta = BASE / "INFO_CAMARA.txt"
     inicio, fin = cfg["pasivos"]
 
-    # Texto segun instalacion (2026-10-16): mapeo corregido de canales,
-    # sin vista_forzada. Canal 01 = PT (placa), canal 02 = panoramico.
+    
+    
     texto_vistas = (
         "  IMPORTANTE - las DOS vistas tienen que subir:\n"
         "    Canal 01 (PT) y Canal 02 (panoramico): en\n"
@@ -248,7 +250,7 @@ def escribir_info_camara(cfg: dict) -> Path:
 --- CAMBIOS DE CONFIGURACION ----------------------------------
   scripts\\instalar_servicio.bat config              ver config.ini
   scripts\\instalar_servicio.bat config set CLAVE V  cambiar un valor
-      (puerto usuario password cooldown_segundos umbral_modelo ...)
+      (usuario password umbral_modelo ...)
 
   NOTA: si cambia la password aqui, cambielo TAMBIEN en la camara.
   NOTA: para que la IP no cambie, pida al router una reserva DHCP
@@ -315,8 +317,8 @@ def main() -> int:
     cfg = cargar_config()
     preparar_log(cfg)
 
-    # Antes de tocar nada: verificar/crear todas las carpetas con ruta
-    # absoluta y decir en el log donde quedo cada una.
+    
+    
     asegurar_carpetas(cfg)
 
     worker.iniciar(cfg)
@@ -338,8 +340,8 @@ def main() -> int:
     servidor.max_cons = cfg["max_conexiones"]
     servidor.max_cons_per_ip = 5
 
-    # NSSM corta el servicio con CTRL+BREAK (SIGBREAK) y el Ctrl+C de la
-    # consola con SIGINT: en ambos casos cerramos limpio y salimos.
+    
+    
     def cerrar(signum, _frame):
         logger.info("Senal %s: cerrando servidor...", signum)
         try:
@@ -365,8 +367,8 @@ def main() -> int:
     logger.info("=" * 56)
 
     try:
-        # pyftpdlib 2.x usa "timeout"; 1.5.x usa "poll_timeout".
-        # handle_exit=False para que la salida la manejen nuestros handlers.
+        
+        
         if "timeout" in inspect.signature(FTPServer.serve_forever).parameters:
             servidor.serve_forever(timeout=1, handle_exit=False)
         else:

@@ -21,13 +21,16 @@ import csv
 import sys
 from pathlib import Path
 
-APP = Path(__file__).resolve().parent           # aqui vive gt_placas
-PROYECTO = APP.parent                           # raiz del proyecto
+APP = Path(__file__).resolve().parent           
+PROYECTO = APP.parent                           
 sys.path.insert(0, str(APP))
 
-from gt_placas import DIAGNOSTICOS  # noqa: E402
+from gt_placas import DIAGNOSTICOS  
 
 CSV_REALES = PROYECTO / "entrenamiento" / "etiquetas_reales.csv"
+
+
+CSV_APROBADAS = PROYECTO / "entrenamiento" / "flota_aprobada.csv"
 
 
 def canon(texto: str) -> str:
@@ -45,6 +48,12 @@ def flota() -> list[str]:
             for fila in csv.DictReader(f):
                 c = canon(fila["placa"])
                 placas.setdefault(c, fila["placa"].upper())
+    if CSV_APROBADAS.is_file():
+        with CSV_APROBADAS.open(encoding="utf-8-sig") as f:
+            for fila in csv.DictReader(f):
+                placa = (fila.get("placa") or "").strip()
+                if placa:
+                    placas.setdefault(canon(placa), placa.upper())
     return list(placas.values())
 
 
