@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Depurador de placas CYTV</title>
+<style>
+  :root { --bg:#0f1419; --panel:#171d24; --borde:#2a3441; --txt:#d9e1ea;
+          --ok:#2ec84e; --warn:#f0b429; --mal:#e4574d; --azul:#4aa3ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt);
+         font:14px/1.45 "Segoe UI", system-ui, sans-serif; }
+  header { padding:14px 20px; background:var(--panel); border-bottom:1px solid var(--borde);
+           display:flex; align-items:center; gap:14px; }
+  header h1 { font-size:17px; margin:0; font-weight:600; }
+  header .modo { font-size:12px; color:var(--warn); }
+  main { display:grid; grid-template-columns: minmax(320px,52%) 1fr; gap:14px; padding:14px 20px; }
+  @media (max-width: 980px) { main { grid-template-columns:1fr; } }
+  .zona { background:var(--panel); border:1px solid var(--borde); border-radius:10px; padding:12px; }
+  .zona h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em;
+             color:#8fa3b8; margin:2px 0 10px; }
+  #drop { border:2px dashed var(--borde); border-radius:10px; padding:34px 12px;
+          text-align:center; color:#8fa3b8; cursor:pointer; transition:.15s; }
+  #drop.over, #drop:hover { border-color:var(--azul); color:var(--txt); }
+  #fotoWrap { display:none; }
+  #foto { width:100%; border-radius:8px; display:block; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th, td { text-align:left; padding:5px 7px; border-bottom:1px solid var(--borde); }
+  th { color:#8fa3b8; font-weight:600; }
+  .chip { display:inline-block; padding:1px 7px; border-radius:99px; font-size:11px; font-weight:600; }
+  .chip.ok { background:rgba(46,200,78,.15); color:var(--ok); }
+  .chip.mal { background:rgba(228,87,77,.15); color:var(--mal); }
+  .chip.warn { background:rgba(240,180,41,.15); color:var(--warn); }
+  .veredicto { padding:14px; border-radius:10px; border:1px solid var(--borde); margin-bottom:10px; }
+  .veredicto.guardada { background:rgba(46,200,78,.08); border-color:var(--ok); }
+  .veredicto.dudosa { background:rgba(240,180,41,.08); border-color:var(--warn); }
+  .veredicto.mal { background:rgba(228,87,77,.08); border-color:var(--mal); }
+  .veredicto .placa { font-size:26px; font-weight:700; letter-spacing:.05em; margin:4px 0; }
+  .veredicto .tipo { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8fa3b8; }
+  .kv { display:grid; grid-template-columns:1fr 1fr; gap:4px 14px; font-size:12.5px; }
+  .kv div span { color:#8fa3b8; }
+  details { margin-top:8px; }
+  summary { cursor:pointer; color:#8fa3b8; font-size:12px; }
+  pre { background:#0b0f14; border:1px solid var(--borde); border-radius:8px;
+        padding:10px; font-size:11.5px; max-height:320px; overflow:auto; white-space:pre-wrap; }
+  #estado { font-size:13px; color:var(--warn); min-height:18px; margin-top:6px; }
+  .der { text-align:right; }
+  .fila-gan { background:rgba(46,200,78,.07); }
+  .fila-prob { background:rgba(240,180,41,.06); }
+  .mono { font-family:Consolas, monospace; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Depurador de placas CYTV</h1>
+  <span class="modo">modo aislado: no guarda nada, no toca registro.db ni imagenes_procesadas</span>
+</header>
+<main>
+  <section class="zona">
+    <h2>1 &middot; Subi la foto</h2>
+    <div id="drop">Arrastra una foto aqui &nbsp;o&nbsp; haz clic para elegir
+      <div id="estado"></div>
+    </div>
+    <input type="file" id="file" accept="image/*" hidden>
+    <div id="fotoWrap" style="margin-top:12px">
+      <img id="foto" alt="resultado">
+      <div class="kv" style="margin-top:8px" id="meta"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="zona" style="margin-bottom:14px">
+      <h2>2 &middot; Decision final del worker</h2>
+      <div id="veredicto" class="veredicto">Subi una foto para ver la decision.</div>
+      <div class="kv" id="configUsada"></div>
+    </div>
+
+    <div class="zona" style="margin-bottom:14px">
+      <h2>3 &middot; Candidatos del detector (mayor area primero)</h2>
+      <div id="candidatos">—</div>
+    </div>
+
+    <div class="zona" style="margin-bottom:14px">
+      <h2>4 &middot; Intentos OCR (cada motor, texto y confianza)</h2>
+      <div id="intentos">—</div>
+    </div>
+
+    <div class="zona">
+      <h2>5 &middot; Log del pipeline (capturado)</h2>
+      <details open><summary>log</summary><pre id="log">—</pre></details>
+      <details><summary>Error / traza (si la hubo)</summary><pre id="error">—</pre></details>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const drop = $("drop"), file = $("file");
+let cargando = false;
+
+drop.addEventListener("click", () => file.click());
+file.addEventListener("change", () => file.files[0] && subir(file.files[0]));
+["dragover","dragenter"].forEach(e => drop.addEventListener(e, ev => {
+  ev.preventDefault(); drop.classList.add("over"); }));
+["dragleave","drop"].forEach(e => drop.addEventListener(e, ev => {
+  ev.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", ev => {
+  const f = ev.dataTransfer.files[0]; if (f) subir(f); });
+
+function estado(t, color) { $("estado").textContent = t;
+  $("estado").style.color = color || "var(--warn)"; }
+
+async function subir(f) {
+  if (cargando) return; cargando = true;
+  estado("Analizando… (la primera vez tarda: carga el modelo)", "var(--azul)");
+  $("veredicto").className = "veredicto";
+  $("veredicto").textContent = "Analizando…";
+  try {
+    const r = await fetch("/api/evaluar", { method: "POST",
+      headers: { "Content-Type": "image/jpeg" }, body: f });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || "fallo");
+    pintar(d);
+    estado(`Listo en ${d.ms} ms`, "var(--ok)");
+  } catch (e) {
+    $("veredicto").className = "veredicto mal";
+    $("veredicto").textContent = "Error: " + e.message;
+    estado("Error — mira el panel de traza", "var(--mal)");
+  } finally { cargando = false; }
+}
+
+function chip(ok, txt) {
+  return `<span class="chip ${ok ? "ok" : "mal"}">${txt}</span>`; }
+
+function pintar(d) {
+  $("fotoWrap").style.display = "block";
+  $("foto").src = d.img;
+  $("meta").innerHTML =
+    `<div><span>candidatos:</span> <b>${d.candidatos.length}</b></div>` +
+    `<div><span>tiempo:</span> <b>${d.ms} ms</b></div>`;
+
+  const v = d.veredicto || {};
+  let cls = "veredicto", titulo = v.tipo || "?";
+  if (v.tipo === "guardada") cls = "veredicto guardada";
+  else if (v.tipo === "guardada_dudosa") cls = "veredicto dudosa";
+  else if (v.tipo && v.tipo !== "sin_decision") cls = "veredicto mal";
+  const sem = v.semaforo
+    ? `<span class="chip ${v.semaforo === "verde" ? "ok" : "warn"}">semaforo ${v.semaforo}</span>` : "";
+  $("veredicto").className = cls;
+  $("veredicto").innerHTML =
+    `<div class="tipo">${titulo}</div>` +
+    `<div class="placa">${v.placa ? v.placa : "—"}</div>` +
+    `<div>${v.detalle || ""}</div>` +
+    `<div style="margin-top:6px">${sem} ` +
+    (v.evidencia != null ? `<span class="chip warn">evidencia ${v.evidencia}</span> ` : "") +
+    (v.conf != null ? `<span class="chip">conf ${v.conf}</span>` : "") + `</div>`;
+
+  const c = d.config || {};
+  $("configUsada").innerHTML = [
+    ["umbral_modelo", c.umbral_modelo], ["umbral_nitidez", c.umbral_nitidez],
+    ["sobreexpuesto max", c.umbral_sobreexpuesto], ["bordes min", c.umbral_bordes],
+    ["ocr_requerido", c.ocr_requerido], ["modo_descarte", c.modo_descarte],
+    ["ventana_reinsp_min", c.ventana_reinspeccion_min], ["max_pasadas", c.max_pasadas],
+  ].map(([k, v2]) => `<div><span>${k}:</span> <b class="mono">${v2}</b></div>`).join("");
+
+  if (!d.candidatos.length) {
+    $("candidatos").innerHTML = `<span class="chip mal">el detector no vio ninguna placa (umbral ${c.umbral_modelo})</span>`;
+  } else {
+    $("candidatos").innerHTML = "<table><tr><th>#</th><th>caja</th><th>conf det</th>" +
+      "<th>borde</th><th>nitidez</th><th>sobreexp</th><th>bordes</th><th>rol</th></tr>" +
+      d.candidatos.map(f => {
+        const rol = f.ganador ? '<span class="chip ok">GANADOR</span>'
+          : f.probado ? '<span class="chip warn">probado</span>'
+          : `<span class="chip mal">${f.motivo_filtro || "no probado"}</span>`;
+        return `<tr class="${f.ganador ? "fila-gan" : f.probado ? "fila-prob" : ""}">` +
+          `<td>${f.i}</td><td class="mono">${f.bbox.join(", ")}</td><td>${f.conf_det}</td>` +
+          `<td>${f.toca_borde ? chip(false, "si") : chip(true, "no")}</td>` +
+          `<td>${f.nitidez} ${f.nitidez_ok ? chip(true, "ok") : chip(false, "no")}</td>` +
+          `<td>${f.sobreexp} ${f.sobreexp_ok ? chip(true, "ok") : chip(false, "no")}</td>` +
+          `<td>${f.bordes} ${f.bordes_ok ? chip(true, "ok") : chip(false, "no")}</td>` +
+          `<td>${rol}</td></tr>`;
+      }).join("") + "</table>";
+  }
+
+  if (!d.intentos.length) {
+    $("intentos").innerHTML = '<span class="chip mal">ningun motor llego a leer (o ningun candidato paso filtros)</span>';
+  } else {
+    $("intentos").innerHTML = d.intentos.map((it, k) =>
+      `<div style="margin-bottom:8px"><b>lectura #${k + 1}</b> ` +
+      `<span class="mono" style="color:#8fa3b8">bbox [${it.bbox.join(", ")}]</span> → ` +
+      (it.texto ? `<b class="mono" style="color:var(--ok)">${it.texto}</b> (conf ${it.conf})`
+                : '<span class="chip mal">abstuvo</span>') +
+      `<details><summary>intentos del motor (${it.intentos.length})</summary>` +
+      "<table><tr><th>intento</th><th>texto</th><th>conf</th></tr>" +
+      it.intentos.map(([n, t, cc]) =>
+        `<tr><td>${n}</td><td class="mono">${t || "—"}</td><td>${cc}</td></tr>`).join("") +
+      "</table></details></div>").join("");
+  }
+
+  $("log").textContent = (d.log || []).join("\n") || "—";
+  $("error").textContent = d.error || "sin errores";
+}
+</script>
+</body>
+</html>

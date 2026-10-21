@@ -138,7 +138,10 @@ def iniciar(cfg: dict) -> None:
     _cfg = cfg
     _ruta_registro = cfg["registro"]
     cfg["procesadas"].mkdir(parents=True, exist_ok=True)
-    _carpeta_descartes().mkdir(parents=True, exist_ok=True)
+    # descartadas\ solo existe con modo_descarte = retener; con eliminar
+    # (default) no se crea nunca: la decision es al momento.
+    if str(cfg.get("modo_descarte", "eliminar")).strip().lower() == "retener":
+        _carpeta_descartes().mkdir(parents=True, exist_ok=True)
 
     con = sqlite3.connect(_ruta_registro)
     try:
@@ -359,71 +362,28 @@ def registrar(archivo: str, placa: str | None = None,
 
 
 
-_flota_cache: set[str] | None = None
-_flota_cache_ts = 0.0
-
-
-def _en_flota(texto: str) -> bool:
-    """¿El texto esta en la flota verificada (etiquetas + aprobadas)?"""
-    global _flota_cache, _flota_cache_ts
-    ahora = time.time()
-    if _flota_cache is None or ahora - _flota_cache_ts > 300:
-        try:
-            from decodificador_flota import flota
-            _flota_cache = {p.upper() for p in flota()}
-        except Exception:
-            logger.debug("flota no disponible para _en_flota", exc_info=True)
-            _flota_cache = set()
-        _flota_cache_ts = ahora
-    return texto.upper() in _flota_cache
-
-
 UMBRAL_ETIQUETA_AUTO = 0.55
 
 
 def _etiqueta_auto(texto: str, intentos: list) -> str:
     """Etiqueta que el propio sistema valida sin humano, o "" si no existe.
 
-    Tres caminos aceptados (el mismo nivel de verificacion que antes
-    exigia la aprobacion manual):
-      1. el texto es una placa exacta de la flota verificada;
-      2. el CRNN dice exactamente lo mismo que los votos;
-      3. >= 2 intentos equivalentes coinciden y NINGUNA placa de la
-         flota esta a distancia <= 2 (nadie contradice la lectura).
-    Cualquier otro caso no se inventa etiqueta: la foto se queda en
-    descartadas para replay.
+    Regla unica (modelo puro, sin flota): el CRNN dice exactamente lo
+    mismo que la lectura final. Dos motores independientes de acuerdo =
+    la misma verificacion que antes exigia el humano. Si no coincide,
+    no se inventa etiqueta: la foto se queda en descartadas para replay.
     """
     if not texto:
         return ""
-    try:
-        from decodificador_flota import canon, distancia, flota
-        conjunto = flota()
-    except Exception:
-        logger.debug("flota no disponible para la etiqueta auto",
-                     exc_info=True)
-        return ""
-    if not conjunto:
-        return ""
-    texto_c = canon(texto)
-    for placa in conjunto:
-        if canon(placa) == texto_c:
-            return placa
+
+    def _c(s: str) -> str:
+        return (s or "").upper().replace("-", "").strip()
+
+    texto_c = _c(texto)
     for nombre, t, _c in intentos:
-        if nombre == "crnn_flota" and t and canon(t) == texto_c:
+        if nombre == "crnn" and t and _c(t) == texto_c:
             return texto.upper()
-    try:
-        from ocr import _forma_voto
-        forma = _forma_voto(texto)
-        coinciden = sum(1 for _n, t, _c in intentos
-                        if t and _forma_voto(t) == forma)
-    except Exception:
-        coinciden = sum(1 for _n, t, _c in intentos
-                        if t and canon(t) == texto_c)
-    if coinciden < 2:
-        return ""
-    if min(distancia(texto_c, canon(p)) for p in conjunto) <= 2:
-        return ""
-    return texto.upper()
+    return ""
 
 
 def _encolar_entrenamiento(ruta: Path, img: np.ndarray,
@@ -587,11 +547,45 @@ _MOTIVOS_SIN_REPLAY = {"duplicado", "duplicado_placa"}
 _EXT_FOTO = (".jpg", ".jpeg", ".png")
 
 
+def _limpiar_carpetas_vacias(raiz: Path) -> int:
+    """Borra fechas/motivos de descartadas que quedaron sin archivos.
+
+    Tras el replay solo los duplicados conservan contenido; las carpetas
+    vacias de motivos re-evaluados (y fechas que se quedaron sin nada)
+    se eliminan. Nunca toca nada que tenga archivos (los duplicados de
+    hoy y los que falten procesar siguen intactos).
+    """
+    borradas = 0
+    for fecha in sorted((d for d in raiz.iterdir() if d.is_dir()),
+                        reverse=True):
+        for motivo in sorted((m for m in fecha.iterdir() if m.is_dir()),
+                             reverse=True):
+            try:
+                next(motivo.iterdir())
+            except StopIteration:
+                motivo.rmdir()
+                borradas += 1
+            except OSError:
+                continue
+        try:
+            next(fecha.iterdir())
+        except StopIteration:
+            fecha.rmdir()
+            borradas += 1
+        except OSError:
+            continue
+    if borradas:
+        logger.info("Replay: %d carpeta(s) vacia(s) eliminadas de "
+                    "descartadas", borradas)
+    return borradas
+
+
 def _fotos_descartadas_para_replay(raiz: Path) -> list[Path]:
     r"""Lista (ordenada) de fotos de descartadas que SI deben re-evaluar-se.
 
-    Excluye duplicado/duplicado_placa (son duplicados retenidos: van a la
-    purga diaria de las 19:00, no al loop). Acepta el layout por motivo
+    Excluye duplicado/duplicado_placa (con modo_descarte = retener son
+    los unicos retenidos, pero NO se re-evaluan: si los duplique solo
+    se acumularian). Acepta el layout por motivo
     (``<dia>\<motivo>\foto``) y el layout antiguo de foto suelta en ``<dia>\``.
     """
     pendientes: list[Path] = []
@@ -625,6 +619,7 @@ def _replay_descartes_inicio() -> None:
     raiz = _carpeta_descartes()
     if not raiz.is_dir():
         return
+    _limpiar_carpetas_vacias(raiz)
     pendientes = _fotos_descartadas_para_replay(raiz)
     if not pendientes:
         logger.info("Replay al arrancar: sin fotos pendientes en descartadas")
@@ -645,6 +640,12 @@ def _replay_descartes_inicio() -> None:
                 time.sleep(pausa)
         logger.info("Replay al arrancar terminado: %d/%d foto(s) "
                     "re-encoladas", reencoladas, len(pendientes))
+        try:
+            COLA.join()
+            _limpiar_carpetas_vacias(raiz)
+        except Exception:
+            logger.exception("No se pudieron limpiar las carpetas vacias "
+                             "de descartadas")
 
     threading.Thread(target=_alimentar, daemon=True,
                      name="replay-inicio").start()
@@ -961,39 +962,44 @@ def _nombre_con_placa(vista: str, texto_placa: str, ahora: datetime,
 
 
 def _descartar(ruta: Path, motivo: str, detalle: str = "",
-               auditar: bool = True,
-               img_anotada: np.ndarray | None = None) -> None:
+               auditar: bool = True) -> None:
+    """Aplica modo_descarte (eliminar por defecto / retener) + registro.
+
+    2026-10-20: se restaura el comportamiento original por config. Con
+    ``eliminar`` (default) cada foto se decide al momento: duplicado,
+    sin placa u otro fallo se BORRA y descartadas\\ no se usa. Con
+    ``retener`` se mueve a descartadas\\<fecha>\\<motivo> como antes.
+    En ambos casos la decision queda registrada en registro.db.
+    """
     nombre = ruta.name
     sufijo = f" {detalle}" if detalle else ""
-    es_duplicado = motivo in ("duplicado", "duplicado_placa")
+    retener = str(_cfg.get("modo_descarte", "eliminar")
+                  ).strip().lower() == "retener"
 
-    if not es_duplicado:
+    if not retener:
         ruta.unlink(missing_ok=True)
-        if auditar:
-            registrar(nombre, estado=motivo, evidencia=0, semaforo="rojo")
-        nivel = logging.DEBUG if motivo in _MOTIVOS_VOLUMEN else logging.INFO
-        logger.log(nivel, "Imagen eliminada: %s | motivo: %s%s",
-                   nombre, motivo, sufijo)
-        return
-
-    carpeta = _carpeta_descartes() / datetime.now().strftime("%Y-%m-%d") \
-        / motivo
-    carpeta.mkdir(parents=True, exist_ok=True)
-    destino = _destino_libre(carpeta, nombre)
-    try:
-        if img_anotada is not None:
-            cv2.imwrite(str(destino), img_anotada,
-                        [int(cv2.IMWRITE_JPEG_QUALITY), 100])
+        accion = "Imagen eliminada"
+    else:
+        carpeta = _carpeta_descartes() / datetime.now().strftime("%Y-%m-%d") \
+            / motivo
+        carpeta.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.move(str(ruta), str(_destino_libre(carpeta, nombre)))
+            accion = "Imagen movida a descartadas (modo retener)"
+        except OSError:
+            logger.warning("No se pudo mover el descarte %s", nombre)
             ruta.unlink(missing_ok=True)
-        else:
-            shutil.move(str(ruta), str(destino))
-    except OSError:
-        logger.warning("No se pudo mover el descarte %s", nombre)
-        ruta.unlink(missing_ok=True)
+            accion = "Imagen eliminada"
+
     if auditar:
         registrar(nombre, estado=motivo, evidencia=0, semaforo="rojo")
-    logger.info("Duplicado en descartadas (purga diaria 19:00): %s | "
-                "motivo: %s%s", nombre, motivo, sufijo)
+
+    # Mensajes en claro para el operador: el flujo completo en el log es
+    #   Imagen recibida -> (No se detecta placa) -> Imagen eliminada
+    nivel = logging.DEBUG if motivo in _MOTIVOS_VOLUMEN else logging.INFO
+    if motivo == "sin_placa":
+        logger.info("No se detecta placa: %s", nombre)
+    logger.log(nivel, "%s: %s | motivo: %s%s", accion, nombre, motivo, sufijo)
 
 
 def _guardar(img: np.ndarray, bbox: tuple[int, int, int, int] | None,
@@ -1015,7 +1021,9 @@ def _guardar(img: np.ndarray, bbox: tuple[int, int, int, int] | None,
             salida = _dibujar_caja(img, bbox, _COLOR_VERDE, padding=0.18,
                                    grosor=fino)
         else:
-            salida = _dibujar_caja(img, bbox, _COLOR_ROJO)
+            # Placa aceptada: contorno verde (igual que la version original;
+            # el DUDOSA se distingue por el trazo fino y el padding).
+            salida = _dibujar_caja(img, bbox, _COLOR_VERDE)
     cv2.imwrite(str(destino), salida, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
 
     if bbox is not None:
@@ -1220,7 +1228,8 @@ def procesar_imagen(ruta: Path) -> None:
         logger.info("REEVALUACION (hasta 10 intentos) de %s: %s",
                     ruta.name, ultimo_fallo[0])
         for intento in range(10):
-            cbx, _cf = elegibles[intento % len(elegibles)]
+            # elegibles ya son bboxes (4-tuple); NO desempacar como par.
+            cbx = elegibles[intento % len(elegibles)]
             bx, by, bw, bh = cbx
             extra = 0.10 + 0.04 * intento
             ex, ey = int(bw * extra), int(bh * extra)

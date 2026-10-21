@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Reconocedor de placas CYTV: CRNN propio (ONNX) + diccionario de flota.
+"""Reconocedor de placas CYTV: CRNN propio (ONNX).
 
-Lector principal de la Fase 0 v2. Closed-set: solo responde cuando la
-lectura (o su correccion unica a distancia <= 2) aterriza en una placa
-de la flota verificada; si se abstiene, el llamador cae al motor
-heredado de 6 intentos (ocr.leer_placa_6), que queda intacto.
+Lector principal de la Fase 0 v2. Devuelve la lectura CRUDA del modelo
+mas su confianza: sin diccionario externo ni correccion de flota. Si se
+abstuvo (vacio), el llamador cae al motor heredado de 6 intentos
+(ocr.leer_placa_6), que queda intacto.
 
 Preproceso IDENTICO al entrenamiento (si se rompe, el accuracy cae en
 silencio): PIL convert("L").resize((160, 32), BILINEAR) / 255.0.
@@ -30,8 +30,6 @@ _BLANK = len(CHARSET)
 
 _sesion = None
 _sesion_mtime: float | None = None
-_flota: list[str] | None = None
-_conjunto: set[str] | None = None
 
 
 def _obtener_sesion():
@@ -65,16 +63,6 @@ def _obtener_sesion():
     return _sesion
 
 
-def _obtener_flota():
-    global _flota, _conjunto
-    if _flota is None:
-        from decodificador_flota import canon, flota
-        _flota = flota()
-        _conjunto = {canon(p) for p in _flota}
-        logger.info("flota cargada: %d placas verificadas", len(_flota))
-    return _flota, _conjunto
-
-
 def _tensor_desde_bgr(crop: np.ndarray) -> np.ndarray:
     """BGR uint8 (cv2) -> tensor (1,1,32,160) float [0,1]."""
     if crop.ndim == 3 and crop.shape[2] == 3:
@@ -98,18 +86,15 @@ def _decodificar(logits: np.ndarray) -> str:
 
 
 def leer_placa(crop: np.ndarray) -> tuple[str, float]:
-    """(placa canonica de flota, confianza cruda) o ("", 0.0) si abstuvo.
+    """(lectura cruda del CRNN, confianza cruda) o ("", 0.0) si abstuvo.
 
     Confianza = media del maximo softmax por timestep (0..1, no
     calibrada: sirve como senal relativa y para el log).
     """
-    from decodificador_flota import canon, corregir
-
     if crop is None or getattr(crop, "size", 0) == 0:
         return "", 0.0
     try:
         sesion = _obtener_sesion()
-        conjunto, canonicos = _obtener_flota()
     except Exception:
         logger.debug("CRNN no disponible (fallo de carga)", exc_info=True)
         return "", 0.0
@@ -118,15 +103,10 @@ def leer_placa(crop: np.ndarray) -> tuple[str, float]:
         leido = _decodificar(logits)
         if not leido:
             return "", 0.0
-        corregido = corregir(leido, conjunto, 2)
-        
-        
-        if canon(corregido) not in canonicos:
-            return "", 0.0
         probs = np.exp(logits - logits.max(axis=-1, keepdims=True))
         conf = float((probs / probs.sum(axis=-1, keepdims=True))
                      .max(axis=-1).mean())
-        return corregido, conf
+        return leido, conf
     except Exception:
         logger.exception("Fallo el reconocedor CRNN")
         return "", 0.0

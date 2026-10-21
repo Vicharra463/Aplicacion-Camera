@@ -132,7 +132,7 @@ def razonamiento(registro, texto, conf) -> str:
     for nombre, t, c in registro:
         lectura = t if t else "(vacio)"
         partes.append(f"{nombre}={lectura}({c:.2f})")
-    via = ("CRNN+flota (closed-set)" if registro[0][0] == "crnn_flota"
+    via = ("CRNN (lectura directa)" if registro[0][0] == "crnn"
            else "votos 6 intentos")
     final = texto if texto else "SIN LECTURA"
     return f"via {via} | " + " ; ".join(partes) + \

@@ -1,8 +1,8 @@
 # Servidor FTP de Placas CYTV Ancon
 
-Sistema 24/7 que recibe fotos de una cámara Hikvision TandemVu (2 canales), detecta y lee placas peruanas con un motor propio (detector YOLOv8n + CRNN + flota cerrada), y organiza todo en carpetas diarias con reportes JSON.
+Sistema 24/7 que recibe fotos de una cámara Hikvision TandemVu (2 canales), detecta y lee placas peruanas con un motor propio (detector YOLOv8n + CRNN con votación de variantes y límite de formato peruano; sin flota cerrada), y organiza todo en carpetas diarias con reportes JSON.
 
-**Precisión actual en el set de validación (29 diagnósticos): 86,2 %** — el motor anterior (RapidOCR solo) daba 55,2 %.
+**Precisión actual en el set de validación (29 diagnósticos): 44,8 % sin flota cerrada** (medido 2026-10-21). Con la flota cerrada (ya eliminada) daba 86,2 %; el motor anterior (RapidOCR solo) daba 55,2 %. Meta del proyecto: ≥ 90 % con datos reales vía fine-tune.
 
 Este README tiene dos caminos:
 
@@ -308,9 +308,8 @@ En otra máquina: copia la carpeta completa, corre el instalador, ajusta las rut
                                     │ app\worker.py                         │
                                     │  cadena de filtros → guardado          │
                                     │   ├─ app\modelo.py   YOLOv8n ONNX     │
-                                    │   └─ app\ocr.py      CRNN + fallback   │
+                                    │   └─ app\ocr.py      variantes + CRNN  │
                                     │       └─ app\reconocedor.py (ONNX)    │
-                                    │           └─ app\decodificador_flota  │
                                     └────────┬───────────────────────────────┘
                                              │
               ┌──────────────────────────────┼──────────────────────┐
@@ -373,7 +372,7 @@ CytvAncon\
 │   ├── reconocedor.py   CRNN propio (ONNX numpy/PIL/ort, sin torch)
 │   ├── modelo.py        detector ONNX (YOLOv8n) con fallback geométrico
 │   ├── consola.py       consola interactiva (scripts\consola.bat)
-│   ├── decodificador_flota.py   corrección closed-set
+│   ├── decodificador_flota.py   heredado, sin uso en el pipeline (flota eliminada 2026-10-21)
 │   └── gt_placas.py     tabla GT de los 29 diagnósticos
 │
 ├── modelo\              ← pesos ONNX/PT (placas.onnx, reconocedor.onnx, ...)
@@ -394,33 +393,35 @@ El servicio arranca con `sys.path` apuntando a `app\`, de modo que todos los imp
 
 | Entorno | Python | Qué corre | Torch |
 |---------|--------|-----------|-------|
-| **Servicio** (`C:\CytvAncon\venv`) | 3.9 o 3.13 (según el SO) | `ftp_server.py` 24/7; solo ONNX Runtime | **Nunca** |
-| **Entrenamiento** (`.venvs\cytv-train`) | 3.12 | `entrenamiento\*.py` | Sí (CUDA si hay GPU) |
+| **Servicio** (`C:\CytvAncon\venv`) | 3.9 o 3.13 (según el SO) | `ftp_server.py` 24/7; solo ONNX Runtime (1 hilo) | **Nunca** |
+| **Entrenamiento** (`C:\CytvAncon\venv`, local) | 3.13 + torch/`onnxscript` | `entrenamiento\*.py`; nunca se despliega al server | N/A (local) |
 
 El servicio **nunca** importa torch: el CRNN se ejecuta exportado en `modelo\reconocedor.onnx` vía onnxruntime + numpy + PIL.
 
-## Motor de lectura: CRNN + flota cerrada
+## Motor de lectura: CRNN + votación de variantes (sin flota)
 
 ### Cómo lee una placa
 
 1. **Detección** — YOLOv8n (`modelo\placas.onnx`) propone bboxes; score ≥ `umbral_modelo`.
 2. **Recorte** — bbox + margen 35 %, se normaliza a la entrada del lector.
-3. **CRNN** (`app\reconocedor.py`) — red propia CRNN+CTC exportada a ONNX. Lee el recorte y produce un texto candidato con confianza (media de las max-softmax).
-4. **Flota cerrada** (`app\decodificador_flota.py`) — el CRNN solo se acepta si su texto **ya es** una placa de la flota, o si a distancia de edición ≤ 2 hay **exactamente una** placa de flota que lo explique (por ejemplo `NTA703 → WIA-703`). Si hay empate o queda fuera de umbral, **se abstiene**.
-5. **Fallback** — si el CRNN se abstiene o falla, entra el motor heredado de 6 intentos (RapidOCR con votación sobre variantes del recorte), intacto.
+3. **Variantes** — `leer_placa_6` (`app\ocr.py`) genera recortes alternativos y vota con RapidOCR sobre ellos; cada intento produce un texto candidato.
+4. **CRNN** (`app\reconocedor.py`) — red propia CRNN+CTC exportada a ONNX. Si las variantes vieron texto, el CRNN entra como **un voto más** en el grupo de equivalencia; si es el único que habla, **se abstiene** (no inventa texto).
+5. **Límite de formato** — la lectura final debe encajar en un formato de placa peruana real (`_FORMATOS` / `_normalizar` en `app\ocr.py`); si no encaja, se descarta.
 
-Abstenerse es más seguro que adivinar: el fallback vota y, si nada aterriza en la flota, no se inventa texto.
+La **flota cerrada y el snap de placas se eliminaron el 2026-10-21**: el motor no consulta ninguna lista de placas conocidas ni acepta texto solo por pertenecer a un catálogo.
 
 ### Métricas (set de validación = 29 diagnósticos de `app\gt_placas.py`)
 
 | Motor | Acierto | Notas |
 |-------|---------|-------|
-| RapidOCR 6 intentos (heredado) | 55,2 % | Motor anterior, sigue como fallback |
+| RapidOCR 6 intentos (heredado) | 55,2 % | Motor anterior, hoy es el voto principal de `leer_placa_6` |
 | CRNN crudo (fine-tune) | 41,4 % | 20 épocas, mix 50/50 real+sintético |
-| CRNN + decodificador de flota | 82,8 % | Closed-set, umbral 2 |
-| **Integrado en producción** | **86,2 %** | CRNN+cierre primero, fallback después |
+| CRNN + flota cerrada (histórico) | 86,2 % | **Eliminado 2026-10-21** |
+| **Pipeline actual (sin flota)** | **44,8 %** | `validar_diagnosticos.py`, medido 2026-10-21 |
 
-Los 4 casos que fallan son fotos degradadas (placa cortada al borde, casi ilegibles) donde el motor viejo también fallaba — antes adivinaba mal, ahora se abstiene.
+Bancos de pasadas (fotos reales de tránsito; métrica "placa correcta por pasada"): **69,8 % (81/116)** en el banco y **72,0 % (67/93)** en el cotejo, con el pipeline sin flota y con los límites de hilos.
+
+Al quitar la flota cerrada se perdió su corrector de letras legales confusas (H↔W, N↔M, U↔V): como ambas letras son válidas en placas peruanas, eso **no se arregla con reglas** — solo con datos reales vía fine-tune.
 
 **Caveat honesto**: 4 camiones del set de validación también aparecen en las fotos de entrenamiento (`etiquetas_reales.csv`), así que el número real sobre placas nuevas es un poco menor. La meta del proyecto es ≥ 90 %.
 
@@ -430,8 +431,9 @@ Los 4 casos que fallan son fotos degradadas (placa cortada al borde, casi ilegib
 |----------|-------|
 | Entrada del CRNN | `(1, 1, 32, 160)` — PIL `convert("L").resize((160,32), BILINEAR) / 255`; BGR→RGB antes de PIL |
 | CHARSET | `0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-` (37 glifos) + CTC blank = índice 37; `N_CLASSES = 38` |
-| Flota | ~89 placas verificadas: `gt_placas.DIAGNOSTICOS` (29) + `entrenamiento\etiquetas_reales.csv` (81, deduplicadas). Los nombres de archivo históricos **no** entran (≈60 % eran erróneos) |
-| Closed-set | Prioridad al match exacto; solo se remapea lecturas no-exactas con distancia ≤ 2 a un candidato único de flota |
+| Límite de formato | `_FORMATOS` / `_normalizar` en `app\ocr.py`: la lectura debe parecer una placa peruana (ABC-123, AB-1234, ...); lo que no encaja se descarta |
+| Votos | Las variantes de `leer_placa_6` y el CRNN deben apuntar al mismo texto; el CRNN solo no basta (anti-fabricación) |
+| Datos reales | `gt_placas.DIAGNOSTICOS` (29, holdout **sagrado**, jamás se entrena) + `entrenamiento\etiquetas_reales.csv` (87 filas, 74 placas) para fine-tune |
 
 ## Desarrollo y reentrenamiento
 
@@ -442,7 +444,7 @@ Los 4 casos que fallan son fotos degradadas (placa cortada al borde, casi ilegib
 python entrenamiento\validar_diagnosticos.py
 ```
 
-Debe imprimir `TOTAL: 25/29 = 86.2%`. Los 29 diagnósticos **jamás se entrenan** — son el holdout permanentemente sagrado.
+Debe imprimir `TOTAL: 13/29 = 44.8% ... NO PASA` (medido 2026-10-21, sin flota cerrada; con flota daba 86,2 %). Los 29 diagnósticos **jamás se entrenan** — son el holdout permanentemente sagrado.
 
 ### Ciclo de mejora con datos reales
 
@@ -450,16 +452,14 @@ Debe imprimir `TOTAL: 25/29 = 86.2%`. Los 29 diagnósticos **jamás se entrenan*
 # 1. Etiquetar a mano los crops nuevos (montajes en entrenamiento\montajes\)
 #    → filas nuevas en entrenamiento\etiquetas_reales.csv (PLACA,filename)
 
-# 2. Fine-tune (entorno de entrenamiento, con torch)
-& C:\Users\felip\.venvs\cytv-train\Scripts\python.exe entrenamiento\entrenar_real.py
+# 2. Fine-tune sintetico + real (con torch; imprime GT_TEST por epoca)
+& C:\CytvAncon\venv\Scripts\python.exe entrenamiento\entrenar.py
+& C:\CytvAncon\venv\Scripts\python.exe entrenamiento\entrenar_real.py --desde entrenamiento\crnn_reales.pt
 
-# 3. Evaluar con y sin flota
-& C:\Users\felip\.venvs\cytv-train\Scripts\python.exe entrenamiento\eval_flota.py
-
-# 4. Re-validar el pipeline integrado
+# 3. Re-validar el pipeline integrado (metrica oficial)
 python entrenamiento\validar_diagnosticos.py
 
-# 5. Publicar: el export a ONNX de entrenar_real.py ya escribe
+# 4. Publicar: el export a ONNX de entrenar_real.py ya escribe
 #    modelo\reconocedor.onnx — reiniciar el servicio para cargarlo
 Restart-Service CamaraCytvAncon
 ```

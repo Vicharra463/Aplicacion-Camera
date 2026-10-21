@@ -212,8 +212,8 @@ def variantes_intento(img: np.ndarray, bbox: tuple[int, int, int, int],
 
 
 UMBRAL_CONF_RESUELTA = 0.95    
-UMBRAL_PUNTUACION = 0.70       
-PESO_UMBRAL_INV = 1.2          
+UMBRAL_PUNTUACION = 0.70
+PESO_UMBRAL_INV = 1.0
 
 
 
@@ -222,11 +222,6 @@ PESO_UMBRAL_INV = 1.2
 
 
 
-
-
-SNAP_K = 2
-SNAP_K_SINGLETON = 1           
-UMBRAL_SNAP_INDIVIDUAL = 0.55  
 
 
 def _correr_6(img: np.ndarray, bbox: tuple[int, int, int, int],
@@ -248,11 +243,12 @@ def _correr_6(img: np.ndarray, bbox: tuple[int, int, int, int],
 
 def _elegir_voto(grupos: dict[str, list[tuple[str, float, float]]]
                  ) -> tuple[str, float, list[tuple[str, float, float]]]:
-    """(texto_ganador_con_snap, conf_media, miembros); [] si no hay voto.
+    """(texto_ganador, conf_media, miembros); [] si no hay voto.
 
     Reglas 2-4: si existe algun grupo (>= 2) los singletons quedan
     fuera; gana la mayor puntuacion; el texto es el miembro de mayor
-    conf*peso; el ganador pasa por el snap de flota a distancia 1.
+    conf*peso. Sin snap ni flota: el texto sale tal cual lo vio la
+    mayoria.
     """
     hay_grupo = any(len(miembros) >= 2 for miembros in grupos.values())
     candidatos: list[tuple[float, list[tuple[str, float, float]]]] = []
@@ -269,73 +265,7 @@ def _elegir_voto(grupos: dict[str, list[tuple[str, float, float]]]
     _puntaje, miembros = max(candidatos, key=lambda par: par[0])
     conf = sum(c for _t, c, _p in miembros) / len(miembros)
     ganador = max(miembros, key=lambda tcp: tcp[1] * tcp[2])[0]
-    
-    
-    
-    
-    k = SNAP_K if len(miembros) >= 2 else SNAP_K_SINGLETON
-    try:
-        from decodificador_flota import corregir, flota
-        ganador = corregir(ganador, flota(), k) or ganador
-    except Exception:  
-        logger.debug("flota no disponible para el snap post-voto",
-                     exc_info=True)
     return ganador, conf, miembros
-
-
-def _snap_sin_consensus(
-    grupos: dict[str, list[tuple[str, float, float]]],
-    texto_crnn: str,
-) -> tuple[str, float]:
-    """(texto, conf) del mejor singleton que cae a distancia SNAP_K de una
-    placa UNICA de flota (Fase 2a: rescate sin consenso).
-
-    Por que existe: AMV-072 llego como dos singletons (ANV-072 a 0.67 y
-    MNY-072 a 0.56) y el consenso exige >= 2 equivalentes: la lectura
-    buena moria aunque estuviera a un caracter de la flota verificada.
-
-    Reglas de seguridad (cero regresion sobre el flujo actual):
-    - Solo compiten singletons: si hay grupo, _elegir_voto ya decidio.
-    - puntuacion = conf * peso >= UMBRAL_SNAP_INDIVIDUAL y el snap tiene
-      que CAMBIAR el texto (destino distinto a la lectura).
-    - Si el CRNN respondio con conf baja (texto_crnn), el destino debe
-      coincidir con lo que el snap del CRNN produciria: sin esa
-      corroboracion se devuelve "" y manda la desconfianza de siempre
-      (CRW-025: CRNN inventa, RapidOCR vacio -> no se reintenta).
-    - Si el CRNN esta vacio, el snap del voto individual es suficiente:
-      dos motores independientes bastan cuando uno de ellos es la flota
-      verificada.
-    """
-    try:
-        from decodificador_flota import canon, corregir, flota
-        conjunto = flota()
-    except Exception:
-        logger.debug("flota no disponible para el snap sin consenso",
-                     exc_info=True)
-        return "", 0.0
-    mejor_texto, mejor_conf, mejor_puntaje = "", 0.0, 0.0
-    for miembros in grupos.values():
-        if len(miembros) != 1:
-            continue
-        texto, conf, peso = miembros[0]
-        puntaje = conf * peso
-        if puntaje < UMBRAL_SNAP_INDIVIDUAL:
-            continue
-        destino = corregir(texto, conjunto, SNAP_K)
-        if not destino or canon(destino) == canon(texto):
-            continue  
-        if puntaje > mejor_puntaje:
-            mejor_texto, mejor_conf, mejor_puntaje = destino, conf, puntaje
-    if not mejor_texto:
-        return "", 0.0
-    if texto_crnn:
-        try:
-            destino_crnn = corregir(texto_crnn, conjunto, SNAP_K)
-        except Exception:
-            return "", 0.0
-        if canon(destino_crnn) != canon(mejor_texto):
-            return "", 0.0  
-    return mejor_texto, mejor_conf
 
 
 def _reintento_onnx(img: np.ndarray, bbox: tuple[int, int, int, int],
@@ -345,14 +275,13 @@ def _reintento_onnx(img: np.ndarray, bbox: tuple[int, int, int, int],
 
     Se invoca SOLO cuando CRNN y todos los intentos quedaron vacios sobre el
     bbox anotado: el .txt puede cortar la placa o dar aire distinto al
-    que ve produccion. Umbral doble de aceptacion (medido 10-19): (a) CRNN
-    closed-set con conf >= UMBRAL_CONF_RESUELTA, o (b) un voto que viene
-    de un GRUPO (>= 2 intentos) cuyo mejor miembro alcanza
-    UMBRAL_PUNTUACION. Sin ese filtro el reintento inventaba 3 errores
-    (CU4625 en NO_PLACA con grupo CU4-625 a 0.65, A7-935 con singleton
-    umbral_inv A07-935 y NTG-774 con CRNN 'AXF-748' a 0.935); con el
-    filtro conserva los 2 aciertos exclusivos de aqui: OF868 -> FOF-868
-    y placa_15-28-03 -> F2P-703.
+    que ve produccion. Umbral de aceptacion (medido 10-19): un voto que
+    viene de un GRUPO (>= 2 miembros, intentos +/- CRNN) cuyo mejor
+    miembro alcanza UMBRAL_PUNTUACION. Sin ese filtro el reintento
+    inventaba 3 errores (CU4625 en NO_PLACA con grupo CU4-625 a 0.65,
+    A7-935 con singleton umbral_inv A07-935 y NTG-774 con CRNN 'AXF-748'
+    a 0.935); con el filtro conserva los 2 aciertos exclusivos de aqui:
+    OF868 -> FOF-868 y placa_15-28-03 -> F2P-703.
     """
     global _detector_onnx
     registro: list[tuple[str, str, float]] = []
@@ -374,14 +303,17 @@ def _reintento_onnx(img: np.ndarray, bbox: tuple[int, int, int, int],
         return "", 0.0, registro
     registro.append(("retry_onnx", f"bbox={b2}", 0.0))
     base = _recorte(img, b2, margen_base)
+    texto_crnn, conf_crnn = "", 0.0
     if base is not None and base.size:
         import reconocedor
         texto_crnn, conf_crnn = reconocedor.leer_placa(base)
-        if texto_crnn and conf_crnn >= UMBRAL_CONF_RESUELTA:
-            registro.append(("crnn_flota", texto_crnn, conf_crnn))
-            return texto_crnn, conf_crnn, registro
+        if texto_crnn:
+            registro.append(("crnn", texto_crnn, conf_crnn))
     voto_reg, grupos = _correr_6(img, b2, margen_base)
     registro += voto_reg
+    if texto_crnn and any(t for _n, t, _c in voto_reg):
+        grupos.setdefault(_forma_voto(texto_crnn),
+                          []).append((texto_crnn, conf_crnn, 1.0))
     ganador, conf, miembros = _elegir_voto(grupos)
     if (len(miembros) >= 2
             and max(c for _t, c, _p in miembros) >= UMBRAL_PUNTUACION):
@@ -399,17 +331,14 @@ def leer_placa_6(img: np.ndarray, bbox: tuple[int, int, int, int],
     [(intento, texto_o_vacio, confianza)] para dejar constancia en el log.
 
     Reglas de decision (todas por PUNTUACION = conf * peso_variante):
-    0. PRIMERO el reconocedor propio (CRNN + flota cerrada, ver
-       reconocedor.py): closed-set y ~4x mas rapido que los intentos.
-       Si la confianza es >= 0.95 la respuesta se acepta tal cual. Si es
-       baja (0.93-0.94), el CRNN SOLO se acepta si el motor de 6
-       intentos hallo algo: dos motores independientes tienen que ver
-       texto en el recorte. Motivo medido: CRW-025 (10-17) es una foto
-       SIN placa donde el CRNN inventa 'C4W-25' a 0.934 y RapidOCR esta
-       vacio en los 6 cortes -- el voto vacio la desconfia y se evita
-       el falso positivo. Contraejemplo: AWI-929 (CRNN 'AWI-929' 0.938,
-       votos 'AHL-929') queda intacto porque hay apoyo. Si el CRNN se
-       abstiene, sigue el motor heredado SIN CAMBIOS: cero regresion.
+    0. El CRNN propio (ver reconocedor.py) es UN VOTO MAS, nunca un rey:
+       su confianza NO esta calibrada (decia 1.00 en lecturas
+       inventadas: C5R-622, AZK-44, PK-8760). Se suma al grupo de
+       equivalencia SOLO si los 6 intentos tambien vieron texto (dos
+       motores independientes). Si decide solo, no decide: ("", 0.0) --
+       asi CRW-025 (foto SIN placa donde el CRNN inventa 'C4W-25' a
+       0.934 y RapidOCR esta vacio en los 6 cortes) sigue sin falso
+       positivo.
     1. Los votos se agrupan por equivalencia (I/1, O/0, Z/7, Q/0, Y/V):
        Z1S y ZIS son el MISMO acuerdo. umbral_inv pesa x1.2: en los 6
        conflictos posicionales medidos (B1Y/E7X/C6Y/F5A/ZIS/ARI) la
@@ -425,22 +354,11 @@ def leer_placa_6(img: np.ndarray, bbox: tuple[int, int, int, int],
        B71-923 y E7X-165 se leen unicamente en umbral_inv).
     3. Gana la mayor puntuacion; el texto es el miembro de mayor
        conf*peso. Sin ningun candidato => ("", 0.0).
-    4. El texto ganador de los VOTOS pasa ademas por el snap de flota
-       (decodificador_flota.corregir): HIBRIDO medido 10-20 -- grupo de
-       >= 2 votos a distancia 2 (correge confusiones dobles: AHL->AWI,
-       AK1->ARI), singleton a distancia 1 (el radio de siempre: K=2 lavo
-       B6C-287 -> B3C-285 en el forense real). La mayoria vio la placa
-       con una confusion tipica de tecla (48Z-344 = A8Z-344, CZC-910 =
-       C7C-910) y la flota verificada la confirma.
-    5. Si NO hubo consenso (sin grupo y singletons bajo 0.70), Fase 2a:
-       _snap_sin_consensus rescata el mejor singleton si cae a distancia
-       SNAP_K de una placa unica de flota (con corroboracion del CRNN si
-       este respondio).
-    6. Si CRNN y todos los intentos quedaron vacios, _reintento_onnx prueba
+    4. Si CRNN y todos los intentos quedaron vacios, _reintento_onnx prueba
        con la deteccion del propio modelo ONNX (el bbox del .txt corta
        la placa o da aire distinto). El reintento exige evidencia
-       fuerte -- ver _reintento_onnx: CRNN >= 0.95 o grupo con mejor
-       miembro >= 0.70.
+       fuerte -- ver _reintento_onnx: grupo con mejor miembro >= 0.70.
+    Sin snap ni flota: el texto que decide el modelo es el texto final.
     """
     
     
@@ -449,37 +367,23 @@ def leer_placa_6(img: np.ndarray, bbox: tuple[int, int, int, int],
     if base is not None and base.size:
         import reconocedor
         texto_crnn, conf_crnn = reconocedor.leer_placa(base)
-        if texto_crnn and conf_crnn >= UMBRAL_CONF_RESUELTA:
-            registro = [("crnn_flota", texto_crnn, conf_crnn)]
-            logger.debug("CRNN: %s (conf=%.2f)", texto_crnn, conf_crnn)
-            return texto_crnn, conf_crnn, registro
 
     registro: list[tuple[str, str, float]] = []
     if texto_crnn:
-        registro.append(("crnn_flota", texto_crnn, conf_crnn))
+        registro.append(("crnn", texto_crnn, conf_crnn))
+        logger.debug("CRNN: %s (conf=%.2f)", texto_crnn, conf_crnn)
     voto_reg, grupos = _correr_6(img, bbox, margen_base)
     registro += voto_reg
+    if texto_crnn and any(t for _n, t, _c in voto_reg):
+        grupos.setdefault(_forma_voto(texto_crnn),
+                          []).append((texto_crnn, conf_crnn, 1.0))
     ganador, conf, miembros = _elegir_voto(grupos)
 
     if miembros:
-        if texto_crnn:
-            
-            
-            
-            return texto_crnn, conf_crnn, registro
         return ganador, conf, registro
-    
-    
-    snap, conf_snap = _snap_sin_consensus(grupos, texto_crnn)
-    if snap:
-        registro.append(("snap_flota", snap, conf_snap))
-        logger.debug("Snap sin consenso: %s (conf=%.2f)", snap, conf_snap)
-        return snap, conf_snap, registro
     if texto_crnn:
-        
-        
+        # CRNN solo: no decide (no fabrica).
         return "", 0.0, registro
-    
     t2, c2, reg2 = _reintento_onnx(img, bbox, margen_base)
     return t2, c2, registro + reg2
 
@@ -573,26 +477,13 @@ def evidencia_y_color(texto: str, conf: float,
     
     
     es_crnn_directa = (conf >= UMBRAL_CONF_RESUELTA
-                       and any(n == "crnn_flota" for n, _t, _c
+                       and any(n == "crnn" for n, _t, _c
                                in registro or []))
     if es_crnn_directa:
         base = 70.0 + 30.0 * max(0.0, min(conf, 1.0))
     else:
         base = (25.0 + 11.0 * min(a_favor, 5)
                 + 40.0 * max(0.0, min(conf, 1.0)))
-
-    en_flota = False
-    try:
-        from decodificador_flota import flota
-        en_flota = texto.upper() in {p.upper() for p in flota()}
-    except Exception:  
-        logger.debug("flota no disponible para evidencia_y_color",
-                     exc_info=True)
-
-    if en_flota:
-        base += 10.0
-    else:
-        base = min(base, 89.0)   
 
     puntaje = int(round(min(base, 100.0)))
     if puntaje >= UMBRAL_VERDE:
