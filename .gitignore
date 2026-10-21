@@ -5,6 +5,9 @@ __pycache__/
 .venv/
 venv/
 
+# Indice de CodeGraph (local)
+.codegraph/
+
 # Backups manuales
 *.bak-*
 *.bak
