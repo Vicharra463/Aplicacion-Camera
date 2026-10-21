@@ -11,6 +11,12 @@ from __future__ import annotations
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1] / "imagenes_procesadas" / "placa"
+# Copia local de desarrollo (el servidor usa la linea anterior): la raiz se
+# decide al final del archivo, con la primera candidata que tenga datos.
+_CANDIDATAS = (
+    RAIZ,
+    Path(r"C:\Users\felip\OneDrive\Desktop\Personal\fotos actuales"),
+)
 
 
 DIAGNOSTICOS: list[tuple[str, str, str, str]] = [
@@ -50,3 +56,14 @@ DIAGNOSTICOS: list[tuple[str, str, str, str]] = [
     ("2026-10-16", "F1-953.jpg",   "FIH-953",  "leia F1-953 (FIH->F1)"),
     ("2026-10-16", "F8E876.jpg",   "F8E-876",  "OK historico (sin guion)"),
 ]
+
+
+def _raiz_con_datos() -> Path:
+    """Primera candidata que tenga fotos reales; si ninguna, la del servidor."""
+    for c in _CANDIDATAS:
+        if any((c / d / n).is_file() for d, n, _, _ in DIAGNOSTICOS[:5]):
+            return c
+    return _CANDIDATAS[0]
+
+
+RAIZ = _raiz_con_datos()

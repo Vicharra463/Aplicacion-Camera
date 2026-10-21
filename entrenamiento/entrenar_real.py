@@ -137,6 +137,8 @@ def main() -> int:
     ap.add_argument("--por_epoca", type=int, default=8000)
     ap.add_argument("--lote", type=int, default=32)
     ap.add_argument("--lr", type=float, default=3e-4)
+    ap.add_argument("--desde", type=str, default=None,
+                    help="pesos iniciales (defecto: crnn_placas.pt)")
     args = ap.parse_args()
 
     dispositivo = torch.device("cuda:0" if torch.cuda.is_available()
@@ -153,10 +155,11 @@ def main() -> int:
                     collate_fn=_collate, num_workers=0)
 
     modelo = CRNN().to(dispositivo)
-    if RUTA_INICIO.is_file():
-        modelo.load_state_dict(torch.load(RUTA_INICIO,
+    ruta_desde = Path(args.desde) if args.desde else RUTA_INICIO
+    if ruta_desde.is_file():
+        modelo.load_state_dict(torch.load(ruta_desde,
                                           map_location=dispositivo))
-        print(f"arranca de {RUTA_INICIO.name} (corrida sintetica)")
+        print(f"arranca de {ruta_desde.name}")
     else:
         print("AVISO: sin pesos previos, desde cero")
 

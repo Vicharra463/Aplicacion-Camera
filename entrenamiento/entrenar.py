@@ -130,7 +130,7 @@ def evaluar_gt(modelo, dispositivo, casos) -> tuple[float, list[str]]:
             else:
                 fallos.append(f"real={real} leido={leido or '(nada)'}")
     modelo.train()
-    return aciertos / len(casos), fallos
+    return (aciertos / len(casos)) if casos else 0.0, fallos
 
 
 
