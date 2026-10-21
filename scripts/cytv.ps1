@@ -482,6 +482,7 @@ function Invoke-Ayuda {
   cytv fotos RUTA [-Canal]    Sube una foto de prueba (01 pano / 02 placa)
   cytv replay [-Fecha dia] [-Motivo motivo] [-DryRun]
                               Devuelve a la cola las fotos de descartadas
+                              (solo aplica si modo_descarte = retener)
   cytv entrenador [arrancar]  Entrenamiento continuo en el reposo: con
                               "arrancar" lo pone a correr; sin argumento
                               muestra el log (estado actual)
@@ -494,10 +495,10 @@ function Invoke-Ayuda {
   La limpieza automatica corre cada 2 semanas (domingo 3:00 AM) via
   Task Scheduler; "cytv limpiar" la ejecuta a mano cuando quiera.
 
-  descartadas\<dia>\ SOLO guarda duplicados de placa (purga diaria
-  7:00 PM); lo demas se reevalua hasta 10 veces y se borra si no
-  se lee. Los rescatados entran como PLACA (DUDOSA) con recuadro
-  verde fino.
+  Con modo_descarte = eliminar (por defecto) todo se decide al momento:
+  duplicado o sin placa se BORA; si es placa se guarda con contorno
+  verde (los dudosos, trazo fino, como PLACA (DUDOSA)). Solo con
+  retener se usa descartadas\<dia>\.
   Cada registro nuevo trae evidencia (0-100) y semaforo (verde/amarillo/
   rojo); revise "cytv historial".
 '@
