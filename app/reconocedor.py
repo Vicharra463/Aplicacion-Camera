@@ -1,15 +1,3 @@
-#!/usr/bin/env python3
-"""Reconocedor de placas CYTV: CRNN propio (ONNX) + diccionario de flota.
-
-Lector principal de la Fase 0 v2. Closed-set: solo responde cuando la
-lectura (o su correccion unica a distancia <= 2) aterriza en una placa
-de la flota verificada; si se abstiene, el llamador cae al motor
-heredado de 6 intentos (ocr.leer_placa_6), que queda intacto.
-
-Preproceso IDENTICO al entrenamiento (si se rompe, el accuracy cae en
-silencio): PIL convert("L").resize((160, 32), BILINEAR) / 255.0.
-Sin torch: corre en el python de servicio (3.13) con numpy+PIL+ort.
-"""
 from __future__ import annotations
 
 import logging
@@ -20,18 +8,16 @@ from PIL import Image
 
 logger = logging.getLogger("cytv.reconocedor")
 
-BASE = Path(__file__).resolve().parents[1]      
+BASE = Path(__file__).resolve().parents[1]
 RUTA_ONNX = BASE / "modelo" / "reconocedor.onnx"
-
-
 
 CHARSET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-"
 _BLANK = len(CHARSET)
+_IDX_GUION = CHARSET.index("-")
+_IDX_DIG = [i for i, c in enumerate(CHARSET) if c.isdigit()]
 
 _sesion = None
 _sesion_mtime: float | None = None
-_flota: list[str] | None = None
-_conjunto: set[str] | None = None
 
 
 def _obtener_sesion():
@@ -47,8 +33,15 @@ def _obtener_sesion():
     if _sesion is not None and mtime == _sesion_mtime:
         return _sesion
     import onnxruntime as ort
+    sesion_op = ort.SessionOptions()
+    sesion_op.intra_op_num_threads = 1
+    sesion_op.inter_op_num_threads = 1
+    sesion_op.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+    sesion_op.enable_cpu_mem_arena = False
+    sesion_op.log_severity_level = 4
     try:
         nueva = ort.InferenceSession(str(RUTA_ONNX),
+                                     sess_options=sesion_op,
                                      providers=["CPUExecutionProvider"])
     except Exception:
         if _sesion is not None:
@@ -65,18 +58,7 @@ def _obtener_sesion():
     return _sesion
 
 
-def _obtener_flota():
-    global _flota, _conjunto
-    if _flota is None:
-        from decodificador_flota import canon, flota
-        _flota = flota()
-        _conjunto = {canon(p) for p in _flota}
-        logger.info("flota cargada: %d placas verificadas", len(_flota))
-    return _flota, _conjunto
-
-
 def _tensor_desde_bgr(crop: np.ndarray) -> np.ndarray:
-    """BGR uint8 (cv2) -> tensor (1,1,32,160) float [0,1]."""
     if crop.ndim == 3 and crop.shape[2] == 3:
         rgb = np.ascontiguousarray(crop[:, :, ::-1])
     else:
@@ -87,7 +69,6 @@ def _tensor_desde_bgr(crop: np.ndarray) -> np.ndarray:
 
 
 def _decodificar(logits: np.ndarray) -> str:
-    """CTC greedy: argmax -> quitar repetidos -> quitar blanks."""
     idx = logits.argmax(axis=-1).tolist()
     salida, previo = [], None
     for i in idx:
@@ -98,18 +79,10 @@ def _decodificar(logits: np.ndarray) -> str:
 
 
 def leer_placa(crop: np.ndarray) -> tuple[str, float]:
-    """(placa canonica de flota, confianza cruda) o ("", 0.0) si abstuvo.
-
-    Confianza = media del maximo softmax por timestep (0..1, no
-    calibrada: sirve como senal relativa y para el log).
-    """
-    from decodificador_flota import canon, corregir
-
     if crop is None or getattr(crop, "size", 0) == 0:
         return "", 0.0
     try:
         sesion = _obtener_sesion()
-        conjunto, canonicos = _obtener_flota()
     except Exception:
         logger.debug("CRNN no disponible (fallo de carga)", exc_info=True)
         return "", 0.0
@@ -118,15 +91,68 @@ def leer_placa(crop: np.ndarray) -> tuple[str, float]:
         leido = _decodificar(logits)
         if not leido:
             return "", 0.0
-        corregido = corregir(leido, conjunto, 2)
-        
-        
-        if canon(corregido) not in canonicos:
-            return "", 0.0
         probs = np.exp(logits - logits.max(axis=-1, keepdims=True))
         conf = float((probs / probs.sum(axis=-1, keepdims=True))
                      .max(axis=-1).mean())
-        return corregido, conf
+        return leido, conf
     except Exception:
         logger.exception("Fallo el reconocedor CRNN")
         return "", 0.0
+
+
+def _probs(crop: np.ndarray) -> np.ndarray:
+    sesion = _obtener_sesion()
+    logits = sesion.run(None, {"placa": _tensor_desde_bgr(crop)})[0][0]
+    e = np.exp(logits - logits.max(axis=-1, keepdims=True))
+    return e / e.sum(axis=-1, keepdims=True)
+
+
+def _por_caracter(probs: np.ndarray) -> list:
+    idx = probs.argmax(axis=-1)
+    salida, previo, tramo = [], None, []
+    for t, i in enumerate(idx):
+        if i != previo:
+            if previo is not None and previo != _BLANK:
+                salida.append((previo, np.mean(tramo, axis=0)))
+            tramo = []
+        tramo.append(probs[t])
+        previo = i
+    if previo is not None and previo != _BLANK:
+        salida.append((previo, np.mean(tramo, axis=0)))
+    return [(CHARSET[i], v) for i, v in salida if CHARSET[i] != "-"]
+
+
+def leer_consenso(crops: list) -> dict | None:
+    lecturas = []
+    for c in crops:
+        if c is None or getattr(c, "size", 0) == 0:
+            continue
+        try:
+            lectura = _por_caracter(_probs(c))
+        except Exception:
+            logger.debug("CRNN: una variante fallo", exc_info=True)
+            continue
+        if 5 <= len(lectura) <= 7:
+            lecturas.append(lectura)
+    if not lecturas:
+        return None
+    por_largo: dict = {}
+    for lectura in lecturas:
+        por_largo.setdefault(len(lectura), []).append(lectura)
+    n, grupo = max(por_largo.items(), key=lambda kv: (len(kv[1]), kv[0]))
+    medio = np.mean([[v for _c, v in lectura] for lectura in grupo],
+                    axis=0)[:, :len(CHARSET)]
+    medio[:, _IDX_GUION] = 0.0
+    if n in (6, 7):
+        for p in range(3, n):
+            fila = np.zeros(len(CHARSET))
+            fila[_IDX_DIG] = medio[p, _IDX_DIG]
+            medio[p] = fila
+    medio = medio + 1e-9
+    medio = medio / medio.sum(axis=1, keepdims=True)
+    conf = medio.max(axis=1)
+    return {"texto": "".join(CHARSET[i] for i in medio.argmax(axis=1)),
+            "conf": float(conf.mean()),
+            "conf_min": float(conf.min()),
+            "acuerdo": len(grupo) / len(lecturas),
+            "probs": medio}

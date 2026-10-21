@@ -1,37 +1,9 @@
-#!/usr/bin/env python3
-r"""Cola de trabajo de la camara CYTV Ancon.
-
-Responsabilidades:
-  - Anti-duplicados estrictos (diferencia visual + dedup por placa)
-  - Filtros de calidad de la placa, en orden de menor a mayor costo
-  - Dedup global por hash perceptual: una sola imagen por placa
-  - Enrutado por VISTA de la camara: canal 01 (PT) -> carpeta placa\
-    (modelo + OCR + resalte rojo), canal 02 (panoramico) -> carpeta
-    vehiculo\ (foto cruda, nombre por hora), cada una con su fecha
-  - Registro en SQLite de cada decision (aceptada o descartada, y por que)
-
-Orden de la cadena de filtros:
-
-    diferencia visual -> candidato -> filtros de calidad -> reevaluacion
-    x10 (si hay indicios) -> dedup -> guardar; sin candidato alguno
-    (sin_placa) la imagen se elimina directo
-
-Fase detector (hecha):
-    si existe ``modelo\\placas.onnx`` se carga ``modelo.DetectorPlacas`` y la
-    deteccion es la del modelo ONNX (estado ``guardado``, carpeta de dia
-    limpia). Si no existe o falla al cargar, se cae al detector geometrico
-    (OpenCV puro) y la imagen queda ``pendiente`` en la subcarpeta
-    ``pendientes``. El servicio jamas se cae por el modelo.
-
-Extension pendiente (Fase OCR):
-    el texto de la placa se escribe en ``registros.placa`` con
-    ``registrar(..., placa=...)``; ``ftp_server.py`` no se toca.
-"""
 from __future__ import annotations
 
 import json
 import csv
 import logging
+import os
 import queue
 import re
 import shutil
@@ -41,65 +13,49 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+
 import cv2
 import numpy as np
 
-
+cv2.setNumThreads(1)
+try:
+    cv2.ocl.setUseOpenCL(False)
+except Exception:
+    pass
 
 try:
     from modelo import DetectorPlacas, RUTA_ONNX
-except Exception:                                     
-    DetectorPlacas = None                             
-    RUTA_ONNX = None                                   
+except Exception:
+    DetectorPlacas = None
+    RUTA_ONNX = None
 
 try:
     from ocr import leer_placa, leer_placa_6, evidencia_y_color
-except Exception:                                     
-    leer_placa = None                                 
-    leer_placa_6 = None                               
-    evidencia_y_color = None                          
+except Exception:
+    leer_placa = None
+    leer_placa_6 = None
+    evidencia_y_color = None
 
 logger = logging.getLogger("cytv.worker")
 
-
-
 COLA: "queue.Queue[str]" = queue.Queue(maxsize=200)
 
-
-
-
-
-
-
 _MOTIVOS_VOLUMEN = {"sin_texto"}
-
-
-
-
-
-
-
-
-
-
-
 
 FOLDER_POR_CANAL = {"01": "placa", "02": "vehiculo"}
 CARPETA_POR_DEFECTO = "placa"
 _RE_CANAL = re.compile(r"_(\d{2})_")
 
-
-
+FALLOS_SIN_REEVAL = {"baja_nitidez", "sobreexpuesta", "ocluida"}
+LETRAS_REVISAR = "WQH"
 
 _ultima_imagen: dict[str, np.ndarray] = {}
 
-
-
-
-
 _hashes: dict[str, dict[int, str]] = {}
 _placas: dict[str, set[str]] = {}
-
 
 _dia_dedup: str = ""
 
@@ -110,35 +66,23 @@ _detector = None
 
 
 def _carpeta_de(nombre_archivo: str) -> str:
-    """Vista de la camara a la que pertenece un archivo recibido.
-
-    Extrae el canal del nombre (…_01_20261009….jpg) y lo traduce a la
-    carpeta (01 -> placa, 02 -> vehiculo); sin patron de canal (subidas
-    manuales de prueba) va a la vista por defecto (placa).
-    """
     encontrado = _RE_CANAL.search(nombre_archivo)
     canal = encontrado.group(1) if encontrado else ""
     return FOLDER_POR_CANAL.get(canal, CARPETA_POR_DEFECTO)
 
 
 def _carpeta_de_ruta(relativo: str) -> str:
-    """Vista que corresponde a una ruta ya guardada en el registro.
-
-    Formato nuevo: ``vehiculo\\2026-10-09\\vehiculo_16-32-28.jpg``.
-    Formato viejo (antes del enrutado): ``2026-10-09\\vehiculo_…jpg`` ->
-    sin carpeta al frente, se asume la vista por defecto.
-    """
     parte = Path(relativo).parts[0] if relativo else ""
     return parte if parte in FOLDER_POR_CANAL.values() else CARPETA_POR_DEFECTO
 
 
 def iniciar(cfg: dict) -> None:
-    """Prepara carpetas, crea la tabla, carga hashes/placas y el modelo."""
     global _cfg, _ruta_registro, _hashes, _placas, _dia_dedup, _detector
     _cfg = cfg
     _ruta_registro = cfg["registro"]
     cfg["procesadas"].mkdir(parents=True, exist_ok=True)
-    _carpeta_descartes().mkdir(parents=True, exist_ok=True)
+    if str(cfg.get("modo_descarte", "eliminar")).strip().lower() == "retener":
+        _carpeta_descartes().mkdir(parents=True, exist_ok=True)
 
     con = sqlite3.connect(_ruta_registro)
     try:
@@ -156,21 +100,13 @@ def iniciar(cfg: dict) -> None:
             )
             """
         )
-        
         columnas = {fila[1] for fila in con.execute("PRAGMA table_info(registros)")}
         if "phash" not in columnas:
             con.execute("ALTER TABLE registros ADD COLUMN phash TEXT")
-        
-        
-        
         if "evidencia" not in columnas:
             con.execute("ALTER TABLE registros ADD COLUMN evidencia INTEGER")
         if "semaforo" not in columnas:
             con.execute("ALTER TABLE registros ADD COLUMN semaforo TEXT")
-        
-        
-        
-        
         con.execute(
             """
             CREATE TABLE IF NOT EXISTS pasadas (
@@ -186,9 +122,6 @@ def iniciar(cfg: dict) -> None:
             "CREATE INDEX IF NOT EXISTS idx_pasadas_placa "
             "ON pasadas (placa, fecha_hora)"
         )
-        
-        
-        
         con.execute(
             """
             CREATE TABLE IF NOT EXISTS candidatas (
@@ -207,13 +140,6 @@ def iniciar(cfg: dict) -> None:
             "ON candidatas (estado, placa)"
         )
         con.commit()
-        
-        
-        
-        
-        
-        
-        
         _dia_dedup = datetime.now().strftime("%Y-%m-%d")
         limite_dia = f"{_dia_dedup}T00:00:00"
         carpeta_dia = _cfg["procesadas"]
@@ -247,9 +173,6 @@ def iniciar(cfg: dict) -> None:
                 ", ".join(f"{k}={len(v)} placas"
                           for k, v in sorted(_placas.items())) or "ninguna")
 
-    
-    
-    
     if DetectorPlacas is not None and RUTA_ONNX is not None and RUTA_ONNX.is_file():
         try:
             _detector = DetectorPlacas(RUTA_ONNX,
@@ -262,8 +185,6 @@ def iniciar(cfg: dict) -> None:
     else:
         logger.info("Deteccion: sin modelo ONNX, detector geometrico")
 
-    
-    
     if leer_placa is not None:
         try:
             leer_placa(np.zeros((48, 160, 3), dtype=np.uint8))
@@ -274,11 +195,6 @@ def iniciar(cfg: dict) -> None:
     else:
         logger.info("OCR: no disponible, dedup solo por hash perceptual")
 
-    
-    
-    
-    
-    
     try:
         ruta_json = generar_json_dia(_dia_dedup)
         logger.info("Reporte JSON del dia %s actualizado: %s",
@@ -308,18 +224,11 @@ def iniciar(cfg: dict) -> None:
 
 
 def _actualizar_dia() -> None:
-    """Cruza la medianoche: el dedup vive solo dentro del dia.
-
-    Un vehiculo visto ayer NO puede bloquear el de hoy. Si el servicio corre
-    por mas de un dia, al cambiar de fecha se vacian huellas y placas de las
-    DOS vistas y el proximo paso de esa matricula vuelve a contar.
-    """
     global _dia_dedup, _hashes, _placas, _ultima_imagen
     hoy = datetime.now().strftime("%Y-%m-%d")
     if hoy == _dia_dedup:
         return
     if _dia_dedup:
-        
         try:
             ruta_json = generar_json_dia(_dia_dedup)
             logger.info("Reporte JSON del dia %s cerrado: %s",
@@ -339,7 +248,6 @@ def registrar(archivo: str, placa: str | None = None,
               confianza: float | None = None, estado: str = "guardado",
               phash: int | None = None, evidencia: int | None = None,
               semaforo: str | None = None) -> None:
-    """Agrega una fila al registro."""
     if _ruta_registro is None:
         return
     con = sqlite3.connect(_ruta_registro)
@@ -357,84 +265,26 @@ def registrar(archivo: str, placa: str | None = None,
         con.close()
 
 
-
-
-_flota_cache: set[str] | None = None
-_flota_cache_ts = 0.0
-
-
-def _en_flota(texto: str) -> bool:
-    """¿El texto esta en la flota verificada (etiquetas + aprobadas)?"""
-    global _flota_cache, _flota_cache_ts
-    ahora = time.time()
-    if _flota_cache is None or ahora - _flota_cache_ts > 300:
-        try:
-            from decodificador_flota import flota
-            _flota_cache = {p.upper() for p in flota()}
-        except Exception:
-            logger.debug("flota no disponible para _en_flota", exc_info=True)
-            _flota_cache = set()
-        _flota_cache_ts = ahora
-    return texto.upper() in _flota_cache
-
-
 UMBRAL_ETIQUETA_AUTO = 0.55
 
 
 def _etiqueta_auto(texto: str, intentos: list) -> str:
-    """Etiqueta que el propio sistema valida sin humano, o "" si no existe.
-
-    Tres caminos aceptados (el mismo nivel de verificacion que antes
-    exigia la aprobacion manual):
-      1. el texto es una placa exacta de la flota verificada;
-      2. el CRNN dice exactamente lo mismo que los votos;
-      3. >= 2 intentos equivalentes coinciden y NINGUNA placa de la
-         flota esta a distancia <= 2 (nadie contradice la lectura).
-    Cualquier otro caso no se inventa etiqueta: la foto se queda en
-    descartadas para replay.
-    """
     if not texto:
         return ""
-    try:
-        from decodificador_flota import canon, distancia, flota
-        conjunto = flota()
-    except Exception:
-        logger.debug("flota no disponible para la etiqueta auto",
-                     exc_info=True)
-        return ""
-    if not conjunto:
-        return ""
-    texto_c = canon(texto)
-    for placa in conjunto:
-        if canon(placa) == texto_c:
-            return placa
-    for nombre, t, _c in intentos:
-        if nombre == "crnn_flota" and t and canon(t) == texto_c:
+
+    def _c(s: str) -> str:
+        return (s or "").upper().replace("-", "").strip()
+
+    texto_c = _c(texto)
+    for nombre, t, _conf in intentos:
+        if nombre == "crnn" and t and _c(t) == texto_c:
             return texto.upper()
-    try:
-        from ocr import _forma_voto
-        forma = _forma_voto(texto)
-        coinciden = sum(1 for _n, t, _c in intentos
-                        if t and _forma_voto(t) == forma)
-    except Exception:
-        coinciden = sum(1 for _n, t, _c in intentos
-                        if t and canon(t) == texto_c)
-    if coinciden < 2:
-        return ""
-    if min(distancia(texto_c, canon(p)) for p in conjunto) <= 2:
-        return ""
-    return texto.upper()
+    return ""
 
 
 def _encolar_entrenamiento(ruta: Path, img: np.ndarray,
                            bbox: tuple[int, int, int, int] | None,
                            texto: str, intentos: list) -> bool:
-    """Copia la foto + bbox + etiqueta auto a cola_entrenamiento\\<dia>\\.
-
-    Escribe el mismo formato que etiquetas_reales.csv (dia,archivo,placa)
-    para que el entrenador continuo consuma la cola con el mismo dataset.
-    Dedup por archivo del dia.
-    """
     etiqueta = _etiqueta_auto(texto, intentos)
     if not etiqueta:
         logger.info("Sin etiqueta auto (no se encola): %s | %s",
@@ -444,7 +294,9 @@ def _encolar_entrenamiento(ruta: Path, img: np.ndarray,
         dia_dir = _carpeta_descartes().parent / "cola_entrenamiento" \
             / datetime.now().strftime("%Y-%m-%d")
         dia_dir.mkdir(parents=True, exist_ok=True)
-        csv_dia = dia_dir / "etiquetas.csv"
+        revisar = any(ch in etiqueta for ch in LETRAS_REVISAR)
+        csv_dia = dia_dir / ("etiquetas_REVISAR.csv" if revisar
+                             else "etiquetas.csv")
         if csv_dia.is_file():
             with csv_dia.open(encoding="utf-8") as f:
                 for fila in csv.DictReader(f):
@@ -465,7 +317,8 @@ def _encolar_entrenamiento(ruta: Path, img: np.ndarray,
             if csv_dia.stat().st_size == 0:
                 escritor.writerow(("dia", "archivo", "placa"))
             escritor.writerow((dia_dir.name, destino.name, etiqueta))
-        logger.info("COLA ENTRENAMIENTO: %s <- %s", etiqueta, ruta.name)
+        logger.info("COLA ENTRENAMIENTO%s: %s <- %s",
+                    " (REVISAR)" if revisar else "", etiqueta, ruta.name)
         return True
     except Exception:
         logger.exception("No se pudo encolar la foto %s", ruta.name)
@@ -480,16 +333,6 @@ def _carpeta_reportes() -> Path:
 
 
 def generar_json_dia(fecha: str) -> Path:
-    """Volcado JSON de todas las placas GUARDADAS del dia ``fecha``.
-
-    Una entrada por placa unica (texto del OCR) con primera/ultima hora,
-    los archivos de la vista placa y de la panoramica, y la confianza
-    maxima del modelo. Se REESCRIBE completo (idempotente): sirve para
-    refrescar el dia en curso y para cerrar el dia al cruzar medianoche.
-
-    Salida: ``reportes\\placas-<fecha>.json`` (absoluta, lista para que
-    cualquier otro sistema la consuma).
-    """
     if _ruta_registro is None:
         raise RuntimeError("worker no inicializado")
     con = sqlite3.connect(_ruta_registro)
@@ -501,8 +344,6 @@ def generar_json_dia(fecha: str) -> Path:
             "AND placa IS NOT NULL AND placa != '' ORDER BY fecha_hora",
             (f"{fecha}%",),
         ).fetchall()
-        
-        
         pasadas_dia: dict[str, tuple[int, bool]] = {}
         for placa, pasada, excedida in con.execute(
                 "SELECT placa, pasada, excedida FROM pasadas "
@@ -533,8 +374,6 @@ def generar_json_dia(fecha: str) -> Path:
         entrada["detecciones"] += 1
         if confianza is not None:
             entrada["confianza_max"] = max(entrada["confianza_max"], confianza)
-        
-        
         if evidencia is not None and evidencia > entrada["evidencia_max"]:
             entrada["evidencia_max"] = evidencia
             if semaforo:
@@ -554,7 +393,6 @@ def generar_json_dia(fecha: str) -> Path:
     carpeta = _carpeta_reportes()
     carpeta.mkdir(parents=True, exist_ok=True)
     destino = carpeta / f"placas-{fecha}.json"
-    
     temporal = carpeta / f"placas-{fecha}.json.tmp"
     temporal.write_text(json.dumps(datos, ensure_ascii=False, indent=2),
                         encoding="utf-8")
@@ -563,7 +401,6 @@ def generar_json_dia(fecha: str) -> Path:
 
 
 def calcular_diferencia(img1: np.ndarray, img2: np.ndarray) -> float:
-    """Porcentaje de pixeles que cambian entre dos tomas (mismo criterio que FTP.py)."""
     img1_peq = cv2.resize(img1, (640, 480))
     img2_peq = cv2.resize(img2, (640, 480))
     gris1 = cv2.cvtColor(img1_peq, cv2.COLOR_BGR2GRAY)
@@ -574,7 +411,6 @@ def calcular_diferencia(img1: np.ndarray, img2: np.ndarray) -> float:
 
 
 def encolar(ruta: str) -> bool:
-    """Pone una imagen en la cola sin bloquear al llamante."""
     try:
         COLA.put_nowait(ruta)
         return True
@@ -587,13 +423,33 @@ _MOTIVOS_SIN_REPLAY = {"duplicado", "duplicado_placa"}
 _EXT_FOTO = (".jpg", ".jpeg", ".png")
 
 
-def _fotos_descartadas_para_replay(raiz: Path) -> list[Path]:
-    r"""Lista (ordenada) de fotos de descartadas que SI deben re-evaluar-se.
+def _limpiar_carpetas_vacias(raiz: Path) -> int:
+    borradas = 0
+    for fecha in sorted((d for d in raiz.iterdir() if d.is_dir()),
+                        reverse=True):
+        for motivo in sorted((m for m in fecha.iterdir() if m.is_dir()),
+                             reverse=True):
+            try:
+                next(motivo.iterdir())
+            except StopIteration:
+                motivo.rmdir()
+                borradas += 1
+            except OSError:
+                continue
+        try:
+            next(fecha.iterdir())
+        except StopIteration:
+            fecha.rmdir()
+            borradas += 1
+        except OSError:
+            continue
+    if borradas:
+        logger.info("Replay: %d carpeta(s) vacia(s) eliminadas de "
+                    "descartadas", borradas)
+    return borradas
 
-    Excluye duplicado/duplicado_placa (son duplicados retenidos: van a la
-    purga diaria de las 19:00, no al loop). Acepta el layout por motivo
-    (``<dia>\<motivo>\foto``) y el layout antiguo de foto suelta en ``<dia>\``.
-    """
+
+def _fotos_descartadas_para_replay(raiz: Path) -> list[Path]:
     pendientes: list[Path] = []
     for dia in sorted(d for d in raiz.iterdir() if d.is_dir()):
         for hijo in sorted(dia.iterdir()):
@@ -609,15 +465,6 @@ def _fotos_descartadas_para_replay(raiz: Path) -> list[Path]:
 
 
 def _replay_descartes_inicio() -> None:
-    """Re-encola la data ya descartada cada vez que el servicio arranca.
-
-    Aplica la logica actual (reevaluacion x10, DUDOSA, flota, dedup y
-    auto-cosecha) a las fotos acumuladas en descartadas: lo que ahora se
-    lea se guarda y lo que no, se elimina. El alimentador espera a que
-    la cola casi se vacie antes de cada foto: lo en vivo siempre manda;
-    si el servicio se reinicia a mitad de replay, lo procesado ya salio
-    de descartadas y lo que falte se re-encola solo.
-    """
     activo = str(_cfg.get("replay_inicio", "si")).strip().lower()
     if activo in ("no", "false", "0", "off"):
         logger.info("Replay al arrancar desactivado (replay_descartes = no)")
@@ -625,6 +472,7 @@ def _replay_descartes_inicio() -> None:
     raiz = _carpeta_descartes()
     if not raiz.is_dir():
         return
+    _limpiar_carpetas_vacias(raiz)
     pendientes = _fotos_descartadas_para_replay(raiz)
     if not pendientes:
         logger.info("Replay al arrancar: sin fotos pendientes en descartadas")
@@ -645,26 +493,18 @@ def _replay_descartes_inicio() -> None:
                 time.sleep(pausa)
         logger.info("Replay al arrancar terminado: %d/%d foto(s) "
                     "re-encoladas", reencoladas, len(pendientes))
+        try:
+            COLA.join()
+            _limpiar_carpetas_vacias(raiz)
+        except Exception:
+            logger.exception("No se pudieron limpiar las carpetas vacias "
+                             "de descartadas")
 
     threading.Thread(target=_alimentar, daemon=True,
                      name="replay-inicio").start()
 
 
-
-
-
-
 def _candidatos_placa(img: np.ndarray) -> list[tuple[tuple[int, int, int, int], float]]:
-    """Busca las regiones con forma de plancha, ordenadas de mejor a peor.
-
-    Con modelo ONNX cargado (Fase detector) la geometria no se usa: si el
-    modelo no ve placa, devuelve lista vacia y la imagen se descarta. Sin
-    modelo, devuelve un score geometrico (0..1) y prueba VARIAS regiones
-    porque si el mejor candidato es ruido, se prueba el siguiente en vez de
-    tirar la foto.
-
-    ((x, y, w, h), score)
-    """
     if _detector is not None:
         return _detector.detectar(img)
 
@@ -687,8 +527,6 @@ def _candidatos_placa(img: np.ndarray) -> list[tuple[tuple[int, int, int, int], 
         if h == 0 or w == 0:
             continue
         relacion = w / h
-        
-        
         if not 1.6 <= relacion <= 6.0:
             continue
         if not 0.0015 * area_img <= w * h <= 0.30 * area_img:
@@ -699,7 +537,6 @@ def _candidatos_placa(img: np.ndarray) -> list[tuple[tuple[int, int, int, int], 
 
     ordenados.sort(key=lambda par: par[0], reverse=True)
 
-    
     elegidos: list[tuple[tuple[int, int, int, int], float]] = []
     for score, (x, y, w, h) in ordenados:
         if len(elegidos) >= 8:
@@ -723,40 +560,27 @@ def _a_gris(recorte: np.ndarray) -> np.ndarray:
 
 
 def _fraccion_oscuros(recorte: np.ndarray) -> float:
-    """% de pixeles oscuros (texto) dentro del recorte.
-
-    Es lo que separa una placa de un rectangulo cualquiera: la placa tiene
-    caracteres negros sobre fondo claro. Un blob de ruido o una region lisa
-    queda por fuera del rango.
-    """
     gris = _a_gris(recorte)
     _, texto = cv2.threshold(gris, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
     return float(np.count_nonzero(texto)) / texto.size * 100.0
 
 
 def _nitidez(recorte: np.ndarray) -> float:
-    """Varianza del Laplaciano SOBRE EL RECORTE. Foto nitta con placa movida
-    no pasa este filtro, que es justamente el error clasico."""
     return float(cv2.Laplacian(_a_gris(recorte), cv2.CV_64F).var())
 
 
 def _fraccion_sobreexpuesta(recorte: np.ndarray) -> float:
-    """% de pixeles saturados. Las placas retrorreflectivas se queman con IR."""
     gris = _a_gris(recorte)
     return float(np.count_nonzero(gris > 250)) / gris.size * 100.0
 
 
 def _fraccion_bordes(recorte: np.ndarray) -> float:
-    """% de pixeles con borde. Proxy de oclusion: una placa descubierta tiene
-    bordes de caracteres; piel o ropa quedan mucho mas lisos. Heuristica: se
-    reemplaza por detector de personas cuando entre el YOLO."""
     gris = _a_gris(recorte)
     bordes = cv2.Canny(gris, 80, 200)
     return float(np.count_nonzero(bordes)) / bordes.size * 100.0
 
 
 def _hash_perceptual(img: np.ndarray) -> int:
-    """pHash de 64 bits (DCT 8x8). Dedup sin necesidad de leer la placa."""
     gris = _a_gris(img)
     pequena = np.float32(cv2.resize(gris, (32, 32), interpolation=cv2.INTER_AREA))
     coef = np.float32(cv2.dct(pequena))[:8, :8].reshape(-1)
@@ -765,13 +589,6 @@ def _hash_perceptual(img: np.ndarray) -> int:
     for bit in coef > mediana:
         valor = (valor << 1) | int(bit)
     return valor
-
-
-
-
-
-
-
 
 
 _COLOR_ROJO = (0, 0, 255)
@@ -794,13 +611,7 @@ def _dibujar_caja(img: np.ndarray, bbox: tuple[int, int, int, int],
     return salida
 
 
-
-
-
-
 def _pasada_de_placa(placa: str) -> tuple[int, float]:
-    """(pasada a registrar, minutos desde la ultima visita dentro de la
-    ventana). Primera vez => (1, inf)."""
     dias = int(_cfg.get("ventana_reinspeccion_dias", 30))
     limite = (datetime.now() - timedelta(days=dias)).isoformat(timespec="seconds")
     con = sqlite3.connect(_ruta_registro)
@@ -832,18 +643,11 @@ def _registrar_pasada(placa: str, pasada: int, excedida: bool) -> None:
 
 
 def _sufijo_pasada(pasada: int) -> str:
-    """Sufijo del nombre de archivo por pasada (1a sin sufijo)."""
     return {1: "", 2: "_2da-pasada", 3: "_3ra-pasada"}.get(pasada, "_EXCEDIDA")
 
 
 def _recorte_con_margen(img: np.ndarray, bbox: tuple[int, int, int, int],
                         margen: float = 0.35) -> np.ndarray:
-    """Recorte del bbox con aire alrededor, para el OCR.
-
-    El OCR necesita contexto: con el recorte apretado leia CBN-449 como
-    BNE-449 (se come el borde de la C). Con 35% de margen las 4 capturas
-    reales del dia se leyeron bien.
-    """
     x, y, w, h = bbox
     dx, dy = int(w * margen), int(h * margen)
     alto, ancho = img.shape[:2]
@@ -853,18 +657,12 @@ def _recorte_con_margen(img: np.ndarray, bbox: tuple[int, int, int, int],
 
 
 def _cerca_texto(a: str, b: str) -> bool:
-    """Dos lecturas son 'la misma placa' si difieren en a lo sumo 2
-    caracteres (Levenshtein): el OCR a veces lee CBN-448 por CBN-449.
-
-    Si difieren mas, son placas distintas aunque los recortes se parezcan:
-    ahi manda el texto y NO se fusionan."""
     if a == b:
         return True
     if not a or not b:
         return False
     if abs(len(a) - len(b)) > 2:
         return False
-    
     anterior = list(range(len(b) + 1))
     for i, ca in enumerate(a, 1):
         actual = [i]
@@ -879,9 +677,6 @@ def _sin_guion(texto: str) -> str:
     return texto.replace("-", "")
 
 
-
-
-
 _EQUIV_COMPARAR = str.maketrans({"I": "1", "O": "0", "Z": "7"})
 
 
@@ -889,30 +684,22 @@ def _forma_comparable(texto: str) -> str:
     return _sin_guion(texto).upper().translate(_EQUIV_COMPARAR)
 
 
-def _es_misma_placa(vista: str, huella: int, texto: str = "") -> bool:
-    """Dedup en dos niveles, SCOPADO A LA VISTA (Fase 1, fix de la causa
-    raiz de los duplicados):
-
-    1) TEXTO PRIMERO: si el OCR leyo la placa, manda el texto (sin guion,
-       Levenshtein <= 2 con equivalencias I/1 O/0 Z/7). Asi CRV-25 y
-       CRW-025, o B1Y-756 y BIY-756, se fusionan AUNQUE el vehiculo este
-       en un angulo distinto (el pHash queda lejos y el dedup viejo jamas
-       comparaba el texto: por eso se guardaban como placas distintas).
-    2) pHash SOLO de respaldo: mismo recorte visual cuando no hay texto
-       (o las dos lecturas quedaron vacias)."""
+def _buscar_misma(vista: str, huella: int, texto: str = ""):
     guardados = _hashes.get(vista, {})
     if texto:
         forma = _forma_comparable(texto)
-        for texto_guardado in guardados.values():
-            if not texto_guardado:
-                continue
-            if _cerca_texto(forma, _forma_comparable(texto_guardado)):
-                return True
+        for h, t in guardados.items():
+            if t and _cerca_texto(forma, _forma_comparable(t)):
+                return h, t
     umbral = _cfg.get("umbral_dedup", 18)
-    for guardada in guardados:
-        if bin(huella ^ guardada).count("1") <= umbral:
-            return True
-    return False
+    for h, t in guardados.items():
+        if bin(huella ^ h).count("1") <= umbral:
+            return h, t
+    return None
+
+
+def _es_misma_placa(vista: str, huella: int, texto: str = "") -> bool:
+    return _buscar_misma(vista, huella, texto) is not None
 
 
 def _carpeta_descartes() -> Path:
@@ -931,26 +718,11 @@ def _destino_libre(carpeta: Path, nombre: str) -> Path:
     return destino
 
 
-
-
-
-
 _RE_NOMBRE_PLACA = re.compile(r"[^A-Za-z0-9-]+")
 
 
 def _nombre_con_placa(vista: str, texto_placa: str, ahora: datetime,
                       sufijo: str = "") -> str:
-    """Nomenclatura de archivo pedida por el usuario:
-
-    - vista placa    -> ``ABC-123.jpg`` (+ ``_2da-pasada``/``_3ra-pasada``/
-      ``_EXCEDIDA`` cuando corresponde, ver _sufijo_pasada)
-    - vista vehiculo -> ``placa-panoramica_ABC-123.jpg`` (solo con OCR;
-      la panoramica cruda del canal 02 va con nombre por hora)
-    - sin lectura    -> ``<vista>_HH-MM-SS_mmm.jpg`` (nombre clasico)
-
-    Devuelve solo la BASE (sin extension); ``_guardar`` le pone .jpg y
-    el .txt de la etiqueta YOLO con el mismo stem.
-    """
     base = _RE_NOMBRE_PLACA.sub("-", texto_placa or "").strip("-")
     base = re.sub(r"-{2,}", "-", base).upper()
     if not base:
@@ -961,39 +733,34 @@ def _nombre_con_placa(vista: str, texto_placa: str, ahora: datetime,
 
 
 def _descartar(ruta: Path, motivo: str, detalle: str = "",
-               auditar: bool = True,
-               img_anotada: np.ndarray | None = None) -> None:
+               auditar: bool = True) -> None:
     nombre = ruta.name
     sufijo = f" {detalle}" if detalle else ""
-    es_duplicado = motivo in ("duplicado", "duplicado_placa")
+    retener = str(_cfg.get("modo_descarte", "eliminar")
+                  ).strip().lower() == "retener"
 
-    if not es_duplicado:
+    if not retener:
         ruta.unlink(missing_ok=True)
-        if auditar:
-            registrar(nombre, estado=motivo, evidencia=0, semaforo="rojo")
-        nivel = logging.DEBUG if motivo in _MOTIVOS_VOLUMEN else logging.INFO
-        logger.log(nivel, "Imagen eliminada: %s | motivo: %s%s",
-                   nombre, motivo, sufijo)
-        return
-
-    carpeta = _carpeta_descartes() / datetime.now().strftime("%Y-%m-%d") \
-        / motivo
-    carpeta.mkdir(parents=True, exist_ok=True)
-    destino = _destino_libre(carpeta, nombre)
-    try:
-        if img_anotada is not None:
-            cv2.imwrite(str(destino), img_anotada,
-                        [int(cv2.IMWRITE_JPEG_QUALITY), 100])
+        accion = "Imagen eliminada"
+    else:
+        carpeta = _carpeta_descartes() / datetime.now().strftime("%Y-%m-%d") \
+            / motivo
+        carpeta.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.move(str(ruta), str(_destino_libre(carpeta, nombre)))
+            accion = "Imagen movida a descartadas (modo retener)"
+        except OSError:
+            logger.warning("No se pudo mover el descarte %s", nombre)
             ruta.unlink(missing_ok=True)
-        else:
-            shutil.move(str(ruta), str(destino))
-    except OSError:
-        logger.warning("No se pudo mover el descarte %s", nombre)
-        ruta.unlink(missing_ok=True)
+            accion = "Imagen eliminada"
+
     if auditar:
         registrar(nombre, estado=motivo, evidencia=0, semaforo="rojo")
-    logger.info("Duplicado en descartadas (purga diaria 19:00): %s | "
-                "motivo: %s%s", nombre, motivo, sufijo)
+
+    nivel = logging.DEBUG if motivo in _MOTIVOS_VOLUMEN else logging.INFO
+    if motivo == "sin_placa":
+        logger.info("No se detecta placa: %s", nombre)
+    logger.log(nivel, "%s: %s | motivo: %s%s", accion, nombre, motivo, sufijo)
 
 
 def _guardar(img: np.ndarray, bbox: tuple[int, int, int, int] | None,
@@ -1015,7 +782,7 @@ def _guardar(img: np.ndarray, bbox: tuple[int, int, int, int] | None,
             salida = _dibujar_caja(img, bbox, _COLOR_VERDE, padding=0.18,
                                    grosor=fino)
         else:
-            salida = _dibujar_caja(img, bbox, _COLOR_ROJO)
+            salida = _dibujar_caja(img, bbox, _COLOR_VERDE)
     cv2.imwrite(str(destino), salida, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
 
     if bbox is not None:
@@ -1027,14 +794,79 @@ def _guardar(img: np.ndarray, bbox: tuple[int, int, int, int] | None,
     return destino
 
 
+def _area_etiqueta(jpg: Path) -> float:
+    try:
+        partes = jpg.with_suffix(".txt").read_text(encoding="utf-8").split()
+        return float(partes[3]) * float(partes[4])
+    except Exception:
+        return 0.0
+
+
+def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
+                         img: np.ndarray,
+                         bbox: tuple[int, int, int, int], texto: str,
+                         evidencia: int, color: str, confianza: float,
+                         huella: int) -> bool:
+    if not t_viejo:
+        return False
+    desde = f"{_dia_dedup}T00:00:00"
+    con = sqlite3.connect(_ruta_registro)
+    try:
+        fila = con.execute(
+            "SELECT id, archivo, evidencia FROM registros WHERE placa = ? "
+            "AND estado = 'guardado' AND fecha_hora >= ? AND archivo LIKE ? "
+            "ORDER BY id DESC LIMIT 1", (t_viejo, desde, f"{vista}%")
+        ).fetchone()
+    finally:
+        con.close()
+    if not fila:
+        return False
+    id_registro, relativo_viejo, ev_vieja = fila
+    viejo = _cfg["procesadas"] / relativo_viejo
+    alto, ancho = img.shape[:2]
+    area_nueva = (bbox[2] * bbox[3]) / (ancho * alto)
+    area_vieja = _area_etiqueta(viejo)
+    if not (area_nueva >= 1.2 * area_vieja
+            and evidencia >= (ev_vieja or 0)):
+        return False
+    sufijo = next((s for s in ("_2da-pasada", "_3ra-pasada", "_EXCEDIDA")
+                   if viejo.stem.endswith(s)), "")
+    viejo.unlink(missing_ok=True)
+    viejo.with_suffix(".txt").unlink(missing_ok=True)
+    nuevo = _guardar(img, bbox, vista, texto, sufijo=sufijo)
+    relativo = str(nuevo.relative_to(_cfg["procesadas"]))
+    con = sqlite3.connect(_ruta_registro)
+    try:
+        con.execute("UPDATE registros SET archivo = ?, placa = ?, "
+                    "confianza = ?, evidencia = ?, semaforo = ?, phash = ? "
+                    "WHERE id = ?",
+                    (relativo, texto, confianza, evidencia, color,
+                     f"{huella:016x}", id_registro))
+        if texto != t_viejo:
+            con.execute("UPDATE pasadas SET placa = ? WHERE placa = ? "
+                        "AND fecha_hora >= ?", (texto, t_viejo, desde))
+        con.commit()
+    finally:
+        con.close()
+    _hashes.setdefault(vista, {}).pop(h_vieja, None)
+    _hashes[vista][huella] = texto
+    _placas.setdefault(vista, set()).discard(t_viejo)
+    _placas[vista].add(texto)
+    try:
+        generar_json_dia(_dia_dedup)
+    except Exception:
+        logger.exception("No se pudo actualizar el reporte JSON del dia")
+    logger.info("MEJOR FOTO: %s -> %s (area %.4f vs %.4f): %s",
+                t_viejo, texto, area_nueva, area_vieja, relativo)
+    return True
+
+
 def procesar_imagen(ruta: Path) -> None:
-    """Aplica la cadena completa de filtros y guarda si todo pasa."""
     global _ultima_imagen
 
     if not ruta.exists():
         return
 
-    
     _actualizar_dia()
 
     img = cv2.imread(str(ruta), cv2.IMREAD_COLOR)
@@ -1043,9 +875,6 @@ def procesar_imagen(ruta: Path) -> None:
         ruta.unlink(missing_ok=True)
         return
 
-    
-    
-    
     vista = _carpeta_de(ruta.name)
     logger.debug("Imagen %s -> vista %s (%dx%d)", ruta.name, vista,
                  img.shape[1], img.shape[0])
@@ -1058,9 +887,6 @@ def procesar_imagen(ruta: Path) -> None:
             _descartar(ruta, "duplicado", f"({porcentaje:.2f}% de cambio)")
             return
 
-    
-    
-    
     if vista == "vehiculo":
         destino = _guardar(img, None, "vehiculo")
         relativo = str(destino.relative_to(_cfg["procesadas"]))
@@ -1071,11 +897,6 @@ def procesar_imagen(ruta: Path) -> None:
         ruta.unlink(missing_ok=True)
         return
 
-    
-    
-    
-    
-    
     candidatos = _candidatos_placa(img)
     if not candidatos:
         _descartar(ruta, "sin_placa")
@@ -1091,15 +912,11 @@ def procesar_imagen(ruta: Path) -> None:
     ocr_requerido = _cfg.get("ocr_requerido", "si") == "si"
 
     alto, ancho = img.shape[:2]
-    
-    
-    elegido: tuple[tuple[int, int, int, int], float, float, str, int,
-                   bool, str] | None = None
+    elegido = None
     ultimo_fallo: tuple[str, str] = ("sin_placa", "")
-    
-    
     conf_ocr, intentos_ocr = 0.0, []
     bbox_ocr: tuple[int, int, int, int] | None = None
+    huella = 0
 
     for bbox, confianza in candidatos:
         x, y, w, h = bbox
@@ -1107,48 +924,32 @@ def procesar_imagen(ruta: Path) -> None:
         if recorte.size == 0:
             continue
 
-        
-        
-        
-        
         toca_borde = (x <= 4 or y <= 4 or x + w >= ancho - 4
                       or y + h >= alto - 4)
         corte_borde = (f"(toca el borde: x {x}..{x + w} de {ancho}, "
                        f"y {y}..{y + h} de {alto})")
 
-        
-        
-        
-        
         if _detector is None:
             fraccion = _fraccion_oscuros(recorte)
             if not min_texto <= fraccion <= max_texto:
                 ultimo_fallo = ("sin_texto", f"({fraccion:.1f}% de oscuros)")
                 continue
 
-        
         nitidez = _nitidez(recorte)
         if nitidez < umbral_nitidez:
             ultimo_fallo = ("baja_nitidez", f"(nitidez {nitidez:.1f})")
             continue
 
-        
         quemada = _fraccion_sobreexpuesta(recorte)
         if quemada > umbral_quemada:
             ultimo_fallo = ("sobreexpuesta", f"({quemada:.1f}% saturada)")
             continue
 
-        
         bordes = _fraccion_bordes(recorte)
         if bordes < umbral_bordes:
             ultimo_fallo = ("ocluida", f"({bordes:.1f}% de bordes)")
             continue
 
-        
-        
-        
-        
-        
         texto_placa = ""
         if leer_placa_6 is not None:
             texto_placa, conf_ocr, intentos_ocr = leer_placa_6(img, bbox)
@@ -1177,26 +978,25 @@ def procesar_imagen(ruta: Path) -> None:
                                     "(el recorte no se lee como placa)")
                     continue
         elif toca_borde:
-            
-            
-            
             ultimo_fallo = ("placa_cortada", corte_borde)
             continue
 
-        
-        
-        
         huella = _hash_perceptual(recorte)
-        if _es_misma_placa(vista, huella, texto_placa):
+        previa = _buscar_misma(vista, huella, texto_placa)
+        if previa is not None:
+            if texto_placa and evidencia_y_color is not None:
+                ev_nueva, color_nuevo = evidencia_y_color(
+                    texto_placa, conf_ocr, intentos_ocr)
+                if _reemplazar_si_mejor(vista, previa[0], previa[1], img,
+                                        bbox, texto_placa, ev_nueva,
+                                        color_nuevo, confianza, huella):
+                    ruta.unlink(missing_ok=True)
+                    return
             detalle = f"(placa {texto_placa} ya guardada hoy en {vista})" \
                 if texto_placa else f"(misma placa ya guardada hoy en {vista})"
             _descartar(ruta, "duplicado_placa", detalle)
             return
 
-        
-        
-        
-        
         pasada, minutos = (1, float("inf"))
         if texto_placa:
             pasada, minutos = _pasada_de_placa(texto_placa)
@@ -1215,12 +1015,13 @@ def procesar_imagen(ruta: Path) -> None:
 
     dudosa = False
     elegibles = [cbx for cbx, _cf in candidatos if cbx[2] > 0 and cbx[3] > 0]
-    if elegido is None and elegibles and (leer_placa_6 is not None
-                                          or leer_placa is not None):
-        logger.info("REEVALUACION (hasta 10 intentos) de %s: %s",
+    if (elegido is None and elegibles
+            and ultimo_fallo[0] not in FALLOS_SIN_REEVAL
+            and (leer_placa_6 is not None or leer_placa is not None)):
+        logger.info("REEVALUACION (hasta 3 intentos) de %s: %s",
                     ruta.name, ultimo_fallo[0])
-        for intento in range(10):
-            cbx, _cf = elegibles[intento % len(elegibles)]
+        for intento in range(3):
+            cbx = elegibles[intento % len(elegibles)]
             bx, by, bw, bh = cbx
             extra = 0.10 + 0.04 * intento
             ex, ey = int(bw * extra), int(bh * extra)
@@ -1228,7 +1029,8 @@ def procesar_imagen(ruta: Path) -> None:
             rx1, ry1 = min(ancho, bx + bw + ex), min(alto, by + bh + ey)
             bbox_re = (rx0, ry0, rx1 - rx0, ry1 - ry0)
             if leer_placa_6 is not None:
-                texto_re, conf_re, intentos_re = leer_placa_6(img, bbox_re)
+                texto_re, conf_re, intentos_re = leer_placa_6(
+                    img, bbox_re, reintento=False)
             else:
                 texto_re = leer_placa(_recorte_con_margen(img, bbox_re))
                 conf_re, intentos_re = 0.0, []
@@ -1258,17 +1060,11 @@ def procesar_imagen(ruta: Path) -> None:
             bbox, conf_ocr, intentos_ocr = bbox_re, conf_re, intentos_re
             bbox_ocr, huella = bbox_re, huella_re
             dudosa = True
-            logger.info("REEVALUACION EXITOSA (intento %d/10): %s <- %s",
+            logger.info("REEVALUACION EXITOSA (intento %d/3): %s <- %s",
                         intento + 1, texto_re, ruta.name)
             break
 
     if elegido is None:
-        
-        
-        
-        
-        
-        
         mejor_texto, mejor_conf = "", 0.0
         for _n, t, c in intentos_ocr:
             if t and c > mejor_conf:
@@ -1285,14 +1081,11 @@ def procesar_imagen(ruta: Path) -> None:
             except Exception:
                 logger.exception("No se pudo encolar la foto fallida %s",
                                  ruta.name)
-        
-        
         _descartar(ruta, ultimo_fallo[0], ultimo_fallo[1])
         return
 
     bbox, confianza, nitidez, texto_placa, pasada, excedida, sufijo = elegido
 
-    
     evidencia, color = (evidencia_y_color(texto_placa, conf_ocr, intentos_ocr)
                         if evidencia_y_color is not None and texto_placa
                         else (0, "rojo"))
@@ -1304,7 +1097,6 @@ def procesar_imagen(ruta: Path) -> None:
                        int(_cfg.get("ventana_reinspeccion_dias", 30)),
                        ruta.name)
 
-    
     destino = _guardar(img, bbox, vista, texto_placa, sufijo=sufijo,
                        dudosa=dudosa)
     relativo = str(destino.relative_to(_cfg["procesadas"]))
@@ -1325,7 +1117,6 @@ def procesar_imagen(ruta: Path) -> None:
     if texto_placa:
         _registrar_pasada(texto_placa, pasada, excedida)
         _placas.setdefault(vista, set()).add(texto_placa)
-        
         try:
             generar_json_dia(_dia_dedup)
         except Exception:
@@ -1343,7 +1134,6 @@ def procesar_imagen(ruta: Path) -> None:
 
 
 def bucle_worker() -> None:
-    """Consume la cola de forma infinita; un error jamas detiene el servicio."""
     logger.info("Bucle del worker iniciado")
     while True:
         try:
