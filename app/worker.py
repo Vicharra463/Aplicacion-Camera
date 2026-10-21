@@ -32,6 +32,7 @@ from __future__ import annotations
 import json
 import csv
 import logging
+import os
 import queue
 import re
 import shutil
@@ -41,8 +42,22 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
+# Hilos minimos ANTES de cargar numpy/cv2 (los defaults usan TODOS los
+# nucleos del equipo por cada foto; en el servidor 2012 R2 eso dispara el
+# CPU). onnxruntime de la wheel de pip usa su propio pool: se limita en
+# cada creacion de sesion (modelo.py, reconocedor.py, ocr.py).
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+
 import cv2
 import numpy as np
+
+cv2.setNumThreads(1)
+try:
+    cv2.ocl.setUseOpenCL(False)
+except Exception:
+    pass
 
 
 

@@ -68,12 +68,43 @@ _LETRA_POR_NUM = str.maketrans({"0": "O", "1": "I", "5": "S", "2": "Z",
 _LETRA_POR_CERO_Q = str.maketrans({"0": "Q"})
 
 
+def _limitar_hilos_rapidocr() -> None:
+    """1 hilo por sesion interna de RapidOCR (det, cls y rec).
+
+    rapidocr_onnxruntime construye sus InferenceSession con los defaults
+    de onnxruntime (intra_op = todos los nucleos del equipo). En el
+    servidor eso enciende todos los cores en CADA foto. Se envuelve la
+    clase ya importada en utils antes de construir el motor; idempotente.
+    """
+    try:
+        import onnxruntime as ort
+        import rapidocr_onnxruntime.utils as ru
+        original = ru.InferenceSession
+        if getattr(original, "_cytv_hilos", False):
+            return
+
+        def _limitada(*args, **kwargs):
+            so = kwargs.get("sess_options")
+            if so is not None:
+                so.intra_op_num_threads = 1
+                so.inter_op_num_threads = 1
+                so.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+            return original(*args, **kwargs)
+
+        _limitada._cytv_hilos = True
+        ru.InferenceSession = _limitada
+    except Exception:
+        logger.debug("No se pudieron limitar los hilos de RapidOCR",
+                     exc_info=True)
+
+
 def _obtener_motor():
     global _motor
     if _motor is None:
+        _limitar_hilos_rapidocr()
         from rapidocr_onnxruntime import RapidOCR
         _motor = RapidOCR()
-        logger.info("OCR cargado (RapidOCR ONNX, CPU)")
+        logger.info("OCR cargado (RapidOCR ONNX, CPU, 1 hilo)")
     return _motor
 
 

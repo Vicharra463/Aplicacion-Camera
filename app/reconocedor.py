@@ -45,8 +45,15 @@ def _obtener_sesion():
     if _sesion is not None and mtime == _sesion_mtime:
         return _sesion
     import onnxruntime as ort
+    sesion_op = ort.SessionOptions()
+    sesion_op.intra_op_num_threads = 1
+    sesion_op.inter_op_num_threads = 1
+    sesion_op.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+    sesion_op.enable_cpu_mem_arena = False
+    sesion_op.log_severity_level = 4
     try:
         nueva = ort.InferenceSession(str(RUTA_ONNX),
+                                     sess_options=sesion_op,
                                      providers=["CPUExecutionProvider"])
     except Exception:
         if _sesion is not None:
