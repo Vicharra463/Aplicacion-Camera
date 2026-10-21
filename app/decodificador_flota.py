@@ -30,9 +30,6 @@ from gt_placas import DIAGNOSTICOS
 CSV_REALES = PROYECTO / "entrenamiento" / "etiquetas_reales.csv"
 
 
-CSV_APROBADAS = PROYECTO / "entrenamiento" / "flota_aprobada.csv"
-
-
 def canon(texto: str) -> str:
     return texto.upper().replace("-", "").strip()
 
@@ -48,12 +45,6 @@ def flota() -> list[str]:
             for fila in csv.DictReader(f):
                 c = canon(fila["placa"])
                 placas.setdefault(c, fila["placa"].upper())
-    if CSV_APROBADAS.is_file():
-        with CSV_APROBADAS.open(encoding="utf-8-sig") as f:
-            for fila in csv.DictReader(f):
-                placa = (fila.get("placa") or "").strip()
-                if placa:
-                    placas.setdefault(canon(placa), placa.upper())
     return list(placas.values())
 
 

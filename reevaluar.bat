@@ -14,7 +14,7 @@ if exist "%BASE%venv\Scripts\python.exe" (
 ) else (
     set "PY=python"
 )
-"%PY%" "%BASE%entrenamiento\reevaluar.py" %*
+"%PY%" "%BASE%entrenamiento\evaluacion\reevaluar.py" %*
 set "RC=%ERRORLEVEL%"
 echo.
 pause

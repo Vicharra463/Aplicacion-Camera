@@ -380,7 +380,14 @@ CytvAncon\
 ├── scripts\             ← operación: nssm.exe, instalar*, cytv.ps1,
 │                          consola.bat, reiniciar/reinstalar, limpieza
 ├── docs\                ← GUIA-COMANDOS.txt, INFO_CAMARA.txt*, respaldos\
-├── entrenamiento\       ← CRNN, validador, etiquetas, herramientas
+├── entrenamiento\       ← scripts de entrenamiento/evaluación (código);
+│   │                      datos pesados NO van a git (ver abajo)
+│   ├── crnn\            CRNN, generador sintético, entrenar / entrenar_real
+│   ├── detector\        YOLOv8n: convertir COCO→YOLO, entrenar, exportar
+│   ├── evaluacion\      validar_diagnosticos, reevaluar, eval_rapido, gap
+│   ├── herramientas\    actualizar_data, exportar_data_dura, montajes, depurar
+│   ├── etiquetas_reales.csv   flota verificada a mano (solo local)
+│   └── crnn_placas.pt / crnn_reales.pt   pesos del CRNN (solo local)
 │
 └── (datos, en rutas absolutas de config.ini — NO mover ni subir):
     ftp_recibidos\  imagenes_procesadas\  reportes\  registro.db  logs\  descartadas\
@@ -395,7 +402,7 @@ El servicio arranca con `sys.path` apuntando a `app\`, de modo que todos los imp
 | Entorno | Python | Qué corre | Torch |
 |---------|--------|-----------|-------|
 | **Servicio** (`C:\CytvAncon\venv`) | 3.9 o 3.13 (según el SO) | `ftp_server.py` 24/7; solo ONNX Runtime | **Nunca** |
-| **Entrenamiento** (`.venvs\cytv-train`) | 3.12 | `entrenamiento\*.py` | Sí (CUDA si hay GPU) |
+| **Entrenamiento** (`.venvs\cytv-train`) | 3.12 | `entrenamiento\**\*.py` | Sí (CUDA si hay GPU) |
 
 El servicio **nunca** importa torch: el CRNN se ejecuta exportado en `modelo\reconocedor.onnx` vía onnxruntime + numpy + PIL.
 
@@ -439,10 +446,23 @@ Los 4 casos que fallan son fotos degradadas (placa cortada al borde, casi ilegib
 
 ```powershell
 # desde la raíz del repo, con el Python del servicio (sin torch)
-python entrenamiento\validar_diagnosticos.py
+python entrenamiento\evaluacion\validar_diagnosticos.py
 ```
 
 Debe imprimir `TOTAL: 25/29 = 86.2%`. Los 29 diagnósticos **jamás se entrenan** — son el holdout permanentemente sagrado.
+
+### Datos y pesos (fuera de git)
+
+Los archivos pesados **no van al repo**; viven locales y con respaldo en el disco externo/Drive `CAMARA PLACAS`:
+
+| Archivo | Rol |
+|---------|-----|
+| `entrenamiento\etiquetas_reales.csv` | flota verificada a mano (~81 transcripciones) |
+| `entrenamiento\crnn_placas.pt` | pesos de la corrida pura-sintética (punto de partida del fine-tune) |
+| `entrenamiento\crnn_reales.pt` | pesos del fine-tune con datos reales |
+| `entrenamiento\data_dura\`, `inputs_gt\`, `montajes\` | salidas de las herramientas |
+
+Si arrancás de cero en otra máquina: copiá esos archivos desde el respaldo a `entrenamiento\` (mismos nombres) y listo. El servicio solo necesita `modelo\*.onnx`.
 
 ### Ciclo de mejora con datos reales
 
@@ -451,17 +471,21 @@ Debe imprimir `TOTAL: 25/29 = 86.2%`. Los 29 diagnósticos **jamás se entrenan*
 #    → filas nuevas en entrenamiento\etiquetas_reales.csv (PLACA,filename)
 
 # 2. Fine-tune (entorno de entrenamiento, con torch)
-& C:\Users\felip\.venvs\cytv-train\Scripts\python.exe entrenamiento\entrenar_real.py
+& C:\Users\felip\.venvs\cytv-train\Scripts\python.exe entrenamiento\crnn\entrenar_real.py
 
-# 3. Evaluar con y sin flota
-& C:\Users\felip\.venvs\cytv-train\Scripts\python.exe entrenamiento\eval_flota.py
+# 3. Re-validar el pipeline integrado
+python entrenamiento\evaluacion\validar_diagnosticos.py
 
-# 4. Re-validar el pipeline integrado
-python entrenamiento\validar_diagnosticos.py
-
-# 5. Publicar: el export a ONNX de entrenar_real.py ya escribe
+# 4. Publicar: el export a ONNX de entrenar_real.py ya escribe
 #    modelo\reconocedor.onnx — reiniciar el servicio para cargarlo
 Restart-Service CamaraCytvAncon
+```
+
+Para el entrenamiento continuo desde la cola del worker (solo en reposo, con compuerta GT):
+
+```powershell
+python entrenamiento\crnn\entrenar_real.py --continuo
+# o desde la consola: cytv entrenador arrancar
 ```
 
 Reglas del dataset:
@@ -474,7 +498,7 @@ Reglas del dataset:
 
 ```powershell
 # exportar un best.pt ya entrenado a modelo\placas.onnx
-python entrenamiento\entrenar_detector.py --solo-export C:\ruta\best.pt
+python entrenamiento\detector\entrenar_detector.py --solo-export C:\ruta\best.pt
 ```
 
 Si `placas.onnx` no existe o falla al cargar, el worker cae al detector geométrico (OpenCV puro) y las imágenes quedan en `pendientes/` — el servicio nunca muere por el modelo.

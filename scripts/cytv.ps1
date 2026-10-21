@@ -388,7 +388,7 @@ function Invoke-Limpiar {
 
 function Invoke-Entrenador {
     $py = Join-Path $RutaBase 'venv\Scripts\python.exe'
-    $script = Join-Path $RutaBase 'entrenamiento\entrenador_continuo.py'
+    $script = Join-Path $RutaBase 'entrenamiento\crnn\entrenar_real.py'
     $log = Join-Path $RutaBase 'cola_entrenamiento\entrenador.log'
     if (Test-Path $ConfigIni) {
         $cfgTxt = Get-Content -LiteralPath $ConfigIni -Raw
@@ -409,12 +409,12 @@ function Invoke-Entrenador {
             return
         }
         $enEjecucion = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
-            Where-Object { $_.CommandLine -like '*entrenador_continuo.py*' }
+            Where-Object { $_.CommandLine -like '*entrenar_real.py*' -and $_.CommandLine -like '*--continuo*' }
         if ($enEjecucion) {
             Write-Host "  Ya esta corriendo (PID $($enEjecucion.ProcessId))."
             return
         }
-        Start-Process -FilePath $py -ArgumentList "`"$script`"" -WindowStyle Hidden
+        Start-Process -FilePath $py -ArgumentList "`"$script`" --continuo" -WindowStyle Hidden
         Start-Sleep -Seconds 2
         Write-Host '  Entrenador continuo arrancado.'
         Write-Host '  Entrena solo en el reposo (cola estable y sin entrada nueva)'
