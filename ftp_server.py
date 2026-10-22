@@ -12,8 +12,10 @@ Para correr 24/7 en Windows ver scripts\\instalar_servicio.bat (NSSM).
 from __future__ import annotations
 
 import configparser
+from importlib import import_module
 import inspect
 import logging
+import os
 import signal
 import socket
 import sys
@@ -23,9 +25,12 @@ from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
-from pyftpdlib.authorizers import DummyAuthorizer
-from pyftpdlib.handlers import FTPHandler
-from pyftpdlib.servers import FTPServer
+try:
+    DummyAuthorizer = import_module("pyftpdlib.authorizers").DummyAuthorizer
+    FTPHandler = import_module("pyftpdlib.handlers").FTPHandler
+    FTPServer = import_module("pyftpdlib.servers").FTPServer
+except ModuleNotFoundError:
+    DummyAuthorizer = FTPHandler = FTPServer = None
 
 
 
@@ -33,7 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "app"))
 
 import worker
 
-BASE = Path(__file__).resolve().parent
+BASE = Path(os.environ.get("CYTV_BASE") or Path(__file__).resolve().parent)
 logger = logging.getLogger("cytv.ftp")
 
 
@@ -106,6 +111,8 @@ def cargar_config() -> dict:
         "ventana_reinspeccion_dias": ini.getint("camara", "ventana_reinspeccion_dias",
                                                 fallback=30),
         "max_pasadas": ini.getint("camara", "max_pasadas", fallback=3),
+        "reposo_minutos": ini.getfloat("recursos", "reposo_minutos",
+                                       fallback=10.0),
         "nivel_log": ini.get("log", "nivel"),
         "retencion": ini.getint("log", "retencion_dias"),
         "_relativas": relativas,
@@ -134,7 +141,7 @@ def preparar_log(cfg: dict) -> None:
     raiz.addHandler(consola)
 
 
-class HandlerCytv(FTPHandler):
+class HandlerCytv(FTPHandler or object):
     """Recibe el archivo y lo pasa a la cola: cero trabajo pesado en este hilo."""
 
     def on_file_received(self, file_path: str) -> None:
@@ -314,6 +321,11 @@ def asegurar_carpetas(cfg: dict) -> None:
 
 
 def main() -> int:
+    if DummyAuthorizer is None or FTPHandler is None or FTPServer is None:
+        print("[FATAL] Falta la dependencia 'pyftpdlib'. Instalela con: "
+              "python -m pip install pyftpdlib", file=sys.stderr)
+        return 1
+
     cfg = cargar_config()
     preparar_log(cfg)
 

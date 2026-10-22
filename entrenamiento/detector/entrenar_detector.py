@@ -14,6 +14,9 @@ Argumentos:
     --epocas N        epocas de entrenamiento (defecto 60)
     --imgsz N         lado cuadrado de entrada (defecto 640)
     --batch N         imagenes por lote (defecto 16)
+    --data RUTA       data.yaml de ultralytics (defecto: dataset_fuente)
+    --salida RUTA     carpeta donde publica placas.pt/onnx
+    --runs RUTA       carpeta de runs de ultralytics
     --solo-export R   exporta a ONNX un best.pt ya entrenado, sin entrenar
     --sin-onnx        no exporta a ONNX al terminar
 
@@ -55,15 +58,15 @@ def exportar_onnx(ruta_pt: Path, imgsz: int) -> Path | None:
     return ruta_onnx
 
 
-def publicar(ruta_pt: Path, ruta_onnx: Path | None) -> None:
+def publicar(ruta_pt: Path, ruta_onnx: Path | None, destino: Path) -> None:
     """Copia los pesos al proyecto, que es donde el servicio los busca."""
-    DIR_SALIDA.mkdir(parents=True, exist_ok=True)
-    destino_pt = DIR_SALIDA / "placas.pt"
+    destino.mkdir(parents=True, exist_ok=True)
+    destino_pt = destino / "placas.pt"
     shutil.copy2(ruta_pt, destino_pt)
     print(f"[publica] {destino_pt} ({destino_pt.stat().st_size / 1024 / 1024:.1f} MB)")
 
     if ruta_onnx and ruta_onnx.is_file():
-        destino_onnx = DIR_SALIDA / "placas.onnx"
+        destino_onnx = destino / "placas.onnx"
         shutil.copy2(ruta_onnx, destino_onnx)
         print(f"[publica] {destino_onnx} "
               f"({destino_onnx.stat().st_size / 1024 / 1024:.1f} MB)")
@@ -75,13 +78,22 @@ def main() -> int:
     ap.add_argument("--epocas", type=int, default=60)
     ap.add_argument("--imgsz", type=int, default=640)
     ap.add_argument("--batch", type=int, default=16)
+    ap.add_argument("--data", type=str, default=str(DATA_YAML),
+                    help="data.yaml de ultralytics")
+    ap.add_argument("--salida", type=str, default=str(DIR_SALIDA),
+                    help="carpeta destino de placas.pt/onnx")
+    ap.add_argument("--runs", type=str, default=str(DIR_RUNS),
+                    help="carpeta de runs de ultralytics")
     ap.add_argument("--solo-export", type=str, default=None,
                     help="Ruta a un best.pt ya entrenado: exporta y publica")
     ap.add_argument("--sin-onnx", action="store_true")
     args = ap.parse_args()
 
-    if not DATA_YAML.is_file():
-        print(f"[ERROR] Falta {DATA_YAML}. Corre antes convertir_coco_a_yolo.py")
+    data_yaml = Path(args.data)
+    dir_salida = Path(args.salida)
+
+    if not data_yaml.is_file():
+        print(f"[ERROR] Falta {data_yaml}. Corre antes convertir_coco_a_yolo.py")
         return 1
 
     if args.solo_export:
@@ -90,7 +102,7 @@ def main() -> int:
             print(f"[ERROR] No existe {ruta_pt}")
             return 1
         ruta_onnx = None if args.sin_onnx else exportar_onnx(ruta_pt, args.imgsz)
-        publicar(ruta_pt, ruta_onnx)
+        publicar(ruta_pt, ruta_onnx, dir_salida)
         return 0
 
     from ultralytics import YOLO
@@ -98,20 +110,20 @@ def main() -> int:
     print("=" * 60)
     print(f"  Detector de placas - {args.epocas} epocas, imgsz {args.imgsz}, "
           f"batch {args.batch}, CPU")
-    print(f"  data: {DATA_YAML}")
+    print(f"  data: {data_yaml}")
     print("=" * 60)
 
     modelo = YOLO(MODELO_BASE)
     t0 = time.time()
 
     modelo.train(
-        data=str(DATA_YAML),
+        data=str(data_yaml),
         epochs=args.epocas,
         imgsz=args.imgsz,
         batch=args.batch,
         device="cpu",
-        workers=0,           
-        project=str(DIR_RUNS),
+        workers=0,
+        project=str(Path(args.runs)),
         name=NOMBRE_RUN,
         exist_ok=True,
         patience=10,         
@@ -121,7 +133,7 @@ def main() -> int:
     )
 
     total = time.time() - t0
-    mejor = DIR_RUNS / NOMBRE_RUN / "weights" / "best.pt"
+    mejor = Path(args.runs) / NOMBRE_RUN / "weights" / "best.pt"
     if not mejor.is_file():
         print(f"[ERROR] No se genero {mejor}")
         return 1
@@ -132,7 +144,7 @@ def main() -> int:
     print(f"Mejores pesos: {mejor}")
 
     ruta_onnx = None if args.sin_onnx else exportar_onnx(mejor, args.imgsz)
-    publicar(mejor, ruta_onnx)
+    publicar(mejor, ruta_onnx, dir_salida)
     print("OK")
     return 0
 

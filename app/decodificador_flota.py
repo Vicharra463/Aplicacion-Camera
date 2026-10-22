@@ -18,7 +18,9 @@ entrenamiento.
 from __future__ import annotations
 
 import csv
+import os
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 APP = Path(__file__).resolve().parent           
@@ -34,18 +36,30 @@ def canon(texto: str) -> str:
     return texto.upper().replace("-", "").strip()
 
 
+@lru_cache(maxsize=1)
 def flota() -> list[str]:
-    """Placas unicas verificadas, en formato canónico con guion."""
+    """Placas unicas verificadas, en formato canónico con guion.
+
+    CYTV_FLOTA_SIN_GT=1 deja afuera gt_placas.DIAGNOSTICOS: diccionario
+    solo de entrenamiento, para medir el holdout sin usar las respuestas.
+    """
     placas: dict[str, str] = {}
-    for _dia, _arh, placa, _nota in DIAGNOSTICOS:
-        c = canon(placa)
-        placas.setdefault(c, placa.upper())
+    if not os.environ.get("CYTV_FLOTA_SIN_GT"):
+        for _dia, _arh, placa, _nota in DIAGNOSTICOS:
+            c = canon(placa)
+            placas.setdefault(c, placa.upper())
     if CSV_REALES.is_file():
         with CSV_REALES.open(encoding="utf-8") as f:
             for fila in csv.DictReader(f):
                 c = canon(fila["placa"])
                 placas.setdefault(c, fila["placa"].upper())
     return list(placas.values())
+
+
+@lru_cache(maxsize=1)
+def canonicos() -> frozenset[str]:
+    """Formas canonicas (sin guion) del diccionario, para puertas rápidas."""
+    return frozenset(canon(p) for p in flota())
 
 
 def distancia(a: str, b: str) -> int:

@@ -9,7 +9,7 @@ imagenes_procesadas\\placa\\<dia>\\ y compara contra la placa REAL:
   * Sin etiqueta -> se muestra la lectura del motor SIN dar veredicto
     (sirve aunque la data de etiquetas este incompleta o se actualice).
 
-Uso (normalmente via reevaluar.bat en la raiz):
+Uso (normalmente via scripts\reevaluar.bat):
     python reevaluar.py
     python reevaluar.py --dia 2026-10-14
     python reevaluar.py --modo modelo      # redetecta con ONNX

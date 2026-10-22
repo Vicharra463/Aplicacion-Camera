@@ -43,8 +43,7 @@ class CRNN(nn.Module):
         self.fc = nn.Linear(512, n_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        
-        feat = self.cnn(x)                       
-        feat = feat.squeeze(2).permute(0, 2, 1)  
-        seq, _ = self.rnn(feat)                  
+        feat = self.cnn(x)
+        feat = feat.mean(dim=2).permute(0, 2, 1)
+        seq, _ = self.rnn(feat)
         return self.fc(seq)                      

@@ -57,8 +57,14 @@ class DetectorPlacas:
         import onnxruntime as ort  
 
         self.umbral = float(umbral)
+        so = ort.SessionOptions()
+        so.intra_op_num_threads = 1
+        so.inter_op_num_threads = 1
+        so.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        so.enable_cpu_mem_arena = False
+        so.log_severity_level = 4
         self.sesion = ort.InferenceSession(
-            str(ruta), providers=["CPUExecutionProvider"])
+            str(ruta), sess_options=so, providers=["CPUExecutionProvider"])
         entrada = self.sesion.get_inputs()[0]
         self.nombre_entrada = entrada.name
         forma = entrada.shape                      

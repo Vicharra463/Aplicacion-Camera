@@ -63,6 +63,97 @@ _cfg: dict = {}
 _ruta_registro: Path | None = None
 
 _detector = None
+_reposo_seg: float = 600.0
+_t_ultima_actividad: float = 0.0
+_en_reposo = False
+_json_pendiente = False
+
+
+def _conexion() -> sqlite3.Connection:
+    con = sqlite3.connect(_ruta_registro)
+    con.execute("PRAGMA busy_timeout=5000")
+    con.execute("PRAGMA synchronous=NORMAL")
+    return con
+
+
+def _prioridad(normal: bool) -> None:
+    try:
+        import ctypes
+        import ctypes.wintypes
+        k32 = ctypes.windll.kernel32
+        k32.GetCurrentProcess.restype = ctypes.wintypes.HANDLE
+        k32.SetPriorityClass.argtypes = [ctypes.wintypes.HANDLE,
+                                         ctypes.wintypes.DWORD]
+        k32.SetPriorityClass.restype = ctypes.wintypes.BOOL
+        ok = k32.SetPriorityClass(k32.GetCurrentProcess(),
+                                  0x20 if normal else 0x40)
+        if not ok:
+            raise OSError("SetPriorityClass fallo")
+    except Exception:
+        logger.debug("No se pudo cambiar la prioridad del proceso",
+                     exc_info=True)
+
+
+def _asegurar_detector():
+    global _detector
+    if (_detector is None and DetectorPlacas is not None
+            and RUTA_ONNX is not None and RUTA_ONNX.is_file()):
+        try:
+            _detector = DetectorPlacas(
+                RUTA_ONNX, umbral=float(_cfg.get("umbral_modelo", 0.25)))
+        except Exception:
+            logger.exception("No se pudo recargar el detector ONNX")
+            _detector = None
+    return _detector
+
+
+def _entrar_en_reposo() -> None:
+    global _detector, _en_reposo
+    if _en_reposo:
+        return
+    _en_reposo = True
+    _detector = None
+    try:
+        import ocr
+        ocr._detector_onnx = None
+        ocr._motor = None
+    except Exception:
+        pass
+    try:
+        import reconocedor
+        reconocedor._sesion = None
+        reconocedor._sesion_mtime = None
+    except Exception:
+        pass
+    _prioridad(False)
+    logger.info("REPOSO: modelos liberados, prioridad idle")
+
+
+def _despertar() -> None:
+    global _en_reposo, _t_ultima_actividad
+    _t_ultima_actividad = time.time()
+    if not _en_reposo:
+        return
+    _en_reposo = False
+    _asegurar_detector()
+    _prioridad(True)
+    logger.info("DESPERTAR: detector recargado al recibir foto")
+
+
+def _marcar_json() -> None:
+    global _json_pendiente
+    _json_pendiente = True
+
+
+def _vaciar_json_pendiente() -> None:
+    global _json_pendiente
+    if not _json_pendiente:
+        return
+    _json_pendiente = False
+    try:
+        generar_json_dia(_dia_dedup)
+    except Exception:
+        logger.exception("No se pudo actualizar el reporte JSON del dia")
 
 
 def _carpeta_de(nombre_archivo: str) -> str:
@@ -77,15 +168,17 @@ def _carpeta_de_ruta(relativo: str) -> str:
 
 
 def iniciar(cfg: dict) -> None:
-    global _cfg, _ruta_registro, _hashes, _placas, _dia_dedup, _detector
+    global _cfg, _ruta_registro, _hashes, _placas, _dia_dedup, _detector, _reposo_seg
     _cfg = cfg
     _ruta_registro = cfg["registro"]
+    _reposo_seg = max(0.0, float(cfg.get("reposo_minutos", 10.0))) * 60.0
     cfg["procesadas"].mkdir(parents=True, exist_ok=True)
     if str(cfg.get("modo_descarte", "eliminar")).strip().lower() == "retener":
         _carpeta_descartes().mkdir(parents=True, exist_ok=True)
 
-    con = sqlite3.connect(_ruta_registro)
+    con = _conexion()
     try:
+        con.execute("PRAGMA journal_mode=WAL")
         con.execute(
             """
             CREATE TABLE IF NOT EXISTS registros (
@@ -178,6 +271,11 @@ def iniciar(cfg: dict) -> None:
             _detector = DetectorPlacas(RUTA_ONNX,
                                        umbral=float(cfg.get("umbral_modelo", 0.25)))
             logger.info("Deteccion: MODELO ONNX activo (%s)", RUTA_ONNX.name)
+            try:
+                import ocr
+                ocr._detector_onnx = _detector
+            except Exception:
+                pass
         except Exception:
             logger.exception("No se pudo cargar el modelo ONNX; "
                              "sigo con el detector geometrico")
@@ -203,7 +301,7 @@ def iniciar(cfg: dict) -> None:
         logger.exception("No se pudo generar el reporte JSON del dia %s",
                          _dia_dedup)
     try:
-        con = sqlite3.connect(_ruta_registro)
+        con = _conexion()
         try:
             dias = [fila[0] for fila in con.execute(
                 "SELECT DISTINCT substr(fecha_hora, 1, 10) FROM registros "
@@ -250,7 +348,7 @@ def registrar(archivo: str, placa: str | None = None,
               semaforo: str | None = None) -> None:
     if _ruta_registro is None:
         return
-    con = sqlite3.connect(_ruta_registro)
+    con = _conexion()
     try:
         con.execute(
             "INSERT INTO registros (fecha_hora, archivo, placa, confianza, "
@@ -335,7 +433,7 @@ def _carpeta_reportes() -> Path:
 def generar_json_dia(fecha: str) -> Path:
     if _ruta_registro is None:
         raise RuntimeError("worker no inicializado")
-    con = sqlite3.connect(_ruta_registro)
+    con = _conexion()
     try:
         filas = con.execute(
             "SELECT fecha_hora, archivo, placa, confianza, evidencia, "
@@ -505,6 +603,8 @@ def _replay_descartes_inicio() -> None:
 
 
 def _candidatos_placa(img: np.ndarray) -> list[tuple[tuple[int, int, int, int], float]]:
+    if _detector is None:
+        _asegurar_detector()
     if _detector is not None:
         return _detector.detectar(img)
 
@@ -614,7 +714,7 @@ def _dibujar_caja(img: np.ndarray, bbox: tuple[int, int, int, int],
 def _pasada_de_placa(placa: str) -> tuple[int, float]:
     dias = int(_cfg.get("ventana_reinspeccion_dias", 30))
     limite = (datetime.now() - timedelta(days=dias)).isoformat(timespec="seconds")
-    con = sqlite3.connect(_ruta_registro)
+    con = _conexion()
     try:
         filas = [fila[0] for fila in con.execute(
             "SELECT fecha_hora FROM pasadas WHERE placa = ? AND fecha_hora >= ? "
@@ -629,7 +729,7 @@ def _pasada_de_placa(placa: str) -> tuple[int, float]:
 
 
 def _registrar_pasada(placa: str, pasada: int, excedida: bool) -> None:
-    con = sqlite3.connect(_ruta_registro)
+    con = _conexion()
     try:
         con.execute(
             "INSERT INTO pasadas (placa, pasada, fecha_hora, excedida) "
@@ -810,7 +910,7 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
     if not t_viejo:
         return False
     desde = f"{_dia_dedup}T00:00:00"
-    con = sqlite3.connect(_ruta_registro)
+    con = _conexion()
     try:
         fila = con.execute(
             "SELECT id, archivo, evidencia FROM registros WHERE placa = ? "
@@ -835,7 +935,7 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
     viejo.with_suffix(".txt").unlink(missing_ok=True)
     nuevo = _guardar(img, bbox, vista, texto, sufijo=sufijo)
     relativo = str(nuevo.relative_to(_cfg["procesadas"]))
-    con = sqlite3.connect(_ruta_registro)
+    con = _conexion()
     try:
         con.execute("UPDATE registros SET archivo = ?, placa = ?, "
                     "confianza = ?, evidencia = ?, semaforo = ?, phash = ? "
@@ -852,10 +952,7 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
     _hashes[vista][huella] = texto
     _placas.setdefault(vista, set()).discard(t_viejo)
     _placas[vista].add(texto)
-    try:
-        generar_json_dia(_dia_dedup)
-    except Exception:
-        logger.exception("No se pudo actualizar el reporte JSON del dia")
+    _marcar_json()
     logger.info("MEJOR FOTO: %s -> %s (area %.4f vs %.4f): %s",
                 t_viejo, texto, area_nueva, area_vieja, relativo)
     return True
@@ -1117,10 +1214,7 @@ def procesar_imagen(ruta: Path) -> None:
     if texto_placa:
         _registrar_pasada(texto_placa, pasada, excedida)
         _placas.setdefault(vista, set()).add(texto_placa)
-        try:
-            generar_json_dia(_dia_dedup)
-        except Exception:
-            logger.exception("No se pudo actualizar el reporte JSON del dia")
+        _marcar_json()
 
     origen = "conf" if confirmada else "geom"
     leida = f" (placa {texto_placa}" if texto_placa else ""
@@ -1134,12 +1228,20 @@ def procesar_imagen(ruta: Path) -> None:
 
 
 def bucle_worker() -> None:
+    global _t_ultima_actividad
+    _t_ultima_actividad = time.time()
+    _prioridad(True)
     logger.info("Bucle del worker iniciado")
     while True:
         try:
             ruta = COLA.get(timeout=1.0)
         except queue.Empty:
+            _vaciar_json_pendiente()
+            if (_reposo_seg > 0 and not _en_reposo
+                    and time.time() - _t_ultima_actividad >= _reposo_seg):
+                _entrar_en_reposo()
             continue
+        _despertar()
         try:
             procesar_imagen(Path(ruta))
         except Exception:
@@ -1150,3 +1252,4 @@ def bucle_worker() -> None:
                 pass
         finally:
             COLA.task_done()
+            _t_ultima_actividad = time.time()

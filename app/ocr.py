@@ -14,7 +14,6 @@ _detector_onnx = None
 _FORMATOS = (
     re.compile(r"^([A-Z]{3})-(\d{3})$"),
     re.compile(r"^([A-Z]{2})-(\d{4})$"),
-    re.compile(r"^([A-Z]{3})-(\d{4})$"),
     re.compile(r"^([A-Z0-9]{3})-(\d{3})$"),
 )
 
@@ -35,8 +34,11 @@ PESO_UMBRAL_INV = 1.0
 PARES_CONFUSOS = {frozenset(p) for p in
                   ("WH", "WV", "QO", "QD", "OD", "MN", "UV")}
 UMBRAL_ARBITRAJE = 0.60
+UMBRAL_CRNN_FUERTE = 0.95
 RAPIDO = {"recorte", "clahe_gamma"}
 MARGENES_CRNN = (0.05, 0.11, 0.18)
+SNAP_K = 2
+SNAP_K_SINGLETON = 1
 
 UMBRAL_VERDE = 90
 UMBRAL_AMARILLO = 50
@@ -84,6 +86,8 @@ def _normalizar(texto: str) -> str:
     bruto = re.sub(r"[^A-Za-z0-9-]", "", bruto).upper()
     bruto = re.sub(r"-{2,}", "-", bruto).strip("-")
     alnum = bruto.replace("-", "")
+    if len(alnum) == 7 and alnum[3:].isdigit():
+        alnum = alnum[:6]
     if not (5 <= len(alnum) <= 7):
         return ""
 
@@ -107,6 +111,45 @@ def _normalizar(texto: str) -> str:
 
 def _forma_voto(texto: str) -> str:
     return texto.translate(_EQUIV_VOTOS)
+
+
+def _snap_flota(texto: str, k: int) -> str:
+    """corregir() del decodificador: exacta o vecina UNICA a distancia <= k."""
+    if not texto:
+        return texto
+    try:
+        from decodificador_flota import corregir, flota
+        return corregir(texto, flota(), k) or texto
+    except Exception:
+        logger.debug("flota no disponible para el snap", exc_info=True)
+        return texto
+
+
+def _en_flota(texto: str) -> bool:
+    try:
+        from decodificador_flota import canonicos, canon
+        return canon(texto) in canonicos()
+    except Exception:
+        logger.debug("flota no disponible para el gate", exc_info=True)
+        return True
+
+
+def _snap_sin_consenso(registro: list[tuple[str, str, float]]
+                       ) -> tuple[str, float] | None:
+    """Rescate (Fase 2a): mejor singleton que cae a distancia <= SNAP_K de
+    una placa UNICA de flota y se MOVIÓ hacia ella. Solo sin CRNN (el CRNN
+    gateado manda antes) y solo si el remapeo cambia el texto."""
+    candidatos = [(c, t) for n, t, c in registro
+                  if t and n not in ("decision", "arbitraje",
+                                     "arbitraje_descartado", "snap_flota",
+                                     "crnn", "crnn_flota", "retry_onnx")]
+    if not candidatos:
+        return None
+    mejor_c, mejor_t = max(candidatos)
+    destino = _snap_flota(mejor_t, SNAP_K)
+    if destino == mejor_t:
+        return None
+    return destino, mejor_c
 
 
 def _recorte(img: np.ndarray, bbox: tuple[int, int, int, int],
@@ -200,7 +243,11 @@ def _elegir_voto(grupos: dict[str, list[tuple[str, float, float]]]
     _puntaje, miembros = max(candidatos, key=lambda par: par[0])
     conf = sum(c for _t, c, _p in miembros) / len(miembros)
     ganador = max(miembros, key=lambda tcp: tcp[1] * tcp[2])[0]
-    return ganador, conf, miembros
+    k = SNAP_K if len(miembros) >= 2 else SNAP_K_SINGLETON
+    nuevo = _snap_flota(ganador, k)
+    if nuevo != ganador:
+        logger.debug("snap post-voto: %s -> %s", ganador, nuevo)
+    return nuevo, conf, miembros
 
 
 def _crnn_consenso(img: np.ndarray, bbox: tuple[int, int, int, int],
@@ -222,8 +269,15 @@ def _crnn_consenso(img: np.ndarray, bbox: tuple[int, int, int, int],
     resultado = reconocedor.leer_consenso(crops)
     if not resultado:
         return None
-    resultado["normal"] = _normalizar(resultado["texto"])
-    return resultado if resultado["normal"] else None
+    normal = _normalizar(resultado["texto"])
+    if not normal:
+        return None
+    destino = _snap_flota(normal, SNAP_K)
+    if not _en_flota(destino):
+        return None
+    resultado["texto"] = destino
+    resultado["normal"] = destino
+    return resultado
 
 
 def _arbitrar(ganador: str, crnn: dict) -> str:
@@ -259,7 +313,7 @@ def _leer_en_bbox(img: np.ndarray, bbox: tuple[int, int, int, int],
     c_crnn = crnn["conf"] if crnn else 0.0
     registro: list[tuple[str, str, float]] = []
     if t_crnn:
-        registro.append(("crnn", t_crnn, c_crnn))
+        registro.append(("crnn_flota", t_crnn, c_crnn))
 
     reg, grupos = _correr_6(img, bbox, margen_base, solo=RAPIDO)
     registro += reg
@@ -276,13 +330,32 @@ def _leer_en_bbox(img: np.ndarray, bbox: tuple[int, int, int, int],
         hubo = hubo or any(t for _n, t, _c in reg2)
         ganador, conf, miembros = _votar(grupos, t_crnn, c_crnn, hubo)
 
+    if t_crnn and c_crnn >= UMBRAL_CRNN_FUERTE:
+        registro.append(("decision", f"crnn_fuerte ({c_crnn:.3f})", 0.0))
+        return t_crnn, c_crnn, registro, miembros, t_crnn
     if not miembros:
+        if t_crnn:
+            registro.append(("decision",
+                             "crnn_unico (rapidocr sin lectura)", 0.0))
+            return t_crnn, c_crnn, registro, miembros, t_crnn
+        rescate = _snap_sin_consenso(registro)
+        if rescate:
+            texto_r, conf_r = rescate
+            registro.append(("snap_flota", texto_r, conf_r))
+            return texto_r, conf_r, registro, [], t_crnn
         return "", 0.0, registro, [], t_crnn
+    if t_crnn and len(miembros) < 2:
+        registro.append(("decision", "crnn_por_falta_de_apoyo", 0.0))
+        return t_crnn, c_crnn, registro, miembros, t_crnn
     if crnn:
         corregido = _arbitrar(ganador, crnn)
         if corregido != ganador:
-            registro.append(("arbitraje", f"{ganador}->{corregido}", 0.0))
-            ganador = corregido
+            if corregido == t_crnn:
+                registro.append(("arbitraje", f"{ganador}->{corregido}", 0.0))
+                ganador = corregido
+            else:
+                registro.append(("arbitraje_descartado",
+                                 f"{ganador}->{corregido}", 0.0))
     return ganador, conf, registro, miembros, t_crnn
 
 
@@ -323,7 +396,11 @@ def leer_placa_6(img: np.ndarray, bbox: tuple[int, int, int, int],
         img, bbox, margen_base)
     if miembros:
         return ganador, conf, registro
-    if t_crnn or not reintento:
+    if ganador:
+        return ganador, conf, registro
+    if t_crnn:
+        return t_crnn, c_crnn, registro
+    if not reintento:
         return "", 0.0, registro
     t2, c2, reg2 = _reintento_onnx(img, bbox, margen_base)
     return t2, c2, registro + reg2
@@ -388,8 +465,8 @@ def evidencia_y_color(texto: str, conf: float,
     a_favor = min(a_favor, 6)
 
     es_crnn_directa = (conf >= UMBRAL_CONF_RESUELTA
-                       and any(n == "crnn" for n, _t, _c
-                               in registro or []))
+                       and any(n in ("crnn", "crnn_flota")
+                               for n, _t, _c in registro or []))
     if es_crnn_directa:
         base = 70.0 + 30.0 * max(0.0, min(conf, 1.0))
     else:

@@ -1,14 +1,7 @@
 @echo off
 
-
-
-
-
-
-
-
 setlocal
-set "BASE=%~dp0"
+set "BASE=%~dp0.."
 if exist "%BASE%venv\Scripts\python.exe" (
     set "PY=%BASE%venv\Scripts\python.exe"
 ) else (

@@ -1,0 +1,6 @@
+2026-10-22 15:35:30,919 cytv.modelo Modelo ONNX cargado: placas.onnx (entrada 640x640, umbral 0.40)
+2026-10-22 15:35:31,372 cytv.ocr OCR cargado (RapidOCR ONNX, CPU, 1 hilo)
+2026-10-22 15:35:31,439 cytv.reconocedor CRNN cargado (reconocedor.onnx)
+2026-10-22 15:35:31,439 cytv.reconocedor CRNN input 160x32
+2026-10-22 15:35:31,439 cytv.portal modelos cargados en 0.7s
+2026-10-22 15:35:33,635 cytv.portal 127.0.0.1 - "GET / HTTP/1.1" 200 -

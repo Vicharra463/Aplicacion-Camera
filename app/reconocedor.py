@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 import numpy as np
@@ -9,7 +10,8 @@ from PIL import Image
 logger = logging.getLogger("cytv.reconocedor")
 
 BASE = Path(__file__).resolve().parents[1]
-RUTA_ONNX = BASE / "modelo" / "reconocedor.onnx"
+RUTA_ONNX = Path(os.environ.get("CYTV_CRNN_ONNX")
+                 or BASE / "modelo" / "reconocedor.onnx")
 
 CHARSET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-"
 _BLANK = len(CHARSET)
@@ -18,6 +20,7 @@ _IDX_DIG = [i for i, c in enumerate(CHARSET) if c.isdigit()]
 
 _sesion = None
 _sesion_mtime: float | None = None
+_dim_entrada: tuple[int, int] = (32, 160)
 
 
 def _obtener_sesion():
@@ -55,6 +58,13 @@ def _obtener_sesion():
         logger.info("CRNN recargado con pesos nuevos (%s)", RUTA_ONNX.name)
     _sesion = nueva
     _sesion_mtime = mtime
+    try:
+        forma = nueva.get_inputs()[0].shape
+        _dim_entrada = (int(forma[2]), int(forma[3]))
+        logger.info("CRNN input %dx%d", _dim_entrada[1], _dim_entrada[0])
+    except Exception:
+        logger.debug("no se pudo leer la forma de entrada del ONNX",
+                     exc_info=True)
     return _sesion
 
 
@@ -63,7 +73,9 @@ def _tensor_desde_bgr(crop: np.ndarray) -> np.ndarray:
         rgb = np.ascontiguousarray(crop[:, :, ::-1])
     else:
         rgb = np.ascontiguousarray(crop)
-    g = Image.fromarray(rgb).convert("L").resize((160, 32), Image.BILINEAR)
+    alto, ancho = _dim_entrada
+    g = Image.fromarray(rgb).convert("L").resize((ancho, alto),
+                                                 Image.BILINEAR)
     arr = np.asarray(g, dtype=np.float32)[None] / 255.0
     return arr[None]
 

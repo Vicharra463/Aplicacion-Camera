@@ -26,7 +26,7 @@ from generador_placas import CHARSET, a_tensor, generar
 
 BLANK = len(CHARSET)
 RUTA_ONNX = PROYECTO / "modelo" / "reconocedor.onnx"
-RUTA_PESOS = ENTRENAMIENTO / "crnn_placas.pt"
+RUTA_PESOS = ENTRENAMIENTO / "pesos" / "crnn_placas.pt"
 RUTA_DATASET = PROYECTO / "dataset"
 CSV_LABELS = RUTA_DATASET / "labels.csv"
 
@@ -114,22 +114,47 @@ def decodificar(logits: torch.Tensor) -> str:
         previo = i
     return "".join(salida)
 
-def evaluar_gt(modelo, dispositivo, casos) -> tuple[float, list[str]]:
+def _distancia(a: str, b: str) -> int:
+    if a == b:
+        return 0
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1,
+                            prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def _con_formato(leido: str) -> str:
+    a = (leido or "").replace("-", "")
+    if len(a) == 7 and a[3:].isdigit():
+        return f"{a[:3]}-{a[3:6]}"
+    return leido
+
+
+def evaluar_gt(modelo, dispositivo, casos) -> tuple[float, float, list[str]]:
     if not casos:
-        return 0.0, []
-    
+        return 0.0, 0.0, []
+
     modelo.eval()
     aciertos, fallos = 0, []
+    errores, total_chars = 0, 0
     with torch.no_grad():
         for img, real in casos:
             t = _tensor_desde_crop(img).unsqueeze(0).to(dispositivo)
-            leido = decodificar(modelo(t)[0])
-            if _texto_canon(leido) == _texto_canon(real):
+            leido = _con_formato(decodificar(modelo(t)[0]))
+            rc, lc = _texto_canon(real), _texto_canon(leido)
+            errores += _distancia(lc, rc)
+            total_chars += len(rc)
+            if lc == rc:
                 aciertos += 1
             else:
                 fallos.append(f"real={real} leido={leido or '(nada)'}")
     modelo.train()
-    return aciertos / len(casos), fallos
+    cer = errores / max(1, total_chars)
+    return aciertos / len(casos), cer, fallos
 
 def exportar_onnx(modelo) -> None:
     modelo.eval()
@@ -235,9 +260,9 @@ def main() -> int:
         modelo.train()
 
         pct_sint = 100 * con_gt / max(1, con_gt + sin_gt)
-        gt_pct, gt_fallos = evaluar_gt(modelo, dispositivo, gt)
+        gt_pct, gt_cer, gt_fallos = evaluar_gt(modelo, dispositivo, gt)
         dt = time.time() - t0
-        print(f"epoca {epoca:02d}/{args.epocas} loss={perdida_total / n_lotes:.3f} val_loss={val_loss / max(1, n_val):.3f} val_acierto={pct_sint:5.1f}% GT_TEST={100 * gt_pct:5.1f}% ({dt:.0f}s)", flush=True)
+        print(f"epoca {epoca:02d}/{args.epocas} loss={perdida_total / n_lotes:.3f} val_loss={val_loss / max(1, n_val):.3f} val_acierto={pct_sint:5.1f}% GT_TEST={100 * gt_pct:5.1f}% CER={gt_cer:.3f} ({dt:.0f}s)", flush=True)
 
         if gt_pct >= mejor_gt:
             mejor_gt = gt_pct

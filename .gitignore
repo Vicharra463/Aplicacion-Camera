@@ -24,11 +24,14 @@ INFO_CAMARA.txt
 
 # Respaldos de modelos pesados (solo local)
 modelo/respaldo/
+modelo/candidatos/
 
 # Datos de entrenamiento (respaldo en D:\Escritorio\CAMARA PLACAS)
 entrenamiento/etiquetas_reales.csv
 entrenamiento/*.pt
 entrenamiento/*.pt.bak
+entrenamiento/pesos/
+entrenamiento/respaldo/
 entrenamiento/data_dura/
 entrenamiento/inputs_gt/
 entrenamiento/montajes/

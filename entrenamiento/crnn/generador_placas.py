@@ -209,9 +209,10 @@ def generar(rng: random.Random | None = None) -> tuple[Image.Image, str]:
     return _degradar(lienzo, rng), texto
 
 
-def a_tensor(img: Image.Image) -> np.ndarray:
+def a_tensor(img: Image.Image, ancho: int = ANCHO,
+             alto: int = ALTO) -> np.ndarray:
     """Image PIL -> array float32 (1, H, W) [0,1], recortado a ANCHOxALTO."""
-    g = img.convert("L").resize((ANCHO, ALTO), Image.BILINEAR)
+    g = img.convert("L").resize((ancho, alto), Image.BILINEAR)
     arr = np.asarray(g, dtype=np.float32) / 255.0
     return arr[None, :, :]
 
