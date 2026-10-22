@@ -36,6 +36,7 @@ PARES_CONFUSOS = {frozenset(p) for p in
                   ("WH", "WV", "QO", "QD", "OD", "MN", "UV")}
 UMBRAL_ARBITRAJE = 0.60
 RAPIDO = {"recorte", "clahe_gamma"}
+MARGENES_CRNN = (0.05, 0.11, 0.18)
 
 UMBRAL_VERDE = 90
 UMBRAL_AMARILLO = 50
@@ -208,15 +209,16 @@ def _crnn_consenso(img: np.ndarray, bbox: tuple[int, int, int, int],
         import reconocedor
     except Exception:
         return None
-    base = _recorte(img, bbox, margen_base)
-    if base is None or not base.size:
-        return None
-    crops = [base]
-    for extra in (0.05, 0.10):
-        r = _recorte(img, bbox, margen_base + extra)
-        if r is not None:
+    crops = []
+    for margen in MARGENES_CRNN:
+        r = _recorte(img, bbox, margen)
+        if r is not None and r.size:
             crops.append(r)
-    crops += [_clahe_gamma(base), _noche(base)]
+    if not crops:
+        return None
+    medio = _recorte(img, bbox, MARGENES_CRNN[1])
+    if medio is not None and medio.size:
+        crops += [_clahe_gamma(medio), _noche(medio)]
     resultado = reconocedor.leer_consenso(crops)
     if not resultado:
         return None
