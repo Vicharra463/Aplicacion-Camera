@@ -1,22 +1,8 @@
 #!/usr/bin/env python3
-"""Entrenamiento del CRNN de placas peruanas + export ONNX.
-
-Datos:
-  - Entreno: sintetico on-the-fly (generador_placas), 24k/epoca, infinito.
-  - Val:     1200 sinteticos fijos (semilla aparte) para la curva.
-  - TEST honesto: los 29 crops de la ground truth verificada
-    (validar_diagnosticos.DIAGNOSTICOS) — NUNCA se entrena con ellos.
-
-Sale en modelo/reconocedor.onnx (mismo sitio que placas.onnx, camino que
-ya lee el servicio). Requiere GPU: torch.cuda.is_available().
-
-Uso:
-    python entrenamiento/crnn/entrenar.py                # 12 epocas
-    python entrenamiento/crnn/entrenar.py --epocas 20
-"""
 from __future__ import annotations
 
 import argparse
+import csv
 import random
 import sys
 import time
@@ -41,12 +27,10 @@ from generador_placas import CHARSET, a_tensor, generar
 BLANK = len(CHARSET)
 RUTA_ONNX = PROYECTO / "modelo" / "reconocedor.onnx"
 RUTA_PESOS = ENTRENAMIENTO / "crnn_placas.pt"
-
-
+RUTA_DATASET = PROYECTO / "dataset"
+CSV_LABELS = RUTA_DATASET / "labels.csv"
 
 class Sinteticos(Dataset):
-    """Placas sinteticas on-the-fly. Cada __getitem__ genera una distinta."""
-
     def __init__(self, n: int, semilla: int) -> None:
         self.n = n
         self.rng = random.Random(semilla)
@@ -57,10 +41,31 @@ class Sinteticos(Dataset):
     def __getitem__(self, i: int):
         img, texto = generar(self.rng)
         tensor = torch.from_numpy(a_tensor(img))
-        etiqueta = torch.tensor([CHARSET.index(c) for c in texto],
-                                dtype=torch.long)
+        etiqueta = torch.tensor([CHARSET.index(c) for c in texto], dtype=torch.long)
         return tensor, etiqueta, texto
 
+class PlacasRealesDataset(Dataset):
+    def __init__(self, ruta_csv: str | Path, ruta_imagenes: str | Path):
+        self.ruta_imagenes = Path(ruta_imagenes)
+        self.muestras = []
+        with open(ruta_csv, encoding='utf-8') as f:
+            lector = csv.DictReader(f)
+            for fila in lector:
+                # Solo agrega la muestra si la imagen existe físicamente en esta carpeta (train o val)
+                if (self.ruta_imagenes / fila['archivo']).is_file():
+                    self.muestras.append((fila['archivo'], fila['placa']))
+
+    def __len__(self) -> int:
+        return len(self.muestras)
+
+    def __getitem__(self, i: int):
+        archivo, texto = self.muestras[i]
+        ruta = self.ruta_imagenes / archivo
+        img = Image.open(ruta).convert("RGB")
+        tensor = _tensor_desde_crop(img)[0]
+        texto = _texto_canon(texto)
+        etiqueta = torch.tensor([CHARSET.index(c) for c in texto if c in CHARSET], dtype=torch.long)
+        return tensor, etiqueta, texto
 
 def _collate(batch):
     imgs = torch.stack([b[0] for b in batch])
@@ -69,22 +74,16 @@ def _collate(batch):
     textos = [b[2] for b in batch]
     return imgs, etiquetas, longitudes, textos
 
-
-
 def _bbox_desde_txt(ruta_txt: Path, ancho: int, alto: int):
     linea = ruta_txt.read_text(encoding="utf-8").strip().splitlines()[0]
     _c, cx, cy, w, h = (float(v) for v in linea.split())
     bw, bh = w * ancho, h * alto
     return int(cx * ancho - bw / 2), int(cy * alto - bh / 2), int(bw), int(bh)
 
-
 def _texto_canon(texto: str) -> str:
-    """Para comparar: mayusculas y sin guion (el guion es estructural)."""
     return texto.upper().replace("-", "").replace(" ", "")
 
-
 def cargar_gt() -> list[tuple[Image.Image, str]]:
-    """Los 29 crops verificados de la ground truth (test honesto)."""
     from gt_placas import DIAGNOSTICOS, RAIZ
     casos = []
     for dia, nombre, real, _nota in DIAGNOSTICOS:
@@ -101,15 +100,12 @@ def cargar_gt() -> list[tuple[Image.Image, str]]:
         casos.append((crop, real))
     return casos
 
-
 def _tensor_desde_crop(img: Image.Image) -> torch.Tensor:
     g = img.convert("L").resize((160, 32), Image.BILINEAR)
     arr = np.asarray(g, dtype=np.float32)[None] / 255.0
     return torch.from_numpy(arr)
 
-
 def decodificar(logits: torch.Tensor) -> str:
-    """CTC greedy: argmax -> quitar repetidos -> quitar blanks."""
     idx = logits.argmax(dim=-1).tolist()
     salida, previo = [], None
     for i in idx:
@@ -118,8 +114,10 @@ def decodificar(logits: torch.Tensor) -> str:
         previo = i
     return "".join(salida)
 
-
 def evaluar_gt(modelo, dispositivo, casos) -> tuple[float, list[str]]:
+    if not casos:
+        return 0.0, []
+    
     modelo.eval()
     aciertos, fallos = 0, []
     with torch.no_grad():
@@ -133,8 +131,6 @@ def evaluar_gt(modelo, dispositivo, casos) -> tuple[float, list[str]]:
     modelo.train()
     return aciertos / len(casos), fallos
 
-
-
 def exportar_onnx(modelo) -> None:
     modelo.eval()
     dummy = torch.zeros(1, 1, 32, 160, device=next(modelo.parameters()).device)
@@ -143,19 +139,16 @@ def exportar_onnx(modelo) -> None:
         input_names=["placa"], output_names=["logits"],
         dynamic_axes={"placa": {0: "lote"}, "logits": {0: "lote"}},
         opset_version=13)
-    print(f"ONNX exportado: {RUTA_ONNX} "
-          f"({RUTA_ONNX.stat().st_size / 1e6:.1f} MB)")
+    print(f"ONNX exportado: {RUTA_ONNX} ({RUTA_ONNX.stat().st_size / 1e6:.1f} MB)")
     
     try:
         import onnxruntime as ort
-        sesion = ort.InferenceSession(str(RUTA_ONNX),
-                                      providers=["CPUExecutionProvider"])
+        sesion = ort.InferenceSession(str(RUTA_ONNX), providers=["CPUExecutionProvider"])
         prueba = np.zeros((1, 1, 32, 160), dtype=np.float32)
         out = sesion.run(None, {"placa": prueba})[0]
         print(f"onnxruntime OK: salida {out.shape}")
     except ImportError:
         print("onnxruntime no instalado en el venv: sanidad saltada")
-
 
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -171,20 +164,20 @@ def main() -> int:
         lote, por_epoca = args.lote, args.por_epoca
     else:
         dispositivo = torch.device("cpu")
-        print("AVISO: sin GPU (driver GTX 1650 en Code 38/phantom -> "
-              "reinicio pendiente). Entrenando en CPU con lote reducido.")
+        print("AVISO: sin GPU. Entrenando en CPU con lote reducido.")
         lote, por_epoca = min(args.lote, 32), min(args.por_epoca, 8000)
     print(f"dispositivo={dispositivo} lote={lote} muestras/epoca={por_epoca}")
 
     gt = cargar_gt()
     print(f"ground truth (test): {len(gt)} crops verificados")
 
-    train_ds = Sinteticos(por_epoca, semilla=1)
-    val_ds = Sinteticos(1200, semilla=999)
-    train_dl = DataLoader(train_ds, batch_size=lote, shuffle=True,
-                          collate_fn=_collate, num_workers=0)
-    val_dl = DataLoader(val_ds, batch_size=lote,
-                        collate_fn=_collate, num_workers=0)
+    train_ds = PlacasRealesDataset(ruta_csv=CSV_LABELS, ruta_imagenes=RUTA_DATASET / "images" / "train")
+    val_ds = PlacasRealesDataset(ruta_csv=CSV_LABELS, ruta_imagenes=RUTA_DATASET / "images" / "val")
+    
+    print(f"Dataset real cargado: {len(train_ds)} train, {len(val_ds)} val")
+
+    train_dl = DataLoader(train_ds, batch_size=lote, shuffle=True, collate_fn=_collate, num_workers=0)
+    val_dl = DataLoader(val_ds, batch_size=lote, collate_fn=_collate, num_workers=0)
 
     modelo = CRNN().to(dispositivo)
     total = sum(p.numel() for p in modelo.parameters())
@@ -192,13 +185,13 @@ def main() -> int:
 
     ctc = nn.CTCLoss(blank=BLANK, zero_infinity=True)
     optim = torch.optim.Adam(modelo.parameters(), lr=args.lr)
-    programador = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optim, T_max=args.epocas)
+    programador = torch.optim.lr_scheduler.CosineAnnealingLR(optim, T_max=args.epocas)
 
     mejor_gt = 0.0
     usar_amp = dispositivo.type == "cuda"
     n_meta_lotes = max(1, len(train_dl))
     n_cada = max(1, n_meta_lotes // 10)
+    
     for epoca in range(1, args.epocas + 1):
         t0 = time.time()
         perdida_total, n_lotes = 0.0, 0
@@ -221,12 +214,8 @@ def main() -> int:
                 dt = time.time() - t0
                 ritmo = dt / n_lotes
                 restante = ritmo * (n_meta_lotes - n_lotes)
-                print(f"BARRA epoca {epoca:02d}/{args.epocas} "
-                      f"[{barra}] {100 * prog:3.0f}% "
-                      f"loss={perdida_total / n_lotes:.3f} "
-                      f"faltan~{restante:.0f}s", flush=True)
+                print(f"BARRA epoca {epoca:02d}/{args.epocas} [{barra}] {100 * prog:3.0f}% loss={perdida_total / n_lotes:.3f} faltan~{restante:.0f}s", flush=True)
         programador.step()
-
         
         modelo.eval()
         val_loss, n_val = 0.0, 0
@@ -248,25 +237,19 @@ def main() -> int:
         pct_sint = 100 * con_gt / max(1, con_gt + sin_gt)
         gt_pct, gt_fallos = evaluar_gt(modelo, dispositivo, gt)
         dt = time.time() - t0
-        print(f"epoca {epoca:02d}/{args.epocas}  "
-              f"loss={perdida_total / n_lotes:.3f}  "
-              f"val_loss={val_loss / max(1, n_val):.3f}  "
-              f"val_acierto={pct_sint:5.1f}%  "
-              f"GT_TEST={100 * gt_pct:5.1f}%  ({dt:.0f}s)", flush=True)
+        print(f"epoca {epoca:02d}/{args.epocas} loss={perdida_total / n_lotes:.3f} val_loss={val_loss / max(1, n_val):.3f} val_acierto={pct_sint:5.1f}% GT_TEST={100 * gt_pct:5.1f}% ({dt:.0f}s)", flush=True)
 
         if gt_pct >= mejor_gt:
             mejor_gt = gt_pct
             torch.save(modelo.state_dict(), RUTA_PESOS)
             for f in gt_fallos[:8]:
                 print(f"    gt fallo: {f}")
-            print(f"    (mejor hasta ahora: {100 * mejor_gt:.1f}%, "
-                  f"pesos guardados)")
+            print(f"    (mejor hasta ahora: {100 * mejor_gt:.1f}%, pesos guardados)")
 
     print(f"\nMEJOR GT: {100 * mejor_gt:.1f}%")
     modelo.load_state_dict(torch.load(RUTA_PESOS))
     exportar_onnx(modelo)
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
