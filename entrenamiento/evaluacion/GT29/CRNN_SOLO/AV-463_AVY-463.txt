@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-15/AV-463.jpg
+Placa real: AVY-463
+Lectura:    AVY-463   (crudo CTC: AVY-463)
+Veredicto:  OK  (AVY463 vs real AVY463)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: A 0.999   [A 0.999  H 0.001  N 0.000]
+  paso 01: V 0.990   [V 0.990  W 0.007  Y 0.002]
+  paso 03: Y 0.994   [Y 0.994  V 0.004  I 0.001]
+  paso 04: - 0.997   [- 0.997  Y 0.003  V 0.000]
+  paso 22: 4 1.000   [4 1.000  1 0.000  A 0.000]
+  paso 27: 6 1.000   [6 1.000  <blank> 0.000  0 0.000]
+  paso 33: 3 1.000   [3 1.000  5 0.000  2 0.000]
+
+Conf media: 0.997   Conf minima: 0.990 (paso 1, 'V')
+
+Comparacion char a char contra la real:
+  pos 0: A  (igual)
+  pos 1: V  (igual)
+  pos 2: Y  (igual)
+  pos 3: 4  (igual)
+  pos 4: 6  (igual)
+  pos 5: 3  (igual)
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

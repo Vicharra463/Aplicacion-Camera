@@ -46,6 +46,7 @@ scripts\instalar_servicio.bat config   :: ver el config.ini que usa el servicio
 | `scripts\reevaluar.bat --dia 2026-10-14 [--modo auto\|txt\|modelo]` | Reevalúa un día contra las etiquetas → OK/FALLO y % de acierto |
 | `python entrenamiento\medir_pipeline.py [--dump]` | Banco GT-29: acierto por placa sobre las 29 fotos de referencia |
 | `python entrenamiento\evaluacion\validar_diagnosticos.py [--detector txt\|modelo]` | Validador oficial (`modelo` = camino de producción) |
+| `python entrenamiento\evaluacion\evaluar_holdout.py [--detector txt\|modelo]` | Evaluación del holdout: fotos nuevas fuera de GT-29, 4 modos separados (solo lectura) |
 | `python portal\portal.py [--puerto 8090]` | Portal web de consultas |
 | `python ftp_server.py` | Servicio FTP + pipeline (en producción lo corre NSSM) |
 | `python entrenamiento\crnn\entrenar.py [--epocas 12]` | Entrenar CRNN con datos sintéticos |
@@ -73,6 +74,7 @@ D:\Aplicacion-Camera\
 │   ├── reconocedor.py           CRNN (ONNX)
 │   ├── decodificador_flota.py   diccionario de placas + corrección por vecinos
 │   ├── worker.py                cola de fotos, reposo, prioridad de proceso
+│   ├── log_sin_lectura.py       log JSONL de SIN LECTURA (apagado por defecto)
 │   ├── consola.py               consola interactiva
 │   └── gt_placas.py             GT-29 (29 fotos de referencia)
 │
@@ -97,7 +99,7 @@ D:\Aplicacion-Camera\
 │   ├── pesos\                   pesos .pt del CRNN (placas, reales, ideales, 48, duro)
 │   ├── respaldo\                backups de pesos y CSVs
 │   ├── crnn\                    código del CRNN + entrenadores
-│   ├── evaluacion\              validar_diagnosticos, reevaluar, eval_rapido, gap
+│   ├── evaluacion\              validar_diagnosticos, evaluar_holdout + holdout\, reevaluar, gap
 │   ├── herramientas\            actualizar_data, exportar_data_dura
 │   ├── detector\                entrenar_detector
 │   ├── etiquetas_reales.csv     flota verificada a mano (datos, no mover)
@@ -127,6 +129,44 @@ documentado, y `requirements*.txt` es la convención de pip. Todo lo demás vive
 Meta del proyecto: ≥ 90 % por placa. El punto débil son las placas que todavía no
 están en el diccionario: cada foto etiquetada nueva sube el dato de entrenamiento
 **y** la entrada de flota.
+
+---
+
+## Log de SIN LECTURA — diagnóstico de fotos sin placa (APAGADO)
+
+Cuando una foto no da placa, el sistema puede registrar el caso en un JSONL
+aparte (material para mejorar el dataset) **sin tocar `registro.db` ni las
+rutas de producción**. Por defecto está **apagado**: sin la variable de
+entorno, no escribe nada.
+
+| Variable | Default | Qué controla |
+|---|---|---|
+| `LOG_SIN_LECTURA` | `0` (apagado) | enciende el log |
+| `LOG_SIN_LECTURA_DIR` | `C:\CytvAncon\diagnostico\sin_lectura` | carpeta del JSONL + `recortes\` |
+| `LOG_SIN_LECTURA_MAX_MB` | `50` | rotación: tamaño máximo por archivo |
+| `LOG_SIN_LECTURA_ARCHIVOS` | `3` | archivos conservados (rotados + actual) |
+| `LOG_SIN_LECTURA_RETENCION_DIAS` | `30` | **retención: borra eventos con más de N días** |
+| `LOG_SIN_LECTURA_RECORTES` | `0` | guarda el recorte JPEG de la placa |
+| `LOG_SIN_LECTURA_RECORTES_MAX` | `200` | máximo de recortes en disco |
+| `LOG_SIN_LECTURA_RECORTES_MAX_MB` | `200` | máximo de MB de recortes |
+| `LOG_SIN_LECTURA_CRNN` | `1` | diagnóstico CRNN del evento (`0` = más liviano) |
+| `LOG_SIN_LECTURA_MOTIVOS` | `texto_invalido,placa_cortada` | motivos del worker a registrar (`vacío` o `*` = todos) |
+
+- **Rendimiento** (medido sobre GT-29): escritura en hilo aparte con cola en
+  memoria → ~11 µs por foto con el flag encendido; con diagnóstico CRNN,
+  ~34 ms **solo** en fotos sin lectura (≤ 0,2 % sobre la media total).
+- **Privacidad**: los recortes viven en `LOG_SIN_LECTURA_DIR\recortes\`,
+  fuera de las carpetas servidas; ni el portal ni el FTP publican esa ruta.
+- **Fallos** (ruta inválida, sin permisos, disco lleno): aviso único en el
+  log del servicio y continúa — nunca corta el proceso.
+- **Sin duplicados**: al encolar se deduplica por (nombre de archivo,
+  motivo) contra los últimos ~4 MB del JSONL — el replay de arranque no
+  repite eventos de sesiones anteriores. El campo `imagen` es la ruta de
+  *entrada* (tras `_descartar` el archivo quedó en
+  `descartadas/<fecha>/<motivo>/` o fue borrado según `modo_descarte`).
+- **Apagado**: no definir la variable (o `=0`). Para desactivar la
+  recolección al servicio hay que deshacer los dos bloques aditivos en
+  `app\worker.py` y `entrenamiento\evaluacion\validar_diagnosticos.py`.
 
 ---
 

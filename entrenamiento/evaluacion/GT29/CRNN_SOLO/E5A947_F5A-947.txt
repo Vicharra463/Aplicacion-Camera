@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-15/E5A947.jpg
+Placa real: F5A-947
+Lectura:    F5A-947   (crudo CTC: F5A-947)
+Veredicto:  OK  (F5A947 vs real F5A947)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: F 0.991   [F 0.991  E 0.008  L 0.001]
+  paso 01: 5 0.997   [5 0.997  S 0.002  E 0.000]
+  paso 03: A 0.999   [A 0.999  H 0.000  Q 0.000]
+  paso 04: - 0.980   [- 0.980  A 0.020  <blank> 0.000]
+  paso 21: 9 1.000   [9 1.000  <blank> 0.000  4 0.000]
+  paso 26: 4 1.000   [4 1.000  <blank> 0.000  1 0.000]
+  paso 32: 7 1.000   [7 1.000  <blank> 0.000  2 0.000]
+
+Conf media: 0.995   Conf minima: 0.980 (paso 4, '-')
+
+Comparacion char a char contra la real:
+  pos 0: F  (igual)
+  pos 1: 5  (igual)
+  pos 2: A  (igual)
+  pos 3: 9  (igual)
+  pos 4: 4  (igual)
+  pos 5: 7  (igual)
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

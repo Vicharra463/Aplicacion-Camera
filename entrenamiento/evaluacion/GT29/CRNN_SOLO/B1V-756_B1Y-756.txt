@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-13/B1V-756.jpg
+Placa real: B1Y-756
+Lectura:    B1Y-756   (crudo CTC: B1Y-756)
+Veredicto:  OK  (B1Y756 vs real B1Y756)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: B 0.497   [B 0.497  P 0.351  R 0.150]
+  paso 01: 1 0.810   [1 0.810  J 0.149  7 0.033]
+  paso 03: Y 0.560   [Y 0.560  I 0.261  L 0.149]
+  paso 04: - 1.000   [- 1.000  Y 0.000  L 0.000]
+  paso 23: 7 0.999   [7 0.999  1 0.000  <blank> 0.000]
+  paso 28: 5 0.999   [5 0.999  9 0.001  8 0.000]
+  paso 34: 6 0.996   [6 0.996  <blank> 0.002  0 0.001]
+
+Conf media: 0.837   Conf minima: 0.497 (paso 0, 'B')
+
+Comparacion char a char contra la real:
+  pos 0: B  (igual)
+  pos 1: 1  (igual)
+  pos 2: Y  (igual)
+  pos 3: 7  (igual)
+  pos 4: 5  (igual)
+  pos 5: 6  (igual)
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

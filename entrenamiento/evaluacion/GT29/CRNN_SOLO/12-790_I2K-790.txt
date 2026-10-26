@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-13/12-790.jpg
+Placa real: T2K-790
+Lectura:    I2K-790   (crudo CTC: I2K-790)
+Veredicto:  FALLO  (I2K790 vs real T2K790)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: I 0.994   [I 0.994  T 0.003  L 0.002]
+  paso 01: 2 0.999   [2 0.999  4 0.000  Z 0.000]
+  paso 03: K 0.998   [K 0.998  X 0.001  N 0.000]
+  paso 04: - 0.999   [- 0.999  K 0.001  X 0.000]
+  paso 22: 7 0.999   [7 0.999  1 0.000  <blank> 0.000]
+  paso 27: 9 1.000   [9 1.000  4 0.000  0 0.000]
+  paso 32: 0 1.000   [0 1.000  9 0.000  8 0.000]
+
+Conf media: 0.999   Conf minima: 0.994 (paso 0, 'I')
+
+Comparacion char a char contra la real:
+  pos 0: real T -> leido I   <-- DIFIERE  I 0.994  T 0.003  L 0.002
+  pos 1: 2  (igual)
+  pos 2: K  (igual)
+  pos 3: 7  (igual)
+  pos 4: 9  (igual)
+  pos 5: 0  (igual)
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

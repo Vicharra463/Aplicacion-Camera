@@ -1,0 +1,33 @@
+=== CONFIG ACTUAL (detector + votacion + flota) - como piensa ===
+Foto:       2026-10-13/CF635.jpg
+Placa real: ACF-635
+Lectura:    ACF-635   conf=0.69
+Veredicto:  OK
+Bboxes del detector: 1  elegido=(0, 1159, 119, 123)
+
+Registro de decisiones (en orden):
+  01. crnn_flota             = ACF-635  (0.69)
+      -> CRNN multi-crop -> _normalizar -> snap flota -> gate EN FLOTA
+  02. recorte                = (sin lectura)  (0.00)
+      -> RapidOCR sobre recorte simple
+  03. clahe_gamma            = (sin lectura)  (0.00)
+      -> RapidOCR sobre CLAHE+gamma
+  04. margen+5%              = (sin lectura)  (0.00)
+      -> RapidOCR con bbox +5%
+  05. margen+10%             = (sin lectura)  (0.00)
+      -> RapidOCR con bbox +10%
+  06. upscale2x              = (sin lectura)  (0.00)
+      -> RapidOCR con imagen x2
+  07. noche                  = (sin lectura)  (0.00)
+      -> RapidOCR variante noche
+  08. umbral_inv             = (sin lectura)  (0.00)
+      -> RapidOCR umbral invertido (peso menor en el voto)
+  09. decision               = crnn_unico (rapidocr sin lectura)
+      -> por que termino el pipeline ahi
+
+La lectura final coincide con un intento (ACF-635): no hizo
+falta snap; el voto/CRNN ya la dio completa.
+
+Flujo del pipeline: CRNN gateado por flota; si conf >= 0.95 sale
+ahi (crnn_fuerte); si no, votan las variantes de RapidOCR, luego
+arbitraje por pares confusos, snap post-voto y rescate final.

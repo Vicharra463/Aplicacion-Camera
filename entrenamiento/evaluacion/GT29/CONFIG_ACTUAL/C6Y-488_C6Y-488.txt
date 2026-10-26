@@ -1,0 +1,21 @@
+=== CONFIG ACTUAL (detector + votacion + flota) - como piensa ===
+Foto:       2026-10-13/C6Y-488.jpg
+Placa real: C6Y-488
+Lectura:    C6Y-488   conf=0.87
+Veredicto:  OK
+Bboxes del detector: 1  elegido=(303, 867, 145, 124)
+
+Registro de decisiones (en orden):
+  01. crnn_flota             = C6Y-488  (0.89)
+      -> CRNN multi-crop -> _normalizar -> snap flota -> gate EN FLOTA
+  02. recorte                = (sin lectura)  (0.00)
+      -> RapidOCR sobre recorte simple
+  03. clahe_gamma            = C6V-488  (0.85)
+      -> RapidOCR sobre CLAHE+gamma
+
+La lectura final coincide con un intento (C6Y-488): no hizo
+falta snap; el voto/CRNN ya la dio completa.
+
+Flujo del pipeline: CRNN gateado por flota; si conf >= 0.95 sale
+ahi (crnn_fuerte); si no, votan las variantes de RapidOCR, luego
+arbitraje por pares confusos, snap post-voto y rescate final.

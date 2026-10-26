@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-16/EZX165.jpg
+Placa real: E7X-165
+Lectura:    F7X-165   (crudo CTC: F7X-165)
+Veredicto:  FALLO  (F7X165 vs real E7X165)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: F 0.851   [F 0.851  E 0.149  T 0.000]
+  paso 01: 7 0.988   [7 0.988  Z 0.008  5 0.001]
+  paso 03: X 0.999   [X 0.999  K 0.000  L 0.000]
+  paso 04: - 0.994   [- 0.994  X 0.006  <blank> 0.000]
+  paso 22: 1 0.999   [1 0.999  <blank> 0.001  4 0.000]
+  paso 28: 6 1.000   [6 1.000  <blank> 0.000  0 0.000]
+  paso 33: 5 1.000   [5 1.000  9 0.000  4 0.000]
+
+Conf media: 0.976   Conf minima: 0.851 (paso 0, 'F')
+
+Comparacion char a char contra la real:
+  pos 0: real E -> leido F   <-- DIFIERE  F 0.851  E 0.149  T 0.000
+  pos 1: 7  (igual)
+  pos 2: X  (igual)
+  pos 3: 1  (igual)
+  pos 4: 6  (igual)
+  pos 5: 5  (igual)
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

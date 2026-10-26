@@ -1,0 +1,31 @@
+=== CONFIG ACTUAL (detector + votacion + flota) - como piensa ===
+Foto:       2026-10-13/A3E726.jpg
+Placa real: A3E-726
+Lectura:    A3E-726   conf=0.78
+Veredicto:  OK
+Bboxes del detector: 1  elegido=(566, 724, 138, 90)
+
+Registro de decisiones (en orden):
+  01. crnn_flota             = A3E-726  (0.84)
+      -> CRNN multi-crop -> _normalizar -> snap flota -> gate EN FLOTA
+  02. recorte                = 43E-726  (0.64)
+      -> RapidOCR sobre recorte simple
+  03. clahe_gamma            = (sin lectura)  (0.00)
+      -> RapidOCR sobre CLAHE+gamma
+  04. margen+5%              = (sin lectura)  (0.00)
+      -> RapidOCR con bbox +5%
+  05. margen+10%             = 43E-726  (0.72)
+      -> RapidOCR con bbox +10%
+  06. upscale2x              = 43E-720  (0.61)
+      -> RapidOCR con imagen x2
+  07. noche                  = A3E-726  (0.74)
+      -> RapidOCR variante noche
+  08. umbral_inv             = A3E-726  (0.77)
+      -> RapidOCR umbral invertido (peso menor en el voto)
+
+La lectura final coincide con un intento (A3E-726): no hizo
+falta snap; el voto/CRNN ya la dio completa.
+
+Flujo del pipeline: CRNN gateado por flota; si conf >= 0.95 sale
+ahi (crnn_fuerte); si no, votan las variantes de RapidOCR, luego
+arbitraje por pares confusos, snap post-voto y rescate final.

@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-15/WIG774.jpg
+Placa real: WIG-774
+Lectura:    W1G-774   (crudo CTC: W1G-774)
+Veredicto:  FALLO  (W1G774 vs real WIG774)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: W 0.970   [W 0.970  M 0.025  N 0.004]
+  paso 01: 1 1.000   [1 1.000  J 0.000  4 0.000]
+  paso 03: G 0.994   [G 0.994  S 0.002  Q 0.002]
+  paso 04: - 0.997   [- 0.997  G 0.003  S 0.000]
+  paso 22: 7 0.997   [7 0.997  <blank> 0.003  Z 0.000]
+  paso 27: 7 0.971   [7 0.971  <blank> 0.029  1 0.000]
+  paso 32: 4 0.867   [4 0.867  <blank> 0.133  5 0.000]
+
+Conf media: 0.971   Conf minima: 0.867 (paso 32, '4')
+
+Comparacion char a char contra la real:
+  pos 0: W  (igual)
+  pos 1: real I -> leido 1   <-- DIFIERE  1 1.000  J 0.000  4 0.000
+  pos 2: G  (igual)
+  pos 3: 7  (igual)
+  pos 4: 7  (igual)
+  pos 5: 4  (igual)
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

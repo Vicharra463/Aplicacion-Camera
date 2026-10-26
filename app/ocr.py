@@ -11,19 +11,6 @@ logger = logging.getLogger("cytv.ocr")
 _motor = None
 _detector_onnx = None
 
-_FORMATOS = (
-    re.compile(r"^([A-Z]{3})-(\d{3})$"),
-    re.compile(r"^([A-Z]{2})-(\d{4})$"),
-    re.compile(r"^([A-Z0-9]{3})-(\d{3})$"),
-)
-
-_NUM_POR_LETRA = str.maketrans({"O": "0", "I": "1", "S": "5", "Z": "2",
-                                "G": "6", "B": "8", "T": "7",
-                                "Q": "0", "D": "0"})
-_LETRA_POR_NUM = str.maketrans({"0": "O", "1": "I", "5": "S", "2": "Z",
-                                "8": "B", "6": "G"})
-_LETRA_POR_CERO_Q = str.maketrans({"0": "Q"})
-
 _EQUIV_VOTOS = str.maketrans({"I": "1", "O": "0", "Z": "7", "Q": "0",
                               "Y": "V", "V": "V"})
 
@@ -42,6 +29,11 @@ SNAP_K_SINGLETON = 1
 
 UMBRAL_VERDE = 90
 UMBRAL_AMARILLO = 50
+
+ANCHO_MINIMO = 64    # px: bbox mas chico = foto de lejos o sin placa visible
+ALTO_MINIMO = 20     # px: placa legitima ~1:3 de aspecto
+UMBRAL_RESCATE = 0.5  # conf minima para que el rescate sin consenso remapee
+TOPE_NO_FLOTA = 89    # motor viejo: resultado fuera de flota nunca verde
 
 
 def _limitar_hilos_rapidocr() -> None:
@@ -77,6 +69,10 @@ def _obtener_motor():
     return _motor
 
 
+_DIGITO_POR_LETRA = {"I": "1", "O": "0", "Q": "0", "D": "0",
+                     "B": "8", "S": "5", "Z": "2"}
+
+
 def _normalizar(texto: str) -> str:
     bruto = texto or ""
     for sep in ("·", "•", "°", "`"):
@@ -86,27 +82,15 @@ def _normalizar(texto: str) -> str:
     bruto = re.sub(r"[^A-Za-z0-9-]", "", bruto).upper()
     bruto = re.sub(r"-{2,}", "-", bruto).strip("-")
     alnum = bruto.replace("-", "")
-    if len(alnum) == 7 and alnum[3:].isdigit():
-        alnum = alnum[:6]
-    if not (5 <= len(alnum) <= 7):
+    if len(alnum) != 6:
         return ""
-
-    for corte in (3, 2):
-        if corte >= len(alnum):
-            continue
-        letras, numeros = alnum[:corte], alnum[corte:]
-        if not numeros.isdigit() or not any(ch.isalpha() for ch in letras):
-            continue
-        variantes_L = (letras, letras.translate(_LETRA_POR_CERO_Q),
-                       letras.translate(_LETRA_POR_NUM))
-        variantes_N = (numeros, numeros.translate(_NUM_POR_LETRA))
-        for L in variantes_L:
-            for N in variantes_N:
-                for patron in _FORMATOS:
-                    m = patron.match(f"{L}-{N}")
-                    if m:
-                        return f"{m.group(1)}-{m.group(2)}"
-    return ""
+    for i in (3, 4, 5):
+        if alnum[i] in _DIGITO_POR_LETRA:
+            alnum = alnum[:i] + _DIGITO_POR_LETRA[alnum[i]] + alnum[i + 1:]
+    if not (any(ch.isalpha() for ch in alnum)
+            and any(ch.isdigit() for ch in alnum)):
+        return ""
+    return f"{alnum[:3]}-{alnum[3:]}"
 
 
 def _forma_voto(texto: str) -> str:
@@ -146,6 +130,8 @@ def _snap_sin_consenso(registro: list[tuple[str, str, float]]
     if not candidatos:
         return None
     mejor_c, mejor_t = max(candidatos)
+    if mejor_c < UMBRAL_RESCATE:
+        return None
     destino = _snap_flota(mejor_t, SNAP_K)
     if destino == mejor_t:
         return None
@@ -243,7 +229,12 @@ def _elegir_voto(grupos: dict[str, list[tuple[str, float, float]]]
     _puntaje, miembros = max(candidatos, key=lambda par: par[0])
     conf = sum(c for _t, c, _p in miembros) / len(miembros)
     ganador = max(miembros, key=lambda tcp: tcp[1] * tcp[2])[0]
-    k = SNAP_K if len(miembros) >= 2 else SNAP_K_SINGLETON
+    if len(miembros) >= 2:
+        k = SNAP_K
+    elif miembros and miembros[0][1] >= UMBRAL_PUNTUACION:
+        k = SNAP_K_SINGLETON
+    else:
+        k = 0  # singleton debil: sin snap, deja el texto tal cual
     nuevo = _snap_flota(ganador, k)
     if nuevo != ganador:
         logger.debug("snap post-voto: %s -> %s", ganador, nuevo)
@@ -314,6 +305,12 @@ def _leer_en_bbox(img: np.ndarray, bbox: tuple[int, int, int, int],
     registro: list[tuple[str, str, float]] = []
     if t_crnn:
         registro.append(("crnn_flota", t_crnn, c_crnn))
+    if t_crnn and c_crnn >= UMBRAL_CRNN_FUERTE:
+        # salida temprana: con CRNN gateado y fuerte el voto rapido no
+        # cambia el resultado (crnn_fuerte mandaba igual) y ahorra
+        # 2-6 corridas de RapidOCR por foto clara
+        registro.append(("decision", f"crnn_fuerte ({c_crnn:.3f})", 0.0))
+        return t_crnn, c_crnn, registro, [], t_crnn
 
     reg, grupos = _correr_6(img, bbox, margen_base, solo=RAPIDO)
     registro += reg
@@ -330,9 +327,6 @@ def _leer_en_bbox(img: np.ndarray, bbox: tuple[int, int, int, int],
         hubo = hubo or any(t for _n, t, _c in reg2)
         ganador, conf, miembros = _votar(grupos, t_crnn, c_crnn, hubo)
 
-    if t_crnn and c_crnn >= UMBRAL_CRNN_FUERTE:
-        registro.append(("decision", f"crnn_fuerte ({c_crnn:.3f})", 0.0))
-        return t_crnn, c_crnn, registro, miembros, t_crnn
     if not miembros:
         if t_crnn:
             registro.append(("decision",
@@ -390,8 +384,11 @@ def _reintento_onnx(img: np.ndarray, bbox: tuple[int, int, int, int],
 
 
 def leer_placa_6(img: np.ndarray, bbox: tuple[int, int, int, int],
-                 margen_base: float = 0.35, reintento: bool = True
-                 ) -> tuple[str, float, list[tuple[str, str, float]]]:
+                  margen_base: float = 0.35, reintento: bool = True
+                  ) -> tuple[str, float, list[tuple[str, str, float]]]:
+    bx, by, bw, bh = (int(v) for v in bbox)
+    if bw < ANCHO_MINIMO or bh < ALTO_MINIMO:
+        return "", 0.0, [("calidad", f"bbox {bw}x{bh} bajo minimo", 0.0)]
     ganador, conf, registro, miembros, t_crnn = _leer_en_bbox(
         img, bbox, margen_base)
     if miembros:
@@ -399,7 +396,7 @@ def leer_placa_6(img: np.ndarray, bbox: tuple[int, int, int, int],
     if ganador:
         return ganador, conf, registro
     if t_crnn:
-        return t_crnn, c_crnn, registro
+        return t_crnn, 0.0, registro
     if not reintento:
         return "", 0.0, registro
     t2, c2, reg2 = _reintento_onnx(img, bbox, margen_base)
@@ -474,6 +471,8 @@ def evidencia_y_color(texto: str, conf: float,
                 + 40.0 * max(0.0, min(conf, 1.0)))
 
     puntaje = int(round(min(base, 100.0)))
+    if not _en_flota(texto):
+        puntaje = min(puntaje, TOPE_NO_FLOTA)
     if puntaje >= UMBRAL_VERDE:
         color = "verde"
     elif puntaje >= UMBRAL_AMARILLO:

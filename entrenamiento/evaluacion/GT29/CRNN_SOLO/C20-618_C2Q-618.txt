@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-13/C20-618.jpg
+Placa real: C2Q-618
+Lectura:    C2Q-618   (crudo CTC: C2Q-618)
+Veredicto:  OK  (C2Q618 vs real C2Q618)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: C 0.884   [C 0.884  O 0.071  D 0.012]
+  paso 01: 2 1.000   [2 1.000  3 0.000  4 0.000]
+  paso 03: Q 0.996   [Q 0.996  O 0.002  2 0.001]
+  paso 04: - 0.999   [- 0.999  Q 0.001  2 0.000]
+  paso 22: 6 1.000   [6 1.000  <blank> 0.000  8 0.000]
+  paso 27: 1 1.000   [1 1.000  <blank> 0.000  4 0.000]
+  paso 33: 8 0.998   [8 0.998  <blank> 0.002  B 0.000]
+
+Conf media: 0.982   Conf minima: 0.884 (paso 0, 'C')
+
+Comparacion char a char contra la real:
+  pos 0: C  (igual)
+  pos 1: 2  (igual)
+  pos 2: Q  (igual)
+  pos 3: 6  (igual)
+  pos 4: 1  (igual)
+  pos 5: 8  (igual)
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

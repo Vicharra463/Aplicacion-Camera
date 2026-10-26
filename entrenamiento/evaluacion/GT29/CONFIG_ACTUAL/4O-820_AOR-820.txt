@@ -1,0 +1,19 @@
+=== CONFIG ACTUAL (detector + votacion + flota) - como piensa ===
+Foto:       2026-10-14/4O-820.jpg
+Placa real: AOR-820
+Lectura:    AOR-820   conf=0.96
+Veredicto:  OK
+Bboxes del detector: 1  elegido=(1149, 792, 123, 166)
+
+Registro de decisiones (en orden):
+  01. crnn_flota             = AOR-820  (0.96)
+      -> CRNN multi-crop -> _normalizar -> snap flota -> gate EN FLOTA
+  02. decision               = crnn_fuerte (0.958)
+      -> por que termino el pipeline ahi
+
+La lectura final coincide con un intento (AOR-820): no hizo
+falta snap; el voto/CRNN ya la dio completa.
+
+Flujo del pipeline: CRNN gateado por flota; si conf >= 0.95 sale
+ahi (crnn_fuerte); si no, votan las variantes de RapidOCR, luego
+arbitraje por pares confusos, snap post-voto y rescate final.

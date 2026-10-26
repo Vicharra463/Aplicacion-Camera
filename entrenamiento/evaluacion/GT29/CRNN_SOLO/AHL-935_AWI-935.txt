@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-16/AHL-935.jpg
+Placa real: AWI-935
+Lectura:    AWI-935   (crudo CTC: AWI-935)
+Veredicto:  OK  (AWI935 vs real AWI935)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: A 1.000   [A 1.000  H 0.000  N 0.000]
+  paso 01: W 0.999   [W 0.999  M 0.001  N 0.000]
+  paso 03: I 1.000   [I 1.000  J 0.000  Y 0.000]
+  paso 04: - 1.000   [- 1.000  I 0.000  <blank> 0.000]
+  paso 22: 9 0.991   [9 0.991  <blank> 0.009  0 0.000]
+  paso 28: 3 0.996   [3 0.996  5 0.004  <blank> 0.000]
+  paso 32: 5 1.000   [5 1.000  9 0.000  8 0.000]
+
+Conf media: 0.998   Conf minima: 0.991 (paso 22, '9')
+
+Comparacion char a char contra la real:
+  pos 0: A  (igual)
+  pos 1: W  (igual)
+  pos 2: I  (igual)
+  pos 3: 9  (igual)
+  pos 4: 3  (igual)
+  pos 5: 5  (igual)
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

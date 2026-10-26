@@ -1,0 +1,21 @@
+=== CONFIG ACTUAL (detector + votacion + flota) - como piensa ===
+Foto:       2026-10-16/EZX165.jpg
+Placa real: E7X-165
+Lectura:    E7X-165   conf=0.80
+Veredicto:  OK
+Bboxes del detector: 1  elegido=(1182, 622, 131, 97)
+
+Registro de decisiones (en orden):
+  01. crnn_flota             = E7X-165  (0.94)
+      -> CRNN multi-crop -> _normalizar -> snap flota -> gate EN FLOTA
+  02. recorte                = AZX-165  (0.57)
+      -> RapidOCR sobre recorte simple
+  03. clahe_gamma            = EZX-165  (0.65)
+      -> RapidOCR sobre CLAHE+gamma
+
+La lectura final coincide con un intento (E7X-165): no hizo
+falta snap; el voto/CRNN ya la dio completa.
+
+Flujo del pipeline: CRNN gateado por flota; si conf >= 0.95 sale
+ahi (crnn_fuerte); si no, votan las variantes de RapidOCR, luego
+arbitraje por pares confusos, snap post-voto y rescate final.

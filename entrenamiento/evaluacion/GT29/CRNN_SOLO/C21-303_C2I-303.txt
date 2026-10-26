@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-15/C21-303.jpg
+Placa real: C2I-303
+Lectura:    C2I-303   (crudo CTC: C2I-303)
+Veredicto:  OK  (C2I303 vs real C2I303)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: C 1.000   [C 1.000  K 0.000  G 0.000]
+  paso 01: 2 0.999   [2 0.999  4 0.000  Z 0.000]
+  paso 03: I 0.993   [I 0.993  1 0.003  L 0.001]
+  paso 04: - 1.000   [- 1.000  I 0.000  1 0.000]
+  paso 22: 3 1.000   [3 1.000  8 0.000  <blank> 0.000]
+  paso 26: 0 0.995   [0 0.995  <blank> 0.004  9 0.000]
+  paso 32: 3 0.999   [3 0.999  5 0.001  7 0.000]
+
+Conf media: 0.998   Conf minima: 0.993 (paso 3, 'I')
+
+Comparacion char a char contra la real:
+  pos 0: C  (igual)
+  pos 1: 2  (igual)
+  pos 2: I  (igual)
+  pos 3: 3  (igual)
+  pos 4: 0  (igual)
+  pos 5: 3  (igual)
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

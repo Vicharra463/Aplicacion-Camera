@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-13/A3E726.jpg
+Placa real: A3E-726
+Lectura:    A3F-126   (crudo CTC: A3F-126)
+Veredicto:  FALLO  (A3F126 vs real A3E726)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: A 1.000   [A 1.000  R 0.000  H 0.000]
+  paso 01: 3 0.757   [3 0.757  J 0.215  5 0.011]
+  paso 03: F 0.967   [F 0.967  E 0.024  C 0.004]
+  paso 04: - 1.000   [- 1.000  F 0.000  E 0.000]
+  paso 22: 1 0.340   [1 0.340  6 0.311  <blank> 0.177]
+  paso 28: 2 0.999   [2 0.999  4 0.001  <blank> 0.000]
+  paso 33: 6 0.917   [6 0.917  <blank> 0.067  8 0.008]
+
+Conf media: 0.854   Conf minima: 0.340 (paso 22, '1')
+
+Comparacion char a char contra la real:
+  pos 0: A  (igual)
+  pos 1: 3  (igual)
+  pos 2: real E -> leido F   <-- DIFIERE  F 0.967  E 0.024  C 0.004
+  pos 3: real 7 -> leido 1   <-- DIFIERE  1 0.340  6 0.311  <blank> 0.177
+  pos 4: 2  (igual)
+  pos 5: 6  (igual)
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

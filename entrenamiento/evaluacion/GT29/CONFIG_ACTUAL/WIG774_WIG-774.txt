@@ -1,0 +1,31 @@
+=== CONFIG ACTUAL (detector + votacion + flota) - como piensa ===
+Foto:       2026-10-15/WIG774.jpg
+Placa real: WIG-774
+Lectura:    WIG-774   conf=0.78
+Veredicto:  OK
+Bboxes del detector: 1  elegido=(1112, 644, 147, 106)
+
+Registro de decisiones (en orden):
+  01. crnn_flota             = WIG-774  (0.86)
+      -> CRNN multi-crop -> _normalizar -> snap flota -> gate EN FLOTA
+  02. recorte                = (sin lectura)  (0.00)
+      -> RapidOCR sobre recorte simple
+  03. clahe_gamma            = (sin lectura)  (0.00)
+      -> RapidOCR sobre CLAHE+gamma
+  04. margen+5%              = WIG-774  (0.74)
+      -> RapidOCR con bbox +5%
+  05. margen+10%             = WIG-774  (0.73)
+      -> RapidOCR con bbox +10%
+  06. upscale2x              = (sin lectura)  (0.00)
+      -> RapidOCR con imagen x2
+  07. noche                  = W1G-774  (0.78)
+      -> RapidOCR variante noche
+  08. umbral_inv             = HIG-774  (0.59)
+      -> RapidOCR umbral invertido (peso menor en el voto)
+
+La lectura final coincide con un intento (WIG-774): no hizo
+falta snap; el voto/CRNN ya la dio completa.
+
+Flujo del pipeline: CRNN gateado por flota; si conf >= 0.95 sale
+ahi (crnn_fuerte); si no, votan las variantes de RapidOCR, luego
+arbitraje por pares confusos, snap post-voto y rescate final.

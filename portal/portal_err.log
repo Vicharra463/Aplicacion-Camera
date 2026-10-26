@@ -1,6 +1,11 @@
-2026-10-22 15:35:30,919 cytv.modelo Modelo ONNX cargado: placas.onnx (entrada 640x640, umbral 0.40)
-2026-10-22 15:35:31,372 cytv.ocr OCR cargado (RapidOCR ONNX, CPU, 1 hilo)
-2026-10-22 15:35:31,439 cytv.reconocedor CRNN cargado (reconocedor.onnx)
-2026-10-22 15:35:31,439 cytv.reconocedor CRNN input 160x32
-2026-10-22 15:35:31,439 cytv.portal modelos cargados en 0.7s
-2026-10-22 15:35:33,635 cytv.portal 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-10-23 09:59:51,136 cytv.modelo Modelo ONNX cargado: placas.onnx (entrada 640x640, umbral 0.40)
+2026-10-23 09:59:51,837 cytv.ocr OCR cargado (RapidOCR ONNX, CPU, 1 hilo)
+2026-10-23 09:59:51,926 cytv.reconocedor CRNN cargado (reconocedor.onnx)
+2026-10-23 09:59:51,926 cytv.reconocedor CRNN input 160x32
+2026-10-23 09:59:51,926 cytv.portal modelos cargados en 1.1s
+2026-10-23 10:00:05,659 cytv.portal 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-10-23 10:00:05,902 cytv.portal 127.0.0.1 - "GET /favicon.ico HTTP/1.1" 404 -
+2026-10-23 10:00:10,921 cytv.portal 127.0.0.1 - "POST /analizar HTTP/1.1" 200 -
+2026-10-23 10:00:11,848 cytv.portal 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-10-23 10:00:22,372 cytv.portal 127.0.0.1 - "POST /analizar HTTP/1.1" 200 -
+2026-10-23 10:00:38,821 cytv.portal 127.0.0.1 - "POST /analizar HTTP/1.1" 200 -

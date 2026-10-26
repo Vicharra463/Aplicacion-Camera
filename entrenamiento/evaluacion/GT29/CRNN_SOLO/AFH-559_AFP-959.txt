@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-13/AFH-559.jpg
+Placa real: AFH-559
+Lectura:    AFP-959   (crudo CTC: AFP-959)
+Veredicto:  FALLO  (AFP959 vs real AFH559)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: A 1.000   [A 1.000  R 0.000  H 0.000]
+  paso 01: F 0.921   [F 0.921  T 0.041  E 0.023]
+  paso 03: P 0.871   [P 0.871  D 0.086  B 0.011]
+  paso 04: - 1.000   [- 1.000  P 0.000  <blank> 0.000]
+  paso 21: 9 0.973   [9 0.973  5 0.024  3 0.002]
+  paso 26: 5 0.993   [5 0.993  <blank> 0.005  9 0.000]
+  paso 33: 9 0.997   [9 0.997  0 0.003  2 0.000]
+
+Conf media: 0.965   Conf minima: 0.871 (paso 3, 'P')
+
+Comparacion char a char contra la real:
+  pos 0: A  (igual)
+  pos 1: F  (igual)
+  pos 2: real H -> leido P   <-- DIFIERE  P 0.871  D 0.086  B 0.011
+  pos 3: real 5 -> leido 9   <-- DIFIERE  9 0.973  5 0.024  3 0.002
+  pos 4: 5  (igual)
+  pos 5: 9  (igual)
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

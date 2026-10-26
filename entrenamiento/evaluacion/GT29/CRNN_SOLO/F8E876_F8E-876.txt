@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-16/F8E876.jpg
+Placa real: F8E-876
+Lectura:    F8E-876   (crudo CTC: F8E-876)
+Veredicto:  OK  (F8E876 vs real F8E876)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: F 0.998   [F 0.998  E 0.001  T 0.000]
+  paso 01: 8 0.996   [8 0.996  B 0.002  9 0.001]
+  paso 03: E 0.992   [E 0.992  F 0.007  5 0.000]
+  paso 04: - 1.000   [- 1.000  E 0.000  F 0.000]
+  paso 23: 8 1.000   [8 1.000  9 0.000  5 0.000]
+  paso 29: 7 1.000   [7 1.000  1 0.000  <blank> 0.000]
+  paso 34: 6 1.000   [6 1.000  <blank> 0.000  8 0.000]
+
+Conf media: 0.998   Conf minima: 0.992 (paso 3, 'E')
+
+Comparacion char a char contra la real:
+  pos 0: F  (igual)
+  pos 1: 8  (igual)
+  pos 2: E  (igual)
+  pos 3: 8  (igual)
+  pos 4: 7  (igual)
+  pos 5: 6  (igual)
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

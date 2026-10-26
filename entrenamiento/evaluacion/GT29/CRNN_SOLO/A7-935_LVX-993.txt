@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-16/A7-935.jpg
+Placa real: AWI-935
+Lectura:    LVX-993   (crudo CTC: LVX-993)
+Veredicto:  FALLO  (LVX993 vs real AWI935)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: L 0.794   [L 0.794  X 0.096  A 0.061]
+  paso 01: V 0.753   [V 0.753  X 0.065  <blank> 0.056]
+  paso 03: X 0.916   [X 0.916  I 0.053  Y 0.023]
+  paso 04: - 0.991   [- 0.991  X 0.009  Y 0.000]
+  paso 24: 9 1.000   [9 1.000  4 0.000  8 0.000]
+  paso 28: 9 0.938   [9 0.938  <blank> 0.025  3 0.016]
+  paso 33: 3 0.520   [3 0.520  8 0.365  7 0.082]
+
+Conf media: 0.845   Conf minima: 0.520 (paso 33, '3')
+
+Comparacion char a char contra la real:
+  pos 0: real A -> leido L   <-- DIFIERE  L 0.794  X 0.096  A 0.061
+  pos 1: real W -> leido V   <-- DIFIERE  V 0.753  X 0.065  <blank> 0.056
+  pos 2: real I -> leido X   <-- DIFIERE  X 0.916  I 0.053  Y 0.023
+  pos 3: 9  (igual)
+  pos 4: real 3 -> leido 9   <-- DIFIERE  9 0.938  <blank> 0.025  3 0.016
+  pos 5: real 5 -> leido 3   <-- DIFIERE  3 0.520  8 0.365  7 0.082
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

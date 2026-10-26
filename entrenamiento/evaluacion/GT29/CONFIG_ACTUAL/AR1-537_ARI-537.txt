@@ -1,0 +1,19 @@
+=== CONFIG ACTUAL (detector + votacion + flota) - como piensa ===
+Foto:       2026-10-14/AR1-537.jpg
+Placa real: ARI-537
+Lectura:    ARI-537   conf=1.00
+Veredicto:  OK
+Bboxes del detector: 1  elegido=(485, 986, 146, 142)
+
+Registro de decisiones (en orden):
+  01. crnn_flota             = ARI-537  (1.00)
+      -> CRNN multi-crop -> _normalizar -> snap flota -> gate EN FLOTA
+  02. decision               = crnn_fuerte (0.999)
+      -> por que termino el pipeline ahi
+
+La lectura final coincide con un intento (ARI-537): no hizo
+falta snap; el voto/CRNN ya la dio completa.
+
+Flujo del pipeline: CRNN gateado por flota; si conf >= 0.95 sale
+ahi (crnn_fuerte); si no, votan las variantes de RapidOCR, luego
+arbitraje por pares confusos, snap post-voto y rescate final.

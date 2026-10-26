@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-13/C6Y-488.jpg
+Placa real: C6Y-488
+Lectura:    C6Y-488   (crudo CTC: C6Y-488)
+Veredicto:  OK  (C6Y488 vs real C6Y488)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: C 0.999   [C 0.999  G 0.001  F 0.000]
+  paso 01: 6 0.991   [6 0.991  G 0.003  S 0.002]
+  paso 03: Y 0.999   [Y 0.999  V 0.000  K 0.000]
+  paso 04: - 1.000   [- 1.000  Y 0.000  K 0.000]
+  paso 23: 4 0.990   [4 0.990  1 0.009  <blank> 0.000]
+  paso 28: 8 1.000   [8 1.000  6 0.000  B 0.000]
+  paso 33: 8 1.000   [8 1.000  6 0.000  5 0.000]
+
+Conf media: 0.997   Conf minima: 0.990 (paso 23, '4')
+
+Comparacion char a char contra la real:
+  pos 0: C  (igual)
+  pos 1: 6  (igual)
+  pos 2: Y  (igual)
+  pos 3: 4  (igual)
+  pos 4: 8  (igual)
+  pos 5: 8  (igual)
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

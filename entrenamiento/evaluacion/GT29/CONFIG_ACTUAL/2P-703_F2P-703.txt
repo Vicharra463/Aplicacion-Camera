@@ -1,0 +1,31 @@
+=== CONFIG ACTUAL (detector + votacion + flota) - como piensa ===
+Foto:       2026-10-15/2P-703.jpg
+Placa real: F2P-703
+Lectura:    F2P-703   conf=0.70
+Veredicto:  OK
+Bboxes del detector: 1  elegido=(394, 949, 156, 142)
+
+Registro de decisiones (en orden):
+  01. crnn_flota             = F2P-703  (0.66)
+      -> CRNN multi-crop -> _normalizar -> snap flota -> gate EN FLOTA
+  02. recorte                = (sin lectura)  (0.00)
+      -> RapidOCR sobre recorte simple
+  03. clahe_gamma            = (sin lectura)  (0.00)
+      -> RapidOCR sobre CLAHE+gamma
+  04. margen+5%              = (sin lectura)  (0.00)
+      -> RapidOCR con bbox +5%
+  05. margen+10%             = (sin lectura)  (0.00)
+      -> RapidOCR con bbox +10%
+  06. upscale2x              = (sin lectura)  (0.00)
+      -> RapidOCR con imagen x2
+  07. noche                  = F2P-703  (0.80)
+      -> RapidOCR variante noche
+  08. umbral_inv             = F2P-703  (0.65)
+      -> RapidOCR umbral invertido (peso menor en el voto)
+
+La lectura final coincide con un intento (F2P-703): no hizo
+falta snap; el voto/CRNN ya la dio completa.
+
+Flujo del pipeline: CRNN gateado por flota; si conf >= 0.95 sale
+ahi (crnn_fuerte); si no, votan las variantes de RapidOCR, luego
+arbitraje por pares confusos, snap post-voto y rescate final.

@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-13/CF635.jpg
+Placa real: ACF-635
+Lectura:    CFF-634   (crudo CTC: CFF-634)
+Veredicto:  FALLO  (CFF634 vs real ACF635)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: C 0.424   [C 0.424  X 0.220  F 0.161]
+  paso 01: F 0.737   [F 0.737  E 0.096  L 0.050]
+  paso 03: F 0.440   [F 0.440  C 0.433  L 0.038]
+  paso 04: - 1.000   [- 1.000  C 0.000  F 0.000]
+  paso 20: 6 0.997   [6 0.997  8 0.001  <blank> 0.001]
+  paso 27: 3 0.851   [3 0.851  2 0.080  9 0.030]
+  paso 32: 4 0.699   [4 0.699  <blank> 0.143  1 0.082]
+
+Conf media: 0.736   Conf minima: 0.424 (paso 0, 'C')
+
+Comparacion char a char contra la real:
+  pos 0: real A -> leido C   <-- DIFIERE  C 0.424  X 0.220  F 0.161
+  pos 1: real C -> leido F   <-- DIFIERE  F 0.737  E 0.096  L 0.050
+  pos 2: F  (igual)
+  pos 3: 6  (igual)
+  pos 4: 3  (igual)
+  pos 5: real 5 -> leido 4   <-- DIFIERE  4 0.699  <blank> 0.143  1 0.082
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

@@ -62,18 +62,38 @@ def canonicos() -> frozenset[str]:
     return frozenset(canon(p) for p in flota())
 
 
-def distancia(a: str, b: str) -> int:
-    """Levenshtein clásico O(n*m)."""
+# Pares confundibles visualmente en placa peruana: sustitucion barata.
+_GRUPOS_02 = ("I1", "0OQD", "8B", "5S", "2Z", "7T")
+_COSTOS = {}
+for _g in _GRUPOS_02:
+    for _i, _a in enumerate(_g):
+        for _b in _g[_i + 1:]:
+            _COSTOS[frozenset((_a, _b))] = 0.2
+for _h in "HNMV":
+    _COSTOS[frozenset(("W", _h))] = 0.4
+
+
+def distancia(a: str, b: str) -> float:
+    """Distancia de edicion ponderada (Levenshtein con costos).
+
+    Sustituciones entre pares confundibles (I<->1, 0<->O/Q/D, 8<->B,
+    5<->S, 2<->Z, 7<->T) cuestan 0.2; W<->H/N/M/V cuestan 0.4; el resto
+    de sustituciones y las inserciones/borrados cuestan 1.0.
+    """
     if a == b:
-        return 0
+        return 0.0
     if not a or not b:
-        return max(len(a), len(b))
+        return float(max(len(a), len(b)))
     fila = list(range(len(b) + 1))
     for i, ca in enumerate(a, 1):
         nueva = [i]
         for j, cb in enumerate(b, 1):
-            nueva.append(min(fila[j] + 1, nueva[j - 1] + 1,
-                             fila[j - 1] + (ca != cb)))
+            if ca == cb:
+                c = 0.0
+            else:
+                c = _COSTOS.get(frozenset((ca, cb)), 1.0)
+            nueva.append(min(fila[j] + 1.0, nueva[j - 1] + 1.0,
+                             fila[j - 1] + c))
         fila = nueva
     return fila[-1]
 

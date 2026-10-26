@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-15/Z1S-508.jpg
+Placa real: ZIS-508
+Lectura:    Z1S-508   (crudo CTC: Z1S-508)
+Veredicto:  FALLO  (Z1S508 vs real ZIS508)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: Z 0.999   [Z 0.999  A 0.000  J 0.000]
+  paso 01: 1 1.000   [1 1.000  J 0.000  U 0.000]
+  paso 03: S 0.998   [S 0.998  5 0.001  G 0.000]
+  paso 04: - 0.998   [- 0.998  S 0.002  5 0.000]
+  paso 22: 5 1.000   [5 1.000  8 0.000  9 0.000]
+  paso 27: 0 0.934   [0 0.934  <blank> 0.066  8 0.000]
+  paso 33: 8 1.000   [8 1.000  9 0.000  B 0.000]
+
+Conf media: 0.990   Conf minima: 0.934 (paso 27, '0')
+
+Comparacion char a char contra la real:
+  pos 0: Z  (igual)
+  pos 1: real I -> leido 1   <-- DIFIERE  1 1.000  J 0.000  U 0.000
+  pos 2: S  (igual)
+  pos 3: 5  (igual)
+  pos 4: 0  (igual)
+  pos 5: 8  (igual)
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

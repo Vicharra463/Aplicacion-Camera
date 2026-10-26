@@ -1,0 +1,26 @@
+=== CONFIG ACTUAL (detector + votacion + flota) - como piensa ===
+Foto:       2026-10-15/1G-777.jpg
+Placa real: WIG-774
+Lectura:    SIN LECTURA   conf=0.00
+Veredicto:  FALLO
+Bboxes del detector: 1  elegido=(1273, 916, 123, 148)
+
+Registro de decisiones (en orden):
+  01. recorte                = (sin lectura)  (0.00)
+      -> RapidOCR sobre recorte simple
+  02. clahe_gamma            = (sin lectura)  (0.00)
+      -> RapidOCR sobre CLAHE+gamma
+  03. margen+5%              = (sin lectura)  (0.00)
+      -> RapidOCR con bbox +5%
+  04. margen+10%             = (sin lectura)  (0.00)
+      -> RapidOCR con bbox +10%
+  05. upscale2x              = (sin lectura)  (0.00)
+      -> RapidOCR con imagen x2
+  06. noche                  = (sin lectura)  (0.00)
+      -> RapidOCR variante noche
+  07. umbral_inv             = (sin lectura)  (0.00)
+      -> RapidOCR umbral invertido (peso menor en el voto)
+
+Flujo del pipeline: CRNN gateado por flota; si conf >= 0.95 sale
+ahi (crnn_fuerte); si no, votan las variantes de RapidOCR, luego
+arbitraje por pares confusos, snap post-voto y rescate final.

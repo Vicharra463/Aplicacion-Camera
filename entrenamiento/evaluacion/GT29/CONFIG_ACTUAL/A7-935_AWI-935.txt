@@ -1,0 +1,31 @@
+=== CONFIG ACTUAL (detector + votacion + flota) - como piensa ===
+Foto:       2026-10-16/A7-935.jpg
+Placa real: AWI-935
+Lectura:    AWI-935   conf=0.63
+Veredicto:  OK
+Bboxes del detector: 1  elegido=(895, 1038, 210, 222)
+
+Registro de decisiones (en orden):
+  01. recorte                = (sin lectura)  (0.00)
+      -> RapidOCR sobre recorte simple
+  02. clahe_gamma            = (sin lectura)  (0.00)
+      -> RapidOCR sobre CLAHE+gamma
+  03. margen+5%              = (sin lectura)  (0.00)
+      -> RapidOCR con bbox +5%
+  04. margen+10%             = (sin lectura)  (0.00)
+      -> RapidOCR con bbox +10%
+  05. upscale2x              = (sin lectura)  (0.00)
+      -> RapidOCR con imagen x2
+  06. noche                  = (sin lectura)  (0.00)
+      -> RapidOCR variante noche
+  07. umbral_inv             = A07-935  (0.63)
+      -> RapidOCR umbral invertido (peso menor en el voto)
+  08. snap_flota             = AWI-935  (0.63)
+      -> rescate final: lectura a distancia <=K de una placa unica
+
+La lectura final coincide con un intento (AWI-935): no hizo
+falta snap; el voto/CRNN ya la dio completa.
+
+Flujo del pipeline: CRNN gateado por flota; si conf >= 0.95 sale
+ahi (crnn_fuerte); si no, votan las variantes de RapidOCR, luego
+arbitraje por pares confusos, snap post-voto y rescate final.

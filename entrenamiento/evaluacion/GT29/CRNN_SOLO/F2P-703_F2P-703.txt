@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-15/F2P-703.jpg
+Placa real: F2P-703
+Lectura:    F2P-703   (crudo CTC: F2P-703)
+Veredicto:  OK  (F2P703 vs real F2P703)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: F 0.991   [F 0.991  E 0.008  T 0.001]
+  paso 01: 2 1.000   [2 1.000  3 0.000  7 0.000]
+  paso 03: P 1.000   [P 1.000  D 0.000  R 0.000]
+  paso 04: - 0.998   [- 0.998  P 0.002  <blank> 0.000]
+  paso 23: 7 1.000   [7 1.000  1 0.000  <blank> 0.000]
+  paso 27: 0 0.687   [0 0.687  <blank> 0.312  9 0.000]
+  paso 33: 3 1.000   [3 1.000  7 0.000  2 0.000]
+
+Conf media: 0.954   Conf minima: 0.687 (paso 27, '0')
+
+Comparacion char a char contra la real:
+  pos 0: F  (igual)
+  pos 1: 2  (igual)
+  pos 2: P  (igual)
+  pos 3: 7  (igual)
+  pos 4: 0  (igual)
+  pos 5: 3  (igual)
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

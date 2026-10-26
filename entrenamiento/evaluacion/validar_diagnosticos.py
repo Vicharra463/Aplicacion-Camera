@@ -82,6 +82,16 @@ def main() -> int:
             if placa:
                 break
 
+        if not placa:
+            try:
+                import log_sin_lectura
+                log_sin_lectura.registrar_validador(
+                    ruta=ruta, img=img, bboxes=bboxes, intentos=intentos,
+                    real=real,
+                    confs=[c for _bb, c in detecciones] if detector else None)
+            except Exception:
+                pass
+
         ok = placa == real
         contador = por_dia.setdefault(dia, [0, 0])
         contador[0] += 1

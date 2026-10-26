@@ -1,0 +1,27 @@
+=== CRNN SOLO - como piensa el modelo ===
+Foto:       2026-10-14/4O-820.jpg
+Placa real: AOR-820
+Lectura:    A0R-820   (crudo CTC: A0R-820)
+Veredicto:  FALLO  (A0R820 vs real AOR820)
+
+Decodificacion CTC - cada caracter emitido con su top-3 del softmax:
+  paso 00: A 1.000   [A 1.000  H 0.000  N 0.000]
+  paso 01: 0 1.000   [0 1.000  <blank> 0.000  6 0.000]
+  paso 03: R 0.896   [R 0.896  P 0.042  B 0.031]
+  paso 04: - 0.999   [- 0.999  R 0.001  P 0.000]
+  paso 23: 8 1.000   [8 1.000  B 0.000  0 0.000]
+  paso 27: 2 1.000   [2 1.000  3 0.000  7 0.000]
+  paso 32: 0 1.000   [0 1.000  <blank> 0.000  8 0.000]
+
+Conf media: 0.985   Conf minima: 0.896 (paso 3, 'R')
+
+Comparacion char a char contra la real:
+  pos 0: A  (igual)
+  pos 1: real O -> leido 0   <-- DIFIERE  0 1.000  <blank> 0.000  6 0.000
+  pos 2: R  (igual)
+  pos 3: 8  (igual)
+  pos 4: 2  (igual)
+  pos 5: 0  (igual)
+
+Resumen: salida greedy del CRNN (argmax por paso, colapso CTC),
+sin variantes, sin RapidOCR y sin flota. Peso: crnn_reales.pt.

@@ -1,0 +1,19 @@
+=== CONFIG ACTUAL (detector + votacion + flota) - como piensa ===
+Foto:       2026-10-15/C21-303.jpg
+Placa real: C2I-303
+Lectura:    C2I-303   conf=0.99
+Veredicto:  OK
+Bboxes del detector: 1  elegido=(1092, 663, 145, 111)
+
+Registro de decisiones (en orden):
+  01. crnn_flota             = C2I-303  (0.99)
+      -> CRNN multi-crop -> _normalizar -> snap flota -> gate EN FLOTA
+  02. decision               = crnn_fuerte (0.992)
+      -> por que termino el pipeline ahi
+
+La lectura final coincide con un intento (C2I-303): no hizo
+falta snap; el voto/CRNN ya la dio completa.
+
+Flujo del pipeline: CRNN gateado por flota; si conf >= 0.95 sale
+ahi (crnn_fuerte); si no, votan las variantes de RapidOCR, luego
+arbitraje por pares confusos, snap post-voto y rescate final.

@@ -85,8 +85,11 @@ def _prioridad(normal: bool) -> None:
         k32.SetPriorityClass.argtypes = [ctypes.wintypes.HANDLE,
                                          ctypes.wintypes.DWORD]
         k32.SetPriorityClass.restype = ctypes.wintypes.BOOL
+        # activo = BELOW_NORMAL (0x80): la camara cede CPU a las demas apps
+        # del server; reposo = IDLE (0x40). Antes activo era NORMAL (0x20)
+        # y con trafico continuo el servicio no soltaba el procesador.
         ok = k32.SetPriorityClass(k32.GetCurrentProcess(),
-                                  0x20 if normal else 0x40)
+                                  0x80 if normal else 0x40)
         if not ok:
             raise OSError("SetPriorityClass fallo")
     except Exception:
@@ -1178,6 +1181,14 @@ def procesar_imagen(ruta: Path) -> None:
             except Exception:
                 logger.exception("No se pudo encolar la foto fallida %s",
                                  ruta.name)
+        try:
+            import log_sin_lectura
+            log_sin_lectura.registrar_worker(
+                ruta=ruta, img=img, candidatos=candidatos,
+                intentos=intentos_ocr, bbox=bbox_ocr,
+                filtro=ultimo_fallo[0], detalle=ultimo_fallo[1])
+        except Exception:
+            logger.debug("log_sin_lectura no disponible", exc_info=True)
         _descartar(ruta, ultimo_fallo[0], ultimo_fallo[1])
         return
 
