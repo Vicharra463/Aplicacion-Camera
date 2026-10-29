@@ -6,3 +6,5 @@ numpy>=1.26.0
 # de OCR se pinnea a la version probada porque cambiaron su API de import.
 onnxruntime>=1.17.0
 rapidocr-onnxruntime==1.2.3
+# AOI (PlateRecognizer): si falta, el worker sige con el motor local
+requests>=2.31.0

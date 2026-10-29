@@ -211,14 +211,13 @@ def escribir_info_camara(cfg: dict) -> Path:
         "    Canal 01 (PT) y Canal 02 (panoramico): en\n"
         "    Storage -> Schedule Settings -> Picture Capture y en el linkage de\n"
         "    movimiento (MD_WITH_TARGET), active la subida por FTP en AMBOS\n"
-        "    canales. Si solo sube el 01, la carpeta vehiculo\\ no recibe fotos."
+        "    canales. Ambos van a la carpeta placa\\."
     )
     texto_garantia = (
-        "  imagenes_procesadas\\placa\\AAAA-MM-DD\\      canal 01 (PT): ~2x\n"
-        "      pixeles en la placa, modelo + OCR, nombre = placa canonica\n"
+        "  imagenes_procesadas\\placa\\AAAA-MM-DD\\      ambos canales: modelo\n"
+        "      + OCR (y AOI si hay token), nombre = placa canonica\n"
         "      (ABC-123.jpg) con rectangulo ROJO sobre la deteccion.\n"
-        "  imagenes_procesadas\\vehiculo\\AAAA-MM-DD\\   canal 02: vehiculo\n"
-        "      completo en crudo (sin OCR), nombre por hora."
+        "      El crop enviado a la AOI queda en reportes\\aoi\\AAAA-MM-DD\\."
     )
 
     contenido = f"""\
@@ -369,8 +368,7 @@ def main() -> int:
     logger.info("Servidor FTP CYTV Ancon - IP %s, puerto %s",
                 _ip_local(), cfg["puerto"])
     logger.info("Entrada : %s", cfg["recibidos"])
-    logger.info("Salida : %s  (placa\\ = canal 01, vehiculo\\ = canal 02)",
-                cfg["procesadas"])
+    logger.info("Salida : %s  (placa\\ = ambos canales)", cfg["procesadas"])
     logger.info("Registro : %s", cfg["registro"])
     try:
         escribir_info_camara(cfg)

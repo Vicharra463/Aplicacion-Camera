@@ -183,20 +183,19 @@ function Invoke-Placas {
     foreach ($p in $rep.placas) {
         $texto = $p.placa
         $npl  = if ($p.imagenes -and $p.imagenes.placa)  { @($p.imagenes.placa).Count }  else { 0 }
-        $npan = if ($p.imagenes -and $p.imagenes.panoramica) { @($p.imagenes.panoramica).Count } else { 0 }
         $g = $grupos | Where-Object { (Get-Levenshtein $_.placa $texto) -le 2 } | Select-Object -First 1
         if ($g) {
             $g.detecciones += [int]$p.detecciones
             if ($p.confianza_max -gt $g.confianza_max) { $g.confianza_max = $p.confianza_max }
             if ($p.primera_vez -lt $g.primera_vez) { $g.primera_vez = $p.primera_vez }
             if ($p.ultima_vez -gt $g.ultima_vez) { $g.ultima_vez = $p.ultima_vez }
-            $g.npl += $npl; $g.npan += $npan
+            $g.npl += $npl
         } else {
             $grupos += [pscustomobject]@{
                 placa = $texto; detecciones = [int]$p.detecciones
                 confianza_max = $p.confianza_max
                 primera_vez = $p.primera_vez; ultima_vez = $p.ultima_vez
-                npl = $npl; npan = $npan
+                npl = $npl
             }
         }
     }
@@ -211,8 +210,8 @@ function Invoke-Placas {
         $pv = if ($g.primera_vez) { $g.primera_vez.Substring(11, 8) } else { '' }
         $uv = if ($g.ultima_vez)  { $g.ultima_vez.Substring(11, 8)  } else { '' }
         $conf = if ($g.confianza_max) { '{0:P0}' -f $g.confianza_max } else { '-' }
-        Write-Host ('  {0,-12} {1,9} {2,9} {3,10}  {4} placa / {5} pano' -f
-            $g.placa, $pv, $uv, $conf, $g.npl, $g.npan)
+        Write-Host ('  {0,-12} {1,9} {2,9} {3,10}  {4} fotos' -f
+            $g.placa, $pv, $uv, $conf, $g.npl)
     }
 }
 

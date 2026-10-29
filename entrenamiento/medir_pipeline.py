@@ -33,7 +33,7 @@ def dist(a: str, b: str) -> int:
     return prev[-1]
 
 
-def bbox_de(ruta: Path):
+def bbox_de(ruta: Path, ancho: int, alto: int):
     txt = ruta.with_suffix(".txt")
     if not txt.is_file():
         return None
@@ -42,7 +42,10 @@ def bbox_de(ruta: Path):
     p = linea.split()
     if len(p) < 5:
         return None
-    cx, cy, w, h = (int(round(float(v))) for v in p[1:5])
+    cx, cy, w, h = (float(v) for v in p[1:5])
+    if max(cx, cy, w, h) <= 1.0:               # normalizado -> píxeles
+        cx, cy, w, h = cx * ancho, cy * alto, w * ancho, h * alto
+    cx, cy, w, h = (int(round(v)) for v in (cx, cy, w, h))
     return (cx - w // 2, cy - h // 2, w, h)
 
 
@@ -52,7 +55,7 @@ for dia, nombre, real, _nota in DIAGNOSTICOS:
     img = cv2.imread(str(ruta))
     if img is None:
         continue
-    bbox = bbox_de(ruta)
+    bbox = bbox_de(ruta, img.shape[1], img.shape[0])
     if bbox is None:
         continue
     casos.append((f"{dia}/{nombre}", img, bbox, real))

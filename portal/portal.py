@@ -1,22 +1,27 @@
 #!/usr/bin/env python3
 """Portal web de diagnostico: subi una foto y mira como piensa el pipeline.
 
-Muestra deteccion, filtros de calidad, intentos OCR con confianza,
-consenso CRNN, evidencia y semaforo final. Sin dependencias nuevas.
+Ademas:
+  /recortes  envios a la AOI del dia (crop + lectura + eficacia)
+  /pasadas   control de pasadas 1/2/3 por placa (ver y reiniciar)
 
-Uso: python portal/portal.py [--puerto 8090]
+Uso: python portal/portal.py [--puerto 8090] [--config ruta/config.ini]
 """
 from __future__ import annotations
 
 import argparse
 import base64
+import configparser
 import json
 import logging
+import sqlite3
 import sys
 import threading
 import time
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, quote, urlparse
 
 BASE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE / "app"))
@@ -32,6 +37,80 @@ _detector = None
 _carga: dict = {}
 _candado = threading.Lock()
 MAX_BYTES = 25 * 1024 * 1024
+
+_cfg_rutas: dict = {}
+
+
+def cargar_config(ruta_ini: Path) -> dict:
+    p = configparser.ConfigParser(inline_comment_prefixes=(";",))
+    p.read(ruta_ini, encoding="utf-8-sig")
+    rutas = {
+        "registro": Path(p.get("rutas", "registro",
+                                fallback=str(BASE / "registro.db"))),
+        "reportes": Path(p.get("rutas", "reportes",
+                                fallback=str(BASE / "reportes"))),
+        "procesadas": Path(p.get("rutas", "procesadas",
+                                  fallback=str(BASE / "imagenes_procesadas"))),
+    }
+    return rutas
+
+
+def estado_pasadas(registro: Path) -> list[dict]:
+    con = sqlite3.connect(f"file:{registro}?mode=ro", uri=True,
+                          timeout=5)
+    try:
+        filas = con.execute(
+            "SELECT placa, COUNT(*), MAX(fecha_hora), "
+            "SUM(excedida) FROM pasadas "
+            "GROUP BY placa ORDER BY MAX(fecha_hora) DESC").fetchall()
+    finally:
+        con.close()
+    return [{"placa": placa, "pasadas": n, "ultima": ultima,
+             "excedida": bool(ex or 0)}
+            for placa, n, ultima, ex in filas]
+
+
+def reiniciar_pasadas(registro: Path, placa: str) -> int:
+    con = sqlite3.connect(registro, timeout=5)
+    try:
+        cur = con.execute("DELETE FROM pasadas WHERE placa = ?", (placa,))
+        con.commit()
+        return cur.rowcount
+    finally:
+        con.close()
+
+
+def listar_traza_aoi(reportes: Path, dia: str | None
+                     ) -> tuple[dict, list[dict]]:
+    dia = dia or datetime.now().strftime("%Y-%m-%d")
+    jsonl = reportes / "aoi" / dia / f"aoi-{dia}.jsonl"
+    filas: list[dict] = []
+    if jsonl.is_file():
+        for linea in jsonl.read_text("utf-8").splitlines():
+            linea = linea.strip()
+            if not linea:
+                continue
+            try:
+                filas.append(json.loads(linea))
+            except json.JSONDecodeError:
+                continue
+    total = len(filas)
+    con_lectura = sum(1 for f in filas if f.get("texto"))
+    via_api = sum(1 for f in filas if f.get("via_api"))
+    api_con_lectura = sum(1 for f in filas
+                          if f.get("via_api") and f.get("texto"))
+    resumen = {
+        "dia": dia,
+        "total": total,
+        "con_lectura": con_lectura,
+        "via_api": via_api,
+        "api_con_lectura": api_con_lectura,
+        "eficacia_api_pct": (round(100.0 * api_con_lectura / via_api, 1)
+                             if via_api else 0.0),
+        "eficacia_total_pct": (round(100.0 * con_lectura / total, 1)
+                               if total else 0.0),
+    }
+    return resumen, filas
 
 
 def _cargar_modelos() -> None:
@@ -167,12 +246,7 @@ def analizar(datos: bytes) -> dict:
     return resultado
 
 
-HTML = r"""<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CYTV - Mirada del modelo</title>
+_ESTILO = r"""
 <style>
 :root { --bg:#0d1117; --panel:#161b22; --border:#30363d; --text:#e6edf3;
         --verde:#3fb950; --amarillo:#d29922; --rojo:#f85149; --azul:#58a6ff; }
@@ -197,11 +271,28 @@ td, th { border-bottom:1px solid var(--border); padding:4px 6px; text-align:left
 .fila { display:flex; justify-content:space-between; font-size:12px; padding:3px 0; border-bottom:1px solid #21262d; }
 .oculto { display:none; }
 .carga { text-align:center; color:var(--azul); padding:30px; font-size:14px; }
+a { color:var(--azul); }
 </style>
+"""
+
+HTML_BASE = r"""<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CYTV</title>
+""" + _ESTILO + r"""
 </head>
 <body>
+{{CONTENIDO}}
+</body>
+</html>
+"""
+
+_CONTENIDO_PRINCIPAL = r"""
 <h1><span>CYTV</span> - Mirada del modelo</h1>
-<div class="sub">Subi una foto de la camara y mira paso a paso como el pipeline decide la placa.</div>
+<div class="sub">Subi una foto de la camara y mira paso a paso como el pipeline decide la placa.
+ &middot; <a href="/recortes">envios AOI →</a> &middot; <a href="/pasadas">pasadas →</a></div>
 <label class="zona" id="zona">
   <input type="file" id="archivo" accept="image/*">
   arrastra una foto aqui o hace clic para elegirla
@@ -283,9 +374,9 @@ function fila(k, v, ok) {
   return '<div class="fila"><span>' + k + '</span><span>' + v + badge + '</span></div>';
 }
 </script>
-</body>
-</html>
 """
+
+HTML = HTML_BASE.replace("{{CONTENIDO}}", _CONTENIDO_PRINCIPAL)
 
 
 class Portal(BaseHTTPRequestHandler):
@@ -299,17 +390,158 @@ class Portal(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(cuerpo)
 
+    def _html(self, code: int, cuerpo: str) -> None:
+        self._responder(code, cuerpo.encode("utf-8"),
+                        "text/html; charset=utf-8")
+
     def do_GET(self):
-        if self.path in ("/", "/index.html"):
-            self._responder(200, HTML.encode("utf-8"),
-                            "text/html; charset=utf-8")
+        url = urlparse(self.path)
+        if url.path in ("/", "/index.html"):
+            self._html(200, HTML)
+        elif url.path == "/recortes":
+            self._html(200, self._pagina_recortes(
+                parse_qs(url.query).get("dia", [None])[0]))
+        elif url.path == "/pasadas":
+            self._html(200, self._pagina_pasadas())
+        elif url.path == "/img":
+            self._servir_imagen(parse_qs(url.query).get("ruta", [""])[0])
+        elif url.path == "/api/traza":
+            dia = parse_qs(url.query).get("dia", [None])[0]
+            resumen, filas = listar_traza_aoi(_cfg_rutas.get("reportes",
+                                                            BASE / "reportes"),
+                                              dia)
+            cuerpo = json.dumps({"resumen": resumen, "filas": filas},
+                                ensure_ascii=False).encode("utf-8")
+            self._responder(200, cuerpo,
+                            "application/json; charset=utf-8")
         else:
             self._responder(404, b"no encontrado", "text/plain")
 
-    def do_POST(self):
-        if self.path != "/analizar":
+    def _servir_imagen(self, ruta: str) -> None:
+        p = Path(ruta).resolve()
+        raices = [(_cfg_rutas.get("reportes") or BASE / "reportes").resolve(),
+                  (_cfg_rutas.get("procesadas")
+                   or BASE / "imagenes_procesadas").resolve()]
+        if not any(str(p).startswith(str(r)) for r in raices) \
+                or not p.is_file():
             self._responder(404, b"no encontrado", "text/plain")
             return
+        self._responder(200, p.read_bytes(), "image/jpeg")
+
+    def _pagina_recortes(self, dia: str | None) -> str:
+        resumen, filas = listar_traza_aoi(
+            _cfg_rutas.get("reportes", BASE / "reportes"), dia)
+        filas_html = ""
+        for f in reversed(filas):
+            crop = quote(f.get("crop", ""))
+            cls = "verde" if f.get("texto") else "rojo"
+            origen = ('<span class="chip pasa">API</span>'
+                      if f.get("via_api") else
+                      '<span class="chip">local</span>')
+            intentos = " ".join(
+                f'<span class="chip">{i["nombre"]}: {i["texto"] or "—"}</span>'
+                for i in f.get("intentos", []))
+            filas_html += f"""
+<div class="panel fila-crop">
+  <div><img src="/img?ruta={crop}" loading="lazy"></div>
+  <div>
+    <div class="valor {cls}">{f.get("texto") or "(sin lectura)"}</div>
+    <div class="sub">{f.get("ts", "")} &middot; {f.get("foto", "")}
+      &middot; conf {f.get("conf", 0)} {origen}</div>
+    <div>{intentos}</div>
+  </div>
+</div>"""
+        if not filas:
+            filas_html = ('<div class="panel"><div class="sub">'
+                          "todavia sin envios a la AOI este dia</div></div>")
+        return HTML_BASE.replace("{{CONTENIDO}}", f"""
+<h1><span>CYTV</span> - Envios a la AOI ({resumen['dia']})</h1>
+<div class="sub">Cada crop que el pipeline mando a PlateRecognizer, con su
+lectura. Eficacia = % de envios con lectura.</div>
+<div class="grid">
+  <div class="panel"><h2>resumen</h2>
+    <div class="fila"><span>envios totales</span><span>{resumen['total']}</span></div>
+    <div class="fila"><span>con lectura</span><span>{resumen['con_lectura']}</span></div>
+    <div class="fila"><span>eficacia total</span><span class="valor">{resumen['eficacia_total_pct']}%</span></div>
+  </div>
+  <div class="panel"><h2>solo API</h2>
+    <div class="fila"><span>viajaron a la nube</span><span>{resumen['via_api']}</span></div>
+    <div class="fila"><span>API con lectura</span><span>{resumen['api_con_lectura']}</span></div>
+    <div class="fila"><span>eficacia API</span><span class="valor">{resumen['eficacia_api_pct']}%</span></div>
+  </div>
+</div>
+<div class="sub" style="margin-top:10px"><a href="/pasadas">control de pasadas →</a>
+ &middot; <a href="/">probador de fotos →</a></div>
+{filas_html}
+<style>.fila-crop{{display:grid;grid-template-columns:220px 1fr;gap:12px;margin-top:10px;align-items:center}}
+.fila-crop img{{max-width:220px;border-radius:6px}}</style>""")
+
+    def _pagina_pasadas(self) -> str:
+        registro = _cfg_rutas.get("registro", BASE / "registro.db")
+        filas = estado_pasadas(registro)
+        filas_html = ""
+        for f in filas:
+            cls = "rojo" if f["excedida"] else (
+                "amarillo" if f["pasadas"] >= 2 else "verde")
+            exced = ('<span class="chip falla">EXCEDIDA</span>'
+                     if f["excedida"] else "")
+            filas_html += f"""
+<tr><td class="valor {cls}">{f['placa']}</td>
+    <td>{f['pasadas']} / 3 {exced}</td>
+    <td>{f['ultima']}</td>
+    <td><button class="btn" onclick="reiniciar('{f['placa']}')">reiniciar</button></td></tr>"""
+        if not filas:
+            filas_html = ('<tr><td colspan="4" class="sub">'
+                          "ninguna placa con pasadas registradas</td></tr>")
+        return HTML_BASE.replace("{{CONTENIDO}}", f"""
+<h1><span>CYTV</span> - Control de pasadas</h1>
+<div class="sub">Cada vehiculo tiene 3 oportunidades (pasadas). Reiniciar
+borra el contador de esa placa para que vuelva a contar como 1ra.</div>
+<div class="panel" style="margin-top:14px">
+<table><tr><th>placa</th><th>pasadas</th><th>ultima vez</th><th></th></tr>
+{filas_html}</table></div>
+<div class="sub" style="margin-top:10px"><a href="/recortes">envios AOI →</a>
+ &middot; <a href="/">probador de fotos →</a></div>
+<script>
+async function reiniciar(placa) {{
+  if (!confirm('Reiniciar el contador de pasadas de ' + placa + '?')) return;
+  const resp = await fetch('/api/pasadas/reiniciar', {{
+    method: 'POST', headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{placa: placa}}) }});
+  if (resp.ok) location.reload();
+}}
+</script>
+<style>.btn{{background:#30363d;color:#e6edf3;border:1px solid #30363d;
+border-radius:6px;padding:4px 10px;cursor:pointer;font-family:inherit}}
+.btn:hover{{background:#f85149;border-color:#f85149}}</style>""")
+
+    def do_POST(self):
+        url = urlparse(self.path)
+        if url.path == "/analizar":
+            self._analizar()
+        elif url.path == "/api/pasadas/reiniciar":
+            self._reiniciar_pasadas()
+        else:
+            self._responder(404, b"no encontrado", "text/plain")
+
+    def _reiniciar_pasadas(self) -> None:
+        largo = int(self.headers.get("Content-Length", 0))
+        if not 0 < largo <= 8192:
+            self._responder(400, b"tamanio invalido", "text/plain")
+            return
+        try:
+            datos = json.loads(self.rfile.read(largo))
+            placa = str(datos["placa"])
+        except (ValueError, KeyError, TypeError):
+            self._responder(400, b"json invalido", "text/plain")
+            return
+        registro = _cfg_rutas.get("registro", BASE / "registro.db")
+        borradas = reiniciar_pasadas(registro, placa)
+        logger.info("pasadas reiniciadas para %s: %d filas", placa, borradas)
+        cuerpo = json.dumps({"ok": True, "borradas": borradas}).encode()
+        self._responder(200, cuerpo, "application/json; charset=utf-8")
+
+    def _analizar(self):
         largo = int(self.headers.get("Content-Length", 0))
         if not 0 < largo <= MAX_BYTES:
             self._responder(400, b"tamanio invalido", "text/plain")
@@ -326,9 +558,18 @@ class Portal(BaseHTTPRequestHandler):
 
 
 def main() -> int:
+    global _cfg_rutas
     ap = argparse.ArgumentParser()
     ap.add_argument("--puerto", type=int, default=8090)
+    ap.add_argument("--config", type=Path,
+                    default=BASE / "servicio_local" / "config.ini")
     args = ap.parse_args()
+    try:
+        _cfg_rutas = cargar_config(args.config)
+        logger.info("rutas desde config: %s", _cfg_rutas)
+    except Exception:
+        logger.exception("no se pudo leer %s; usando defaults", args.config)
+        _cfg_rutas = {}
     print("cargando modelos (detector + RapidOCR + CRNN)...", flush=True)
     _cargar_modelos()
     servidor = ThreadingHTTPServer(("0.0.0.0", args.puerto), Portal)

@@ -206,7 +206,6 @@ def cmd_placas(_args: list[str] | None = None) -> None:
     for p in placas:
         texto = p.get("placa", "?")
         npl = len(p.get("imagenes", {}).get("placa", []))
-        npan = len(p.get("imagenes", {}).get("panoramica", []))
         g = next((g for g in grupos
                   if _levenshtein(g["placa"], texto) <= 2), None)
         if g:
@@ -216,14 +215,13 @@ def cmd_placas(_args: list[str] | None = None) -> None:
             g["primera_vez"] = min(g["primera_vez"], p.get("primera_vez", ""))
             g["ultima_vez"] = max(g["ultima_vez"], p.get("ultima_vez", ""))
             g["npl"] += npl
-            g["npan"] += npan
         else:
             grupos.append({
                 "placa": texto, "detecciones": p.get("detecciones", 1),
                 "confianza_max": p.get("confianza_max", 0),
                 "primera_vez": p.get("primera_vez", ""),
                 "ultima_vez": p.get("ultima_vez", ""),
-                "npl": npl, "npan": npan,
+                "npl": npl,
             })
     grupos.sort(key=lambda g: g["primera_vez"])
     total_det = sum(g["detecciones"] for g in grupos)
@@ -236,7 +234,7 @@ def cmd_placas(_args: list[str] | None = None) -> None:
         pv = g["primera_vez"][11:19] if g["primera_vez"] else ""
         uv = g["ultima_vez"][11:19] if g["ultima_vez"] else ""
         print(f"  {g['placa']:<12} {pv:>9} {uv:>9} "
-              f"{g['confianza_max']:>9.0%}  {g['npl']} placa / {g['npan']} pano")
+              f"{g['confianza_max']:>9.0%}  {g['npl']} fotos")
 
 
 def cmd_historial(_args: list[str] | None = None) -> None:
@@ -270,7 +268,7 @@ def cmd_fotos(_args: list[str] | None = None) -> None:
     if not ruta.is_file():
         print(f"  No existe el archivo: {ruta}")
         return
-    canal = input("  Canal (01 panoramica / 02 placa) [01]: ").strip() or "01"
+    canal = input("  Canal (01 o 02, ambos van a placa) [01]: ").strip() or "01"
     if canal not in ("01", "02"):
         print("  Canal invalido (use 01 o 02).")
         return

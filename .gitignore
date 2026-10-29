@@ -37,6 +37,8 @@ entrenamiento/inputs_gt/
 entrenamiento/montajes/
 entrenamiento/diagnostico_gap.png
 entrenamiento/muestras_generadas.png
+# Salidas de evaluacion (imagenes por corrida, ~95 MB; no van al repo)
+entrenamiento/evaluacion/GT29/CRNN_SOLO_*/
 
 # Webapp
 webapp/node_modules/

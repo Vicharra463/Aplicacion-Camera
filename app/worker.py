@@ -41,11 +41,21 @@ except Exception:
 
 logger = logging.getLogger("cytv.worker")
 
+_AOI_ACTIVA = False
+if leer_placa_6 is not None and os.environ.get("PLATERECOGNIZER_TOKEN"):
+    try:
+        from platerecognizer import leer_placa_6_api
+        leer_placa_6 = leer_placa_6_api
+        _AOI_ACTIVA = True
+    except Exception:
+        logger.exception("AOI (PlateRecognizer) no disponible; "
+                         "sigo con el motor local")
+
 COLA: "queue.Queue[str]" = queue.Queue(maxsize=200)
 
 _MOTIVOS_VOLUMEN = {"sin_texto"}
 
-FOLDER_POR_CANAL = {"01": "placa", "02": "vehiculo"}
+FOLDER_POR_CANAL = {"01": "placa", "02": "placa"}
 CARPETA_POR_DEFECTO = "placa"
 _RE_CANAL = re.compile(r"_(\d{2})_")
 
@@ -203,6 +213,11 @@ def iniciar(cfg: dict) -> None:
             con.execute("ALTER TABLE registros ADD COLUMN evidencia INTEGER")
         if "semaforo" not in columnas:
             con.execute("ALTER TABLE registros ADD COLUMN semaforo TEXT")
+        for col, tipo in (("fuente", "TEXT"), ("provisional", "INTEGER"),
+                          ("placa_api", "TEXT"), ("placa_modelo", "TEXT"),
+                          ("motivo_sin_api", "TEXT")):
+            if col not in columnas:
+                con.execute(f"ALTER TABLE registros ADD COLUMN {col} {tipo}")
         con.execute(
             """
             CREATE TABLE IF NOT EXISTS pasadas (
@@ -348,18 +363,23 @@ def _actualizar_dia() -> None:
 def registrar(archivo: str, placa: str | None = None,
               confianza: float | None = None, estado: str = "guardado",
               phash: int | None = None, evidencia: int | None = None,
-              semaforo: str | None = None) -> None:
+              semaforo: str | None = None, fuente: str | None = None,
+              provisional: bool = False, placa_api: str | None = None,
+              placa_modelo: str | None = None,
+              motivo_sin_api: str | None = None) -> None:
     if _ruta_registro is None:
         return
     con = _conexion()
     try:
         con.execute(
             "INSERT INTO registros (fecha_hora, archivo, placa, confianza, "
-            "estado, phash, evidencia, semaforo) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "estado, phash, evidencia, semaforo, fuente, provisional, "
+            "placa_api, placa_modelo, motivo_sin_api) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (datetime.now().isoformat(timespec="seconds"), archivo, placa,
              confianza, estado, None if phash is None else f"{phash:016x}",
-             evidencia, semaforo),
+             evidencia, semaforo, fuente, 1 if provisional else 0,
+             placa_api, placa_modelo, motivo_sin_api),
         )
         con.commit()
     finally:
@@ -440,7 +460,7 @@ def generar_json_dia(fecha: str) -> Path:
     try:
         filas = con.execute(
             "SELECT fecha_hora, archivo, placa, confianza, evidencia, "
-            "semaforo FROM registros "
+            "semaforo, fuente, provisional FROM registros "
             "WHERE fecha_hora LIKE ? AND estado = 'guardado' "
             "AND placa IS NOT NULL AND placa != '' ORDER BY fecha_hora",
             (f"{fecha}%",),
@@ -455,7 +475,8 @@ def generar_json_dia(fecha: str) -> Path:
         con.close()
 
     por_placa: dict[str, dict] = {}
-    for fecha_hora, archivo, placa, confianza, evidencia, semaforo in filas:
+    for (fecha_hora, archivo, placa, confianza, evidencia, semaforo,
+         fuente, provisional) in filas:
         entrada = por_placa.get(placa)
         if entrada is None:
             pasada, excedida = pasadas_dia.get(placa, (1, False))
@@ -469,19 +490,25 @@ def generar_json_dia(fecha: str) -> Path:
                 "confianza_max": 0.0,
                 "evidencia_max": 0,
                 "semaforo": "sin_dato",
-                "imagenes": {"placa": [], "panoramica": []},
+                "fuente": fuente,
+                "provisional": bool(provisional),
+                "imagenes": {"placa": [], "recorte": []},
             }
         entrada["ultima_vez"] = fecha_hora
         entrada["detecciones"] += 1
+        entrada["fuente"] = fuente
+        entrada["provisional"] = bool(provisional)
         if confianza is not None:
             entrada["confianza_max"] = max(entrada["confianza_max"], confianza)
         if evidencia is not None and evidencia > entrada["evidencia_max"]:
             entrada["evidencia_max"] = evidencia
             if semaforo:
                 entrada["semaforo"] = semaforo
-        vista = _carpeta_de_ruta(archivo)
-        clave = "placa" if vista == "placa" else "panoramica"
-        entrada["imagenes"][clave].append(str(_cfg["procesadas"] / archivo))
+        ruta_foto = _cfg["procesadas"] / archivo
+        entrada["imagenes"]["placa"].append(str(ruta_foto))
+        crop = ruta_foto.with_name(ruta_foto.stem + "_crop.jpg")
+        if crop.is_file():
+            entrada["imagenes"]["recorte"].append(str(crop))
 
     datos = {
         "fecha": fecha,
@@ -749,6 +776,41 @@ def _sufijo_pasada(pasada: int) -> str:
     return {1: "", 2: "_2da-pasada", 3: "_3ra-pasada"}.get(pasada, "_EXCEDIDA")
 
 
+def _trazar_aoi(ruta_foto: Path, img: np.ndarray,
+                bbox: tuple[int, int, int, int], texto: str, conf: float,
+                intentos: list) -> None:
+    """Graba el crop enviado a la AOI y una linea JSONL con el desempeno."""
+    if not _AOI_ACTIVA:
+        return
+    try:
+        dia = datetime.now().strftime("%Y-%m-%d")
+        carpeta = _carpeta_reportes() / "aoi" / dia
+        carpeta.mkdir(parents=True, exist_ok=True)
+        recorte = _recorte_con_margen(img, bbox, 0.15)
+        marca = datetime.now().strftime("%H-%M-%S-%f")[:-3]
+        nombre_crop = f"{marca}_{ruta_foto.stem}.jpg"
+        destino = carpeta / nombre_crop
+        if recorte.size:
+            cv2.imwrite(str(destino), recorte,
+                        [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        evento = {
+            "ts": datetime.now().isoformat(timespec="milliseconds"),
+            "foto": ruta_foto.name,
+            "bbox": [int(v) for v in bbox],
+            "texto": texto,
+            "conf": round(float(conf), 4),
+            "via_api": any(n == "api" for n, _t, _c in intentos or []),
+            "intentos": [{"nombre": n, "texto": t or "", "conf": round(c, 4)}
+                         for n, t, c in (intentos or [])],
+            "crop": str(destino) if recorte.size else "",
+        }
+        jsonl = carpeta / f"aoi-{dia}.jsonl"
+        with jsonl.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(evento, ensure_ascii=False) + "\n")
+    except Exception:
+        logger.debug("No se pudo trazar el envio a la AOI", exc_info=True)
+
+
 def _recorte_con_margen(img: np.ndarray, bbox: tuple[int, int, int, int],
                         margen: float = 0.35) -> np.ndarray:
     x, y, w, h = bbox
@@ -830,9 +892,7 @@ def _nombre_con_placa(vista: str, texto_placa: str, ahora: datetime,
     base = re.sub(r"-{2,}", "-", base).upper()
     if not base:
         return f"{vista}_{ahora.strftime('%H-%M-%S')}_{ahora.microsecond:03d}"
-    if vista == "placa":
-        return base + sufijo
-    return f"placa-panoramica_{base}" + sufijo
+    return base + sufijo
 
 
 def _descartar(ruta: Path, motivo: str, detalle: str = "",
@@ -871,7 +931,7 @@ def _guardar(img: np.ndarray, bbox: tuple[int, int, int, int] | None,
              dudosa: bool = False) -> Path:
     ahora = datetime.now()
     dia = _cfg["procesadas"] / vista / ahora.strftime("%Y-%m-%d")
-    carpeta = dia if _detector is not None else dia / "pendientes"
+    carpeta = dia
     carpeta.mkdir(parents=True, exist_ok=True)
 
     nombre = _nombre_con_placa(vista, texto_placa, ahora, sufijo)
@@ -894,6 +954,11 @@ def _guardar(img: np.ndarray, bbox: tuple[int, int, int, int] | None,
         etiqueta = (f"0 {(x + w / 2) / ancho:.6f} {(y + h / 2) / alto:.6f} "
                     f"{w / ancho:.6f} {h / alto:.6f}\n")
         (destino.with_suffix(".txt")).write_text(etiqueta, encoding="utf-8")
+        if vista == "placa":
+            recorte = _recorte_con_margen(img, bbox, 0.0)
+            if recorte.size:
+                cv2.imwrite(str(destino.with_name(destino.stem + "_crop.jpg")),
+                            recorte, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
     return destino
 
 
@@ -936,6 +1001,7 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
                    if viejo.stem.endswith(s)), "")
     viejo.unlink(missing_ok=True)
     viejo.with_suffix(".txt").unlink(missing_ok=True)
+    viejo.with_name(viejo.stem + "_crop.jpg").unlink(missing_ok=True)
     nuevo = _guardar(img, bbox, vista, texto, sufijo=sufijo)
     relativo = str(nuevo.relative_to(_cfg["procesadas"]))
     con = _conexion()
@@ -986,16 +1052,6 @@ def procesar_imagen(ruta: Path) -> None:
         if porcentaje < _cfg["umbral"]:
             _descartar(ruta, "duplicado", f"({porcentaje:.2f}% de cambio)")
             return
-
-    if vista == "vehiculo":
-        destino = _guardar(img, None, "vehiculo")
-        relativo = str(destino.relative_to(_cfg["procesadas"]))
-        registrar(relativo, estado="guardado")
-        logger.info("Panoramica guardada: %s (%.2f%% de cambio)",
-                    relativo, porcentaje)
-        _ultima_imagen[vista] = img.copy()
-        ruta.unlink(missing_ok=True)
-        return
 
     candidatos = _candidatos_placa(img)
     if not candidatos:
@@ -1054,6 +1110,7 @@ def procesar_imagen(ruta: Path) -> None:
         if leer_placa_6 is not None:
             texto_placa, conf_ocr, intentos_ocr = leer_placa_6(img, bbox)
             bbox_ocr = bbox
+            _trazar_aoi(ruta, img, bbox, texto_placa, conf_ocr, intentos_ocr)
             if not texto_placa:
                 logger.info(
                     "Sin lectura solida: %s | bbox (%d,%d,%d,%d) | "
@@ -1131,6 +1188,8 @@ def procesar_imagen(ruta: Path) -> None:
             if leer_placa_6 is not None:
                 texto_re, conf_re, intentos_re = leer_placa_6(
                     img, bbox_re, reintento=False)
+                _trazar_aoi(ruta, img, bbox_re, texto_re, conf_re,
+                             intentos_re)
             else:
                 texto_re = leer_placa(_recorte_con_margen(img, bbox_re))
                 conf_re, intentos_re = 0.0, []
@@ -1209,9 +1268,25 @@ def procesar_imagen(ruta: Path) -> None:
                        dudosa=dudosa)
     relativo = str(destino.relative_to(_cfg["procesadas"]))
     confirmada = _detector is not None
+
+    via_api = any(n == "api" for n, _t, _c in intentos_ocr)
+    placa_api = next((t for n, t, _c in intentos_ocr if n == "api"), None)
+    provisional = bool(texto_placa) and _AOI_ACTIVA and not via_api
+    motivo = None
+    if provisional:
+        try:
+            import platerecognizer
+            motivo = platerecognizer.motivo_sin_api()
+        except Exception:
+            motivo = "sin_lectura_api"
     registrar(relativo, placa=texto_placa or None, confianza=confianza,
               estado="guardado" if confirmada else "pendiente", phash=huella,
-              evidencia=evidencia, semaforo=color)
+              evidencia=evidencia, semaforo=color,
+              fuente=(("platerecognizer" if via_api else "modelo")
+                      if texto_placa else None),
+              provisional=provisional, placa_api=placa_api,
+              placa_modelo=None if via_api else (texto_placa or None),
+              motivo_sin_api=motivo)
 
     if texto_placa:
         try:
