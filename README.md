@@ -13,7 +13,7 @@ Windows, solo CPU, sin GPU. Python 3.13 (recomendado) o 3.9 legacy.
 - Windows 10/11 o Server (producción: Server 2012 R2 con Python 3.9)
 - Python 3.13 — o Python 3.9 para el legacy
 - ~2 GB de disco (modelos ONNX + dependencias)
-- Conexión a internet **opcional**: solo si se usa la AOI (`PLATERECOGNIZER_TOKEN`)
+- Conexión a internet **opcional**: solo si se usan claves AOI (`config.ini [aoi]`)
 
 ---
 
@@ -32,15 +32,19 @@ pip install -r requirements.txt
 **Configuración:** editar `config.ini` — solo rutas **absolutas**.
 Credenciales de la cámara: `servicio_local\INFO_CAMARA.txt` (nunca subir al repo).
 
-**AOI (PlateRecognizer) — opcional:**
+**AOI (PlateRecognizer) — opcional:** claves en `config.ini`:
 
-```bat
-setx PLATERECOGNIZER_TOKEN "sk_xxx"
+```ini
+[aoi]
+tokens = sk_primera, sk_segunda, sk_tercera
 ```
 
-Sin la variable, el sistema trabaja 100 % con el motor local (idéntico al
-comportamiento previo). Con la variable, cada foto intenta primero la API y
-cae al motor local cuando la API no responde (ver «Arquitectura de lectura»).
+El servicio prueba cada clave **en orden**: si una se queda sin cuota la
+aparta y sigue con la siguiente; solo cuando **todas** fallan interviene el
+motor local. Sin claves (o sin sección), el sistema trabaja 100 % con el
+motor local (idéntico al comportamiento previo). También se pueden sumar
+claves con `PLATERECOGNIZER_TOKEN` (se concatenan). Ver «Arquitectura de
+lectura».
 
 **Servicio Windows (NSSM):**
 
@@ -57,72 +61,60 @@ El sistema tiene DOS fuentes de lectura de placa, orquestadas con prioridad
 y caída automática:
 
 ```
-                    ┌────────────────────────────┐
-  foto + bbox ────► │ leer_placa_6_api (wrapper) │
-                    └─────────────┬──────────────┘
+                    ┌──────────────────────────────────┐
+  foto + bbox ────► │ leer_placa_6_api (wrapper)       │
+                    │   claves de config.ini [aoi]     │
+                    └─────────────┬────────────────────┘
                                   │
-              PLATERECOGNIZER_TOKEN definida y API disponible?
+              ¿alguna clave vigente (sin cuota)?
                          │                        │
                         SÍ                       NO
                          │                        │
                          ▼                        ▼
-            POST crop.jpg a                ocr.leer_placa_6
-         api.platerecognizer.com          (motor local completo:
-         (regions=pe, 3 intentos)          CRNN consenso + RapidOCR
-                         │                 + votos + snap de flota)
-           ¿results no vacío?                     │
-              │            │                      │
-             SÍ           NO (402/403/           │
-              │           timeout/red/            │
-              │           results vacío)          │
-              ▼            │                      │
-        _elegir():         │                      │
-        plate de results[0]│◄─────────────────────┘
-        + arbitraje de     │   (fallback local)
-        candidates contra  │
-        flota              ▼
-              │      registro con fuente=
-              ▼      "modelo", provisional=1
-        registro con fuente=
-        "platerecognizer"
+        por cada clave vigente, EN ORDEN:   ocr.leer_placa_6
+        POST crop.jpg a la API              (motor local completo:
+        (regions=pe, timeout 10s)            CRNN consenso + RapidOCR
+                         │                  + votos + snap de flota)
+      ┌──────┬──────┬────┴─────┐                     │
+    200    402/403  429    red/timeout                │
+   con     │        │        │                       │
+  results  │        │        └──► apagado global     │
+     │     │        │            2 min → None ◄──────┘
+     ▼     ▼        ▼
+  _elegir  clave   clave           ◄── (fallback local:
+  candidates  │     60 s fuera        recién cuando TODAS
+  vs flota    │     y sigue          las claves agotaron)
+     │        ▼
+     │    siguiente clave...
+     ▼
+  registro fuente=
+  "platerecognizer"
 ```
 
-### `app/platerecognizer.py` — adaptador AOI
+### Rotación de claves — `config.ini [aoi]`
 
-- **Endpoint:** `https://api.platerecognizer.com/v1/plate-reader/` con
-  `regions=pe` (Perú). Timeout 10 s. JPEG calidad 95 del recorte con margen 15 %.
-- **Token:** solo de variable de entorno `PLATERECOGNIZER_TOKEN`; nunca hardcodeado.
-- **Circuit breaker** (`_apagar`): cuando la API falla, se apaga para no
-  reintentar en cada foto:
+```ini
+[aoi]
+tokens = sk_uno, sk_dos, sk_tres
+```
 
-  | Condición | Apagado | Motivo |
+- **Orden de prueba**: la primera clave vigente que responda gana; las
+  claves se prueban **antes** de caer al motor local.
+- **Estado por clave** (circuit breaker individual):
+
+  | Condición | Clave apartada | Motivo |
   |---|---|---|
-  | HTTP 402 (cuota) o 403 (token inválido) | 1 h | `http_402` / `http_403` |
-  | Sin conexión / timeout | 2 min | `sin_conexion` |
-  | HTTP 429 (rate limit) | reintento inline (1+intentos s) | — |
-  | Otras fallas HTTP | 3 intentos con 1 s entre ellos | — |
+  | HTTP 402 (cuota agotada) | 1 h | `http_402` |
+  | HTTP 403 (clave inválida) | 1 h | `http_403` |
+  | HTTP 429 (rate limit, 3 intentos) | 1 min | `http_429` |
+  | Sin conexión / timeout | **global** 2 min (no rota: sin red todas fallan) | `sin_conexion` |
+  | Otras fallas HTTP | 3 intentos con 1 s y vuelve al motor local | — |
 
-- **`api_disponible()`**: `TOKEN` definido y no está en ventana de apagado.
-- **`motivo_sin_api()`**: para el registro — `sin_token`, `http_402`, … o
-  `sin_lectura_api` (API respondió pero sin placa).
-- **Selección (`_elegir`)**: toma `results[0].plate`; si el JSON trae
-  `candidates`, arbitra: el primer candidato que esté en la flota local gana.
-  Devuelve `(placa_con_guion, score)`.
-- **`leer_placa_6_api`**: misma firma que `ocr.leer_placa_6`. Si la API no da
-  lectura, delega 100 % al motor local. El primer elemento de `intentos` indica
-  la fuente: `("api", lectura_cruda, conf)` o los intentos del motor local.
-
-### Cableado en `app/worker.py` (líneas 44–52)
-
-```python
-if leer_placa_6 is not None and os.environ.get("PLATERECOGNIZER_TOKEN"):
-    from platerecognizer import leer_placa_6_api
-    leer_placa_6 = leer_placa_6_api   # monkey-patch del pipeline
-    _AOI_ACTIVA = True
-```
-
-Al arrancar, **si hay token**, toda llamada del worker a `leer_placa_6` pasa
-por la AOI. Sin token, el pipeline local es el mismo de siempre.
+- **Cuando todas las claves están en cuota**: `api_disponible()` es `False`
+  → **cero llamadas HTTP**, directo al motor local hasta que una clave
+  recupere su ventana.
+- **`motivo_sin_api()`** para el registro: `sin_token`, `http_402`,
+  `http_403`, `sin_conexion`, `sin_lectura_api` o claves separadas por coma.
 
 ### Registro por lectura (`registrar`, worker.py:1272–1289)
 
@@ -231,6 +223,18 @@ de foto + crop. El portal y `cytv placas` lo consumen.
 
 ---
 
+## Límites de CPU (diseño para correr junto a todo en el mismo server)
+
+| Mecanismo | Dónde | Qué hace |
+|---|---|---|
+| ONNX a **1 hilo** | `modelo.py`, `reconocedor.py`, `ocr.py` (`intra_op/inter_op_num_threads=1`, `ORT_SEQUENTIAL`, sin arena) | detector, CRNN y RapidOCR no usan más de 1 hilo de cada modelo |
+| Prioridad **BELOW_NORMAL** activo / **IDLE** en reposo | `worker._prioridad` | la cámara cede CPU al resto de apps; en idle no compite |
+| **Reposo** a los `reposo_minutos` (10) sin fotos | `worker._entrar_en_reposo` | libera detector+OCR+CRNN de memoria y baja a IDLE; la próxima foto los recarga |
+| 1 solo hilo de worker + cola de 200 | `worker.bucle_worker` | el FTP solo encola; el procesamiento es secuencial |
+| Timeout HTTP 10 s + cortes rápidos | `platerecognizer._post_clave` | sin red: **un solo** intento (10 s) y la AOI se apaga 2 min; claves sin cuota fallan con 402/403 rápidos (sin esperas) |
+
+---
+
 ## Estructura de archivos
 
 ```
@@ -244,6 +248,7 @@ D:\Aplicacion-Camera\
 ├── config.ini                   rutas absolutas + umbrales (lo lee ftp_server.py)
 │                                └ [ftp] puerto/usuario/password/pasivos
 │                                  [rutas] recibidos/procesadas/registro/logs/heartbeat/reportes
+│                                  [aoi] tokens = claves PlateRecognizer en orden de prueba
 │                                  [camara] ventana y máximo de pasadas
 │                                  [recursos] reposo_minutos (libera modelos)
 │                                  [duplicados] umbral_diferencia (% absdiff)
@@ -264,7 +269,8 @@ D:\Aplicacion-Camera\
 │   ├── modelo.py                detector YOLO ONNX (enmascara OSD, letterbox, NMS)
 │   ├── reconocedor.py           CRNN ONNX (CTC decode, consenso multi-crop,
 │   │                            recarga en caliente si cambian los pesos)
-│   ├── platerecognizer.py       adaptador AOI PlateRecognizer (fallback al motor local)
+│   ├── platerecognizer.py       adaptador AOI: rotación de claves [aoi] + circuit
+│   │                            breaker por clave (402/403/429/red) y fallback
 │   ├── decodificador_flota.py   diccionario cerrado + distancia edición ponderada
 │   ├── gt_placas.py             GT-29: 29 diagnósticos verificados visualmente
 │   ├── log_sin_lectura.py       JSONL diagnóstico de fotos sin placa (apagado por defecto)
@@ -307,7 +313,9 @@ D:\Aplicacion-Camera\
 │   datos está en D:\Escritorio\CAMARA PLACAS.
 │
 ├── tests\                       pytest (sin red, sin modelos reales):
-│   ├── test_platerecognizer.py  AOI: parseo, 402/403, 429, red caída, fallback local
+│   ├── test_platerecognizer.py  AOI: parseo, rotación de claves 402/403, 429, red,
+│   │                            fallback local, orden clave→modelo
+│   ├── test_worker_aoi.py       cableado AOI desde config.ini [aoi] / env
 │   ├── test_worker_estructura.py traza AOI JSONL
 │   ├── test_worker_crop_json.py crop + reporte JSON
 │   └── test_portal_recortes.py  listado de traza AOI del portal
@@ -352,7 +360,7 @@ Las columnas de AOI (`fuente`, `provisional`, `placa_api`, `placa_modelo`,
 
 | Variable | Efecto |
 |---|---|
-| `PLATERECOGNIZER_TOKEN` | activa la AOI; sin ella el motor local es el único camino |
+| `PLATERECOGNIZER_TOKEN` | suma claves AOI a las de `config.ini [aoi]` (se concatenan) |
 | `CYTV_BASE` | raíz del proyecto (default: carpeta de `ftp_server.py`) |
 | `CYTV_CRNN_ONNX` | ruta alternativa del CRNN |
 | `CYTV_FLOTA_SIN_GT` | `1` = flota sin GT-29 (para medir holdout honesto) |

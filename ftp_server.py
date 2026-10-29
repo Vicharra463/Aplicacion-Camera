@@ -87,6 +87,7 @@ def cargar_config() -> dict:
         "logs": ruta_rel("rutas", "logs"),
         "heartbeat": ruta_rel("rutas", "heartbeat"),
         "reportes": opt("rutas", "reportes", "reportes"),
+        "aoi_tokens": ini.get("aoi", "tokens", fallback=""),
         "umbral": ini.getfloat("duplicados", "umbral_diferencia"),
         "replay_inicio": ini.get("inicio", "replay_descartes", fallback="si"),
         "replay_pausa_seg": ini.getfloat("inicio", "replay_pausa_seg",

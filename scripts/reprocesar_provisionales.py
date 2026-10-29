@@ -3,8 +3,11 @@
 Uso:
     python scripts\\reprocesar_provisionales.py [TOPE] [--dry-run]
 
-Requiere la variable de entorno PLATERECOGNIZER_TOKEN.
+Claves: config.ini [aoi] tokens (orden de prueba) y/o variable de entorno
+PLATERECOGNIZER_TOKEN; se prueban en orden hasta que una responda.
 """
+import configparser
+import os
 import sqlite3
 import sys
 import time
@@ -25,6 +28,11 @@ DRY = "--dry-run" in sys.argv
 if not DB.is_file():
     sys.exit(f"No existe la base de datos: {DB}")
 
+_ini = configparser.ConfigParser()
+_ini.read(RAIZ / "config.ini", encoding="utf-8-sig")
+pr.configurar(_ini.get("aoi", "tokens", fallback=""),
+              os.environ.get("PLATERECOGNIZER_TOKEN", ""))
+
 con = sqlite3.connect(DB)
 con.execute("PRAGMA busy_timeout=5000")
 pend = con.execute(
@@ -37,7 +45,8 @@ if DRY:
     sys.exit()
 if not pr.api_disponible():
     con.close()
-    sys.exit("API no disponible (falta PLATERECOGNIZER_TOKEN o esta apagada)")
+    sys.exit("API no disponible (sin claves en [aoi]/PLATERECOGNIZER_TOKEN "
+             "o todas en cuota)")
 
 usadas = 0
 for rid, archivo, vieja, _conf, fecha in pend:

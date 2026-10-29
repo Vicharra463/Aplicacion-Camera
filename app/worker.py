@@ -42,14 +42,7 @@ except Exception:
 logger = logging.getLogger("cytv.worker")
 
 _AOI_ACTIVA = False
-if leer_placa_6 is not None and os.environ.get("PLATERECOGNIZER_TOKEN"):
-    try:
-        from platerecognizer import leer_placa_6_api
-        leer_placa_6 = leer_placa_6_api
-        _AOI_ACTIVA = True
-    except Exception:
-        logger.exception("AOI (PlateRecognizer) no disponible; "
-                         "sigo con el motor local")
+_leer_local = leer_placa_6
 
 COLA: "queue.Queue[str]" = queue.Queue(maxsize=200)
 
@@ -182,9 +175,27 @@ def _carpeta_de_ruta(relativo: str) -> str:
 
 def iniciar(cfg: dict) -> None:
     global _cfg, _ruta_registro, _hashes, _placas, _dia_dedup, _detector, _reposo_seg
+    global leer_placa_6, _AOI_ACTIVA
     _cfg = cfg
     _ruta_registro = cfg["registro"]
     _reposo_seg = max(0.0, float(cfg.get("reposo_minutos", 10.0))) * 60.0
+
+    fuentes = (cfg.get("aoi_tokens", ""),
+               os.environ.get("PLATERECOGNIZER_TOKEN", ""))
+    if _leer_local is not None and any(str(f).strip() for f in fuentes):
+        try:
+            import platerecognizer
+            tokens = platerecognizer.configurar(*fuentes)
+            if tokens:
+                leer_placa_6 = platerecognizer.leer_placa_6_api
+                _AOI_ACTIVA = True
+                logger.info("AOI activa: %d clave(s) de PlateRecognizer "
+                            "(orden de prueba: %s)", len(tokens),
+                            ", ".join(t[:4] + "***" for t in tokens))
+        except Exception:
+            logger.exception("AOI (PlateRecognizer) no disponible; "
+                             "sigo con el motor local")
+
     cfg["procesadas"].mkdir(parents=True, exist_ok=True)
     if str(cfg.get("modo_descarte", "eliminar")).strip().lower() == "retener":
         _carpeta_descartes().mkdir(parents=True, exist_ok=True)
