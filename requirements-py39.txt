@@ -14,3 +14,7 @@ numpy==1.26.4
 opencv-python-headless==4.5.3.56
 onnxruntime==1.18.1
 rapidocr-onnxruntime==1.2.3
+# AOI (PlateRecognizer): cp39 con ruedas comprobadas; charset-normalizer
+# pinneado porque es el unico con binarios
+requests==2.32.3
+charset-normalizer==3.3.2
