@@ -11,6 +11,7 @@ TIMEOUT = 10
 CUOTA_SEG = 3600     # 402/403: la clave queda 1 h fuera
 RATE_SEG = 60        # 429 persistente: esa clave 1 min fuera
 SIN_RED_SEG = 120    # sin conexion: toda la AOI 2 min fuera
+CONFIRMAR_SEG = 30.0  # misma placa: no volver a llamar a la API en este lapso
 
 # Claves en orden de prueba. Cada fuente es una cadena 'a, b, c'
 # (config.ini [aoi] tokens y/o PLATERECOGNIZER_TOKEN).
@@ -20,6 +21,11 @@ _tokens: list[str] = []
 _cuota: dict[str, tuple[float, str]] = {}
 _apagada_hasta = 0.0   # apagado GLOBAL (solo errores de red)
 _motivo = ""
+
+# Caché de confirmaciones: texto local normalizado -> (ts, placa_api, conf_api).
+# Si la API ya confirmo esta misma placa hace menos de CONFIRMAR_SEG, no se
+# vuelve a llamar (evita quemar cuota con rafagas del mismo carro).
+_confirmadas: dict[str, tuple[float, str, float]] = {}
 
 _EST_OK, _EST_VACIO, _EST_AGOTADA, _EST_RATE, _EST_RED, _EST_ERROR = range(6)
 
@@ -167,13 +173,49 @@ def _elegir(data, es_flota):
 
 
 def leer_placa_6_api(img, bbox, **kw):
-    """Misma firma que ocr.leer_placa_6. El primer elemento de `intentos`
-    indica la fuente: ("api", lectura_cruda, conf) o los del motor local."""
+    """Flujo MODELO-PRIMERO (ahorra cuota de la API).
+
+    1. El motor local (CRNN + RapidOCR) lee el recorte. Su _normalizar solo
+       devuelve texto si es una placa VALIDA de 6 digitos (3 letras + 3
+       digitos); si no, devuelve vacio.
+    2. Solo si el local ya leyo una placa limpia se consulta la API para
+       confirmar/limpiarla. Si el local no leyo, NO se gasta cuota.
+    3. Si la API ya confirmo ESTA MISMA placa hace menos de CONFIRMAR_SEG,
+       se reutiliza esa confirmacion sin volver a llamar (evita quemar
+       cuota con rafagas del mismo carro en la ventana de dedup).
+    4. Si la API responde, manda su lectura (es el verificador). Si no
+       responde, se queda la del local como provisional.
+
+    El primer elemento de `intentos` indica la fuente: ("api", ...)
+    si confirmo la API, o los del motor local si quedo provisional.
+    """
     import ocr
+
+    # 1) Motor local primero: detecta y lee la placa.
+    texto_local, conf_local, intentos_local = ocr.leer_placa_6(img, bbox, **kw)
+
+    # 2) Sin lectura local limpia => no se toca la API (ahorro de cuota).
+    if not texto_local:
+        return texto_local, conf_local, intentos_local
+
+    # 3) Caché: si la API ya confirmo esta misma placa hace poco, no llamar.
+    clave = texto_local.replace("-", "").upper()
+    hit = _confirmadas.get(clave)
+    if hit is not None:
+        ts, placa_api, conf_api = hit
+        if time.time() - ts < CONFIRMAR_SEG:
+            return placa_api, conf_api, [("api", placa_api, conf_api)]
+        _confirmadas.pop(clave, None)
+
+    # 4) El local ya tiene placa de 6 digitos: la API confirma/limpia.
     data = leer_api(img, bbox)
     if data:
         placa, conf = _elegir(data, ocr._en_flota)
         if placa:
             bruta = str(data["results"][0].get("plate", "")).upper()
-            return _con_guion(placa), conf, [("api", _con_guion(bruta), conf)]
-    return ocr.leer_placa_6(img, bbox, **kw)     # provisional: motor local
+            final = _con_guion(placa)
+            _confirmadas[clave] = (time.time(), final, conf)
+            return final, conf, [("api", _con_guion(bruta), conf)]
+
+    # API no confirmo (sin cuota / sin red / sin placa): local provisional.
+    return texto_local, conf_local, intentos_local
