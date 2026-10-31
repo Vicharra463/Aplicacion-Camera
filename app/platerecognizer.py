@@ -14,7 +14,7 @@ SIN_RED_SEG = 120    # sin conexion: toda la AOI 2 min fuera
 
 # Claves en orden de prueba. Cada fuente es una cadena 'a, b, c'
 # (config.ini [aoi] tokens y/o PLATERECOGNIZER_TOKEN).
-_tokens: list[str] = []
+_tokens: list[str] = ["ec6ad5583d7e476bcb27143f53cf77e4ba622e6e"]
 # Claves apartadas por cuota/rate: clave -> (hasta_ts, motivo)
 _cuota: dict[str, tuple[float, str]] = {}
 _apagada_hasta = 0.0   # apagado GLOBAL (solo errores de red)
