@@ -787,6 +787,14 @@ def _sufijo_pasada(pasada: int) -> str:
     return {1: "", 2: "_2da-pasada", 3: "_3ra-pasada"}.get(pasada, "_EXCEDIDA")
 
 
+def _cooldown_placa() -> None:
+    """Pausa tras guardar una placa (cooldown_placa_seg, por defecto 5 s)."""
+    seg = float(_cfg.get("cooldown_placa_seg", 5.0))
+    if seg > 0:
+        logger.debug("Cooldown %.1f s tras guardar placa", seg)
+        time.sleep(seg)
+
+
 def _trazar_aoi(ruta_foto: Path, img: np.ndarray,
                 bbox: tuple[int, int, int, int], texto: str, conf: float,
                 intentos: list) -> None:
@@ -898,12 +906,14 @@ _RE_NOMBRE_PLACA = re.compile(r"[^A-Za-z0-9-]+")
 
 
 def _nombre_con_placa(vista: str, texto_placa: str, ahora: datetime,
-                      sufijo: str = "") -> str:
+                      sufijo: str = "", fuente: str = "") -> str:
     base = _RE_NOMBRE_PLACA.sub("-", texto_placa or "").strip("-")
     base = re.sub(r"-{2,}", "-", base).upper()
     if not base:
         return f"{vista}_{ahora.strftime('%H-%M-%S')}_{ahora.microsecond:03d}"
-    return base + sufijo
+    # fuente: "Api" o "Modelo" — el origen de la lectura queda visible en el nombre
+    origen = f"-{fuente}" if fuente else ""
+    return base + origen + sufijo
 
 
 def _descartar(ruta: Path, motivo: str, detalle: str = "",
@@ -939,13 +949,13 @@ def _descartar(ruta: Path, motivo: str, detalle: str = "",
 
 def _guardar(img: np.ndarray, bbox: tuple[int, int, int, int] | None,
              vista: str, texto_placa: str = "", sufijo: str = "",
-             dudosa: bool = False) -> Path:
+             dudosa: bool = False, fuente: str = "") -> Path:
     ahora = datetime.now()
     dia = _cfg["procesadas"] / vista / ahora.strftime("%Y-%m-%d")
     carpeta = dia
     carpeta.mkdir(parents=True, exist_ok=True)
 
-    nombre = _nombre_con_placa(vista, texto_placa, ahora, sufijo)
+    nombre = _nombre_con_placa(vista, texto_placa, ahora, sufijo, fuente)
     if dudosa:
         nombre = f"{nombre} (DUDOSA)"
     destino = _destino_libre(carpeta, f"{nombre}.jpg")
@@ -985,7 +995,7 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
                          img: np.ndarray,
                          bbox: tuple[int, int, int, int], texto: str,
                          evidencia: int, color: str, confianza: float,
-                         huella: int) -> bool:
+                         huella: int, fuente: str = "") -> bool:
     if not t_viejo:
         return False
     desde = f"{_dia_dedup}T00:00:00"
@@ -1013,7 +1023,7 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
     viejo.unlink(missing_ok=True)
     viejo.with_suffix(".txt").unlink(missing_ok=True)
     viejo.with_name(viejo.stem + "_crop.jpg").unlink(missing_ok=True)
-    nuevo = _guardar(img, bbox, vista, texto, sufijo=sufijo)
+    nuevo = _guardar(img, bbox, vista, texto, sufijo=sufijo, fuente=fuente)
     relativo = str(nuevo.relative_to(_cfg["procesadas"]))
     con = _conexion()
     try:
@@ -1155,10 +1165,13 @@ def procesar_imagen(ruta: Path) -> None:
             if texto_placa and evidencia_y_color is not None:
                 ev_nueva, color_nuevo = evidencia_y_color(
                     texto_placa, conf_ocr, intentos_ocr)
+                via_api_dup = any(n == "api" for n, _t, _c in intentos_ocr)
                 if _reemplazar_si_mejor(vista, previa[0], previa[1], img,
                                         bbox, texto_placa, ev_nueva,
-                                        color_nuevo, confianza, huella):
+                                        color_nuevo, confianza, huella,
+                                        "Api" if via_api_dup else "Modelo"):
                     ruta.unlink(missing_ok=True)
+                    _cooldown_placa()
                     return
             detalle = f"(placa {texto_placa} ya guardada hoy en {vista})" \
                 if texto_placa else f"(misma placa ya guardada hoy en {vista})"
@@ -1275,12 +1288,14 @@ def procesar_imagen(ruta: Path) -> None:
                        int(_cfg.get("ventana_reinspeccion_dias", 30)),
                        ruta.name)
 
+    via_api = any(n == "api" for n, _t, _c in intentos_ocr)
+    etiqueta_fuente = "Api" if via_api else "Modelo"
+
     destino = _guardar(img, bbox, vista, texto_placa, sufijo=sufijo,
-                       dudosa=dudosa)
+                       dudosa=dudosa, fuente=etiqueta_fuente)
     relativo = str(destino.relative_to(_cfg["procesadas"]))
     confirmada = _detector is not None
 
-    via_api = any(n == "api" for n, _t, _c in intentos_ocr)
     placa_api = next((t for n, t, _c in intentos_ocr if n == "api"), None)
     provisional = bool(texto_placa) and _AOI_ACTIVA and not via_api
     motivo = None
@@ -1322,6 +1337,7 @@ def procesar_imagen(ruta: Path) -> None:
 
     _ultima_imagen[vista] = img.copy()
     ruta.unlink(missing_ok=True)
+    _cooldown_placa()
 
 
 def bucle_worker() -> None:

@@ -112,6 +112,8 @@ def cargar_config() -> dict:
         "ventana_reinspeccion_dias": ini.getint("camara", "ventana_reinspeccion_dias",
                                                 fallback=30),
         "max_pasadas": ini.getint("camara", "max_pasadas", fallback=3),
+        "cooldown_placa_seg": ini.getfloat("camara", "cooldown_placa_seg",
+                                           fallback=5.0),
         "reposo_minutos": ini.getfloat("recursos", "reposo_minutos",
                                        fallback=10.0),
         "nivel_log": ini.get("log", "nivel"),
