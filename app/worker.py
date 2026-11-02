@@ -863,6 +863,14 @@ def _sufijo_pasada(pasada: int) -> str:
     return {1: "", 2: "_2da-pasada", 3: "_3ra-pasada"}.get(pasada, "_EXCEDIDA")
 
 
+def _cooldown_placa() -> None:
+    """Pausa tras guardar una placa (cooldown_placa_seg, por defecto 5 s)."""
+    seg = float(_cfg.get("cooldown_placa_seg", 5.0))
+    if seg > 0:
+        logger.debug("Cooldown %.1f s tras guardar placa", seg)
+        time.sleep(seg)
+
+
 def _trazar_aoi(ruta_foto: Path, img: np.ndarray,
                 bbox: tuple[int, int, int, int], texto: str, conf: float,
                 intentos: list) -> None:
@@ -1120,6 +1128,34 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
     return True
 
 
+def _es_mejor_toma(vista: str, placa_vieja: str, w: int, h: int,
+                   ancho: int, alto: int) -> bool:
+    """True si el recorte nuevo es claramente mas grande (mas cerca / mas
+    nítido) que la mejor toma ya guardada HOY de esa placa.
+
+    Umbral 1.2x, el mismo que usa _reemplazar_si_mejor. Se usa ANTES de
+    llamar a la API para no gastar cuota en frames de la RAFAGA del mismo
+    carro que no mejoran la foto (el modelo ya la vio pasar). La mas clara
+    se queda; las demas se descartan sin tocar PlateRecognizer.
+    """
+    desde = f"{_dia_dedup}T00:00:00"
+    con = _conexion()
+    try:
+        fila = con.execute(
+            "SELECT archivo FROM registros WHERE placa = ? "
+            "AND estado = 'guardado' AND fecha_hora >= ? AND archivo LIKE ? "
+            "ORDER BY id DESC LIMIT 1", (placa_vieja, desde, f"{vista}%")
+        ).fetchone()
+    finally:
+        con.close()
+    if not fila:
+        return True   # sin toma previa registrada: vale la pena intentar
+    viejo = _cfg["procesadas"] / fila[0]
+    area_nueva = (w * h) / (ancho * alto)
+    area_vieja = _area_etiqueta(viejo)
+    return area_nueva >= 1.2 * area_vieja
+
+
 def procesar_imagen(ruta: Path) -> None:
     global _ultima_imagen
 
@@ -1232,6 +1268,20 @@ def procesar_imagen(ruta: Path) -> None:
             ultimo_fallo = ("ocluida", f"({bordes:.1f}% de bordes)")
             continue
 
+        # Pre-chequeo mismo carro (ahorra cuota de la API): si la huella
+        # perceptual ya corresponde a una placa guardada HOY en esta vista
+        # y el recorte no mejora el area (umbral 1.2x), se descarta sin
+        # llamar al OCR ni a PlateRecognizer. La toma mas clara es la unica
+        # que llega a la API.
+        huella_pre = _hash_perceptual(recorte)
+        previa_pre = _buscar_misma(vista, huella_pre)
+        if (previa_pre is not None
+                and not _es_mejor_toma(vista, previa_pre[1], w, h,
+                                       ancho, alto)):
+            _descartar(ruta, "duplicado_placa",
+                       f"(mismo carro, ya guardada {previa_pre[1]})")
+            return
+
         texto_placa = ""
         if bbox in lecturas_rf:
             texto_placa, conf_ocr = lecturas_rf[bbox]
@@ -1281,6 +1331,7 @@ def procesar_imagen(ruta: Path) -> None:
                                         etiqueta=etiqueta_fuente(
                                             intentos_ocr)):
                     ruta.unlink(missing_ok=True)
+                    _cooldown_placa()
                     return
             detalle = f"(placa {texto_placa} ya guardada hoy en {vista})" \
                 if texto_placa else f"(misma placa ya guardada hoy en {vista})"
@@ -1457,6 +1508,7 @@ def procesar_imagen(ruta: Path) -> None:
 
     _ultima_imagen[vista] = img.copy()
     ruta.unlink(missing_ok=True)
+    _cooldown_placa()
 
 
 def bucle_worker() -> None:
