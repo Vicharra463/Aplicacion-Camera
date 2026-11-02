@@ -50,7 +50,7 @@ _leer_local = leer_placa_6
 
 COLA: "queue.Queue[str]" = queue.Queue(maxsize=200)
 
-_MOTIVOS_VOLUMEN = {"sin_texto"}
+_MOTIVOS_VOLUMEN = {"sin_texto", "color_no_placa"}
 
 FOLDER_POR_CANAL = {"01": "placa", "02": "placa"}
 CARPETA_POR_DEFECTO = "placa"
@@ -183,6 +183,21 @@ def etiqueta_fuente(intentos: list | None) -> str:
     if "api" in nombres:
         return "_api-PlateRecognizer"
     return ""
+
+
+def fuente_de_intentos(intentos: list | None) -> str:
+    """Origen de la lectura para la columna registros.fuente.
+
+    Unica fuente de verdad de la semantica: 'roboflow' / 'platerecognizer'
+    / 'modelo'. La usan registrar() y el reemplazo de MEJOR FOTO para que
+    el pre-chequeo _api_confirmada_hoy no pierda la confirmacion de la API.
+    """
+    nombres = [n for n, _t, _c in (intentos or [])]
+    if "roboflow" in nombres:
+        return "roboflow"
+    if "api" in nombres:
+        return "platerecognizer"
+    return "modelo"
 
 
 def texto_de_api(tx: str | None) -> str:
@@ -325,6 +340,20 @@ def iniciar(cfg: dict) -> None:
         con.commit()
         _dia_dedup = datetime.now().strftime("%Y-%m-%d")
         limite_dia = f"{_dia_dedup}T00:00:00"
+        # REGLA primero: ninguna carpeta de placa sin su foto. Luego
+        # DISCO -> reporte ANTES de cargar el dedup y el JSON: carpetas
+        # <vista>\<dia>\<PLACA>\ cuyas filas no llegaron a 'guardado' (o
+        # quedaron huerfanas tras un error) se anotan aqui.
+        try:
+            _depurar_carpetas_vacias()
+        except Exception:
+            logger.exception("Depuracion de carpetas vacias fallo "
+                             "(el servicio sigue)")
+        try:
+            _reconciliar_carpetas_dia(con, _dia_dedup)
+        except Exception:
+            logger.exception("Reconciliacion de carpetas del dia fallo "
+                             "(el servicio sigue)")
         carpeta_dia = _cfg["procesadas"]
         _hashes = {}
         _placas = {}
@@ -600,6 +629,128 @@ def generar_json_dia(fecha: str) -> Path:
     return destino
 
 
+def _depurar_carpetas_vacias() -> int:
+    r"""REGLA: no existen carpetas de placa sin sus archivos.
+
+    Una carpeta <vista>/<fecha>/<PLACA>/ sin foto principal (*.jpg que no
+    sea _crop) es el residuo de un guardado interrumpido: se elimina
+    completa (con sus .txt/.crop huerfanos). Tambien se quitan las
+    carpetas de fecha que quedaron sin nada. Las carpetas de vista NO se
+    tocan: el FTP las verifica al arrancar.
+    """
+    procesadas = _cfg["procesadas"]
+    if not procesadas.is_dir():
+        return 0
+    eliminadas = 0
+    for vista_dir in sorted(p for p in procesadas.iterdir() if p.is_dir()):
+        for dia_dir in sorted(p for p in vista_dir.iterdir() if p.is_dir()):
+            for placa_dir in sorted(p for p in dia_dir.iterdir() if p.is_dir()):
+                principales = [f for f in placa_dir.glob("*.jpg")
+                               if not f.stem.endswith("_crop")]
+                if principales:
+                    continue
+                try:
+                    shutil.rmtree(placa_dir)
+                    eliminadas += 1
+                    logger.warning("CARPETA VACIA eliminada: %s "
+                                   "(sin foto principal)", placa_dir)
+                except OSError:
+                    logger.exception("No se pudo eliminar la carpeta "
+                                     "vacia %s", placa_dir)
+            # La carpeta de fecha quedo sin nada (los layout viejos con
+            # fotos sueltas tienen archivos: ahi NO se toca nada).
+            try:
+                if dia_dir.exists() and not any(dia_dir.iterdir()):
+                    dia_dir.rmdir()
+            except OSError:
+                pass
+    if eliminadas:
+        logger.info("DEPURACION: %d carpeta(s) de placa sin foto "
+                    "principal eliminadas", eliminadas)
+    return eliminadas
+
+
+def _reconciliar_carpetas_dia(con: sqlite3.Connection, hoy: str) -> int:
+    r"""DISCO -> reporte: carpetas <vista>/<dia>/<PLACA>/ del dia se
+    anotan en registros si falta la fila 'guardado'.
+
+    El JSON del reporte sale SOLO de registros con estado 'guardado' y
+    placa no vacia; nunca mira el disco. Si una foto se guardo en su
+    carpeta de placa pero la fila quedo 'pendiente' (detector no cargado)
+    o el registro.db se perdio/recreo, la placa no llegaba al reporte.
+    Reglas: fila ausente -> se inserta 'guardado'; solo 'pendiente' ->
+    se promueve; ya 'guardado' -> NO se toca, salvo que su archivo ya no
+    exista en disco (se repunta a la foto viva de la carpeta).
+    """
+    vistas = sorted(set(FOLDER_POR_CANAL.values()) | {CARPETA_POR_DEFECTO})
+    procesadas = _cfg["procesadas"]
+    anotadas = 0
+    for vista in vistas:
+        raiz = procesadas / vista / hoy
+        if not raiz.is_dir():
+            continue
+        for carpeta in sorted(p for p in raiz.iterdir() if p.is_dir()):
+            placa = carpeta.name
+            # _guardar creo la carpeta con _placa_base: solo se
+            # reconcilian carpetas con forma de placa (6 alnum, letras y
+            # digitos, con guion); el resto ('recortes', etc.) se ignora.
+            base = placa.replace("-", "")
+            if not (len(base) == 6 and any(c.isalpha() for c in base)
+                    and any(c.isdigit() for c in base)):
+                continue
+            fotos = [f for f in carpeta.glob("*.jpg")
+                     if not f.stem.endswith("_crop")]
+            if not fotos:
+                continue
+            foto = max(fotos, key=lambda f: f.stat().st_mtime)
+            relativo = str(foto.relative_to(procesadas))
+            # La fecha es la de la CARPETA (dia del reporte); solo se toma
+            # la hora del archivo para conservar el orden cronologico.
+            hora = datetime.fromtimestamp(foto.stat().st_mtime)
+            fecha_hora = f"{hoy}T{hora.strftime('%H:%M:%S')}"
+            filas = con.execute(
+                "SELECT id, estado, archivo FROM registros "
+                "WHERE placa = ? AND fecha_hora LIKE ?",
+                (placa, f"{hoy}%")).fetchall()
+            if not filas:
+                con.execute(
+                    "INSERT INTO registros (fecha_hora, archivo, placa, "
+                    "estado) VALUES (?, ?, ?, 'guardado')",
+                    (fecha_hora, relativo, placa))
+                if not con.execute(
+                        "SELECT 1 FROM pasadas WHERE placa = ? "
+                        "AND fecha_hora LIKE ? LIMIT 1",
+                        (placa, f"{hoy}%")).fetchone():
+                    con.execute(
+                        "INSERT INTO pasadas (placa, pasada, fecha_hora, "
+                        "excedida) VALUES (?, 1, ?, 0)",
+                        (placa, fecha_hora))
+                anotadas += 1
+            elif all(e != "guardado" for _i, e, _a in filas):
+                # La carpeta existe = la foto se guardo: se anota. Solo
+                # se actualizan las filas 'pendiente' de ESTA placa/dia.
+                con.execute(
+                    "UPDATE registros SET estado = 'guardado', archivo = ? "
+                    "WHERE id IN (%s)" % ",".join("?" * len(filas)),
+                    (relativo, *[i for i, _e, _a in filas]))
+                anotadas += len(filas)
+            else:
+                # Ya esta en el reporte: no se toca, salvo repuntar filas
+                # cuyo archivo ya no existe (divergencia disco/DB).
+                for id_fila, _estado, archivo in filas:
+                    if archivo and not (procesadas / archivo).is_file():
+                        con.execute(
+                            "UPDATE registros SET archivo = ? WHERE id = ?",
+                            (relativo, id_fila))
+                        anotadas += 1
+    if anotadas:
+        con.commit()
+        logger.info("RECONCILIACION: %d fila(s) del %s anotadas o "
+                    "repuntadas desde las carpetas de disco",
+                    anotadas, hoy)
+    return anotadas
+
+
 def calcular_diferencia(img1: np.ndarray, img2: np.ndarray) -> float:
     img1_peq = cv2.resize(img1, (640, 480))
     img2_peq = cv2.resize(img2, (640, 480))
@@ -780,6 +931,18 @@ def _fraccion_bordes(recorte: np.ndarray) -> float:
     gris = _a_gris(recorte)
     bordes = cv2.Canny(gris, 80, 200)
     return float(np.count_nonzero(bordes)) / bordes.size * 100.0
+
+
+def _fraccion_rojo(recorte: np.ndarray) -> float:
+    """% de pixeles rojos saturados (cintas reflectoras, luces, stickers).
+
+    Las placas reales miden <4% (promedio ~1%); la cinta reflectora del
+    falso positivo conocido mide ~32%.
+    """
+    hsv = cv2.cvtColor(recorte, cv2.COLOR_BGR2HSV)
+    h, s, v = cv2.split(hsv)
+    rojo = (((h <= 10) | (h >= 170)) & (s >= 70) & (v >= 50))
+    return float(np.count_nonzero(rojo)) / rojo.size * 100.0
 
 
 def _hash_perceptual(img: np.ndarray) -> int:
@@ -1063,7 +1226,17 @@ def _guardar(img: np.ndarray, bbox: tuple[int, int, int, int] | None,
                                    grosor=fino)
         else:
             salida = _dibujar_caja(img, bbox, color)
-    cv2.imwrite(str(destino), salida, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
+    if not cv2.imwrite(str(destino), salida,
+                       [int(cv2.IMWRITE_JPEG_QUALITY), 100]):
+        # REGLA: una carpeta de placa SIEMPRE tiene sus archivos. Si la
+        # foto no se pudo escribir (disco lleno, permisos), no dejo la
+        # carpeta vacia atras y fallo ruidoso para no registrar un
+        # archivo que no existe en el reporte.
+        try:
+            carpeta.rmdir()          # solo si quedo recien creada y vacia
+        except OSError:
+            pass                     # tenia archivos previos: se conservan
+        raise OSError(f"No se pudo escribir la foto {destino}")
 
     if bbox is not None:
         x, y, w, h = bbox
@@ -1091,7 +1264,8 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
                          img: np.ndarray,
                          bbox: tuple[int, int, int, int], texto: str,
                          evidencia: int, color: str, confianza: float,
-                         huella: int, etiqueta: str = "") -> bool:
+                         huella: int, etiqueta: str = "",
+                         fuente: str | None = None) -> bool:
     if not t_viejo:
         return False
     desde = f"{_dia_dedup}T00:00:00"
@@ -1131,13 +1305,18 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
                     "WHERE id = ?",
                     (relativo, texto, confianza, evidencia, color,
                      f"{huella:016x}", id_registro))
-        # Mantener fuente al dia: si esta toma llego por la API, el registro
-        # queda como 'platerecognizer' (el pre-chequeo _api_confirmada_hoy
-        # lo usa para no volver a llamar por este vehiculo).
-        fuente_db = {"Api": "platerecognizer", "Modelo": "modelo"}.get(fuente)
-        if fuente_db:
+        # Mantener fuente al dia: si esta toma llego por la API, el
+        # registro queda como 'roboflow'/'platerecognizer' (el pre-chequeo
+        # _api_confirmada_hoy lo usa para no volver a llamar por este
+        # vehiculo). Nunca se degrada a 'modelo': una confirmacion de la
+        # API del dia no se pierde si la foto mas clara se lee local.
+        # (Antes aca leia una variable 'fuente' inexistente: NameError en
+        # cada MEJOR FOTO, que hacia rollback del UPDATE mientras el
+        # archivo nuevo ya estaba en disco -> carpeta sin fila en el
+        # reporte.)
+        if fuente in ("roboflow", "platerecognizer"):
             con.execute("UPDATE registros SET fuente = ? WHERE id = ?",
-                        (fuente_db, id_registro))
+                        (fuente, id_registro))
         if texto != t_viejo:
             con.execute("UPDATE pasadas SET placa = ? WHERE placa = ? "
                         "AND fecha_hora >= ?", (texto, t_viejo, desde))
@@ -1273,6 +1452,7 @@ def procesar_imagen(ruta: Path) -> None:
     umbral_nitidez = _cfg.get("umbral_nitidez", 120.0)
     umbral_quemada = _cfg.get("umbral_sobreexpuesto", 2.0)
     umbral_bordes = _cfg.get("umbral_bordes", 2.0)
+    umbral_rojo_max = _cfg.get("umbral_rojo_max", 15.0)
     ocr_requerido = _cfg.get("ocr_requerido", "si") == "si"
 
     alto, ancho = img.shape[:2]
@@ -1314,6 +1494,13 @@ def procesar_imagen(ruta: Path) -> None:
         bordes = _fraccion_bordes(recorte)
         if bordes < umbral_bordes:
             ultimo_fallo = ("ocluida", f"({bordes:.1f}% de bordes)")
+            continue
+
+        # Gate de color: cintas reflectoras y luces no son placas. Reales
+        # miden <4% de rojo; la cinta reflejo del FP conocido ~32%.
+        rojo = _fraccion_rojo(recorte)
+        if rojo > umbral_rojo_max:
+            ultimo_fallo = ("color_no_placa", f"({rojo:.1f}% rojo)")
             continue
 
         # Pre-chequeo mismo carro (ahorra cuota de la API): si la huella
@@ -1385,6 +1572,8 @@ def procesar_imagen(ruta: Path) -> None:
                                         bbox, texto_placa, ev_nueva,
                                         color_nuevo, confianza, huella,
                                         etiqueta=etiqueta_fuente(
+                                            intentos_ocr),
+                                        fuente=fuente_de_intentos(
                                             intentos_ocr)):
                     ruta.unlink(missing_ok=True)
                     _cooldown_placa()
@@ -1534,9 +1723,8 @@ def procesar_imagen(ruta: Path) -> None:
     registrar(relativo, placa=texto_placa or None, confianza=confianza,
               estado="guardado" if confirmada else "pendiente", phash=huella,
               evidencia=evidencia, semaforo=color,
-              fuente=(("roboflow" if via_roboflow
-                       else "platerecognizer" if via_api else "modelo")
-                      if texto_placa else None),
+              fuente=(fuente_de_intentos(intentos_ocr) if texto_placa
+                      else None),
               provisional=provisional, placa_api=placa_api,
               placa_modelo=(None if (via_api or via_roboflow)
                             else (texto_placa or None)),
