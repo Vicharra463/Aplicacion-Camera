@@ -200,6 +200,13 @@ def leer_placa_6_api(img, bbox, **kw):
     """
     import ocr
 
+    # 0) Barrido GRATIS antes de gastar cuota: si ni una pasada de
+    #    RapidOCR ve texto, una cinta reflejo/sticker no va a leerse como
+    #    placa. Fail-open: si el barrido falla, se hace el flujo normal.
+    if not ocr.hay_texto(img, bbox):
+        logger.debug("sin texto en el recorte; no se gasta la API")
+        return ocr.leer_placa_6(img, bbox, **kw)
+
     # 1)+2) Recorte mejorado a la API: ella lee y decide.
     data = leer_api(img, bbox)
     if data:

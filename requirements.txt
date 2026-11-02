@@ -8,7 +8,6 @@ onnxruntime>=1.17.0
 rapidocr-onnxruntime==1.2.3
 # AOI (PlateRecognizer): si falta, el worker sige con el motor local
 requests>=2.31.0
-# Roboflow (cadena PRIMERA): workflow serverless de deteccion + lectura.
-# >=1.5.0 obligatorio: versiones viejas no aceptan api_key_transport=header.
-# Si falta, el worker sigue con PlateRecognizer/motor local.
-inference-sdk>=1.5.0
+# Roboflow (cadena PRIMERA): workflow serverless por HTTPS directo con
+# requests (sin SDK). Si falta requests, el worker sigue con
+# PlateRecognizer/motor local.

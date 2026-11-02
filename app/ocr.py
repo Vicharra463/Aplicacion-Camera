@@ -104,6 +104,38 @@ def es_placa_6(texto: str) -> bool:
             and any(ch.isdigit() for ch in alnum))
 
 
+# Barrido gratis: al menos N caracteres alfanumericos para gastar la API.
+# Medido 2026-11-02: cinta reflejo (FP) = 0, placas reales = 6..9.
+MIN_TEXTOS_BRUTOS = 3
+
+
+def hay_texto(img, bbox, margen: float = 0.15) -> bool:
+    """Barrido GRATIS (una pasada de RapidOCR, sin validar forma de placa).
+
+    True si el recorte tiene al menos MIN_TEXTOS_BRUTOS caracteres
+    alfanumericos. Sirve para NO gastar cuota de PlateRecognizer en
+    recortes sin ningun texto (cintas reflectoras, stickers, luces).
+
+    Fail-open: si el motor no esta disponible o el barrido falla,
+    devuelve True (no descarta nada).
+    """
+    if img is None or getattr(img, "size", 0) == 0:
+        return True
+    recorte = _recorte(img, bbox, margen)
+    if recorte is None:
+        return True
+    try:
+        resultado, _ = _obtener_motor()(recorte)
+    except Exception:
+        logger.debug("barrido OCR fallo; dejo pasar", exc_info=True)
+        return True
+    if not resultado:
+        return False
+    alnum = sum(ch.isalnum() for _caja, texto, _score in resultado
+                for ch in str(texto))
+    return alnum >= MIN_TEXTOS_BRUTOS
+
+
 def _forma_voto(texto: str) -> str:
     return texto.translate(_EQUIV_VOTOS)
 

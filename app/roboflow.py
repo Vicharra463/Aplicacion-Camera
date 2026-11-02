@@ -3,52 +3,44 @@ import base64
 import logging
 
 import cv2
+import requests
 
 logger = logging.getLogger("cytv.roboflow")
 API_URL = "https://serverless.roboflow.com"
 SIN_RED_SEG = 120    # sin conexion: la cadena Roboflow 2 min fuera
 ERROR_SEG = 300       # error de la API: 5 min fuera
+TIMEOUT_SEG = 30      # timeout de la llamada HTTP
 
-_cliente = None
+_sesion = None
 _workspace = ""
 _workflow = ""
 _apagada_hasta = 0.0   # apagado GLOBAL
 _motivo = ""
 
 _CLAVES_RED = ("connect", "timeout", "network", "unreachable",
-               "sin red", "dns", "proxy", "temporary failure")
+               "sin red", "dns", "proxy", "temporary failure",
+               "read timed out", "max retries")
 
 
 def configurar(api_key, workspace, workflow_id) -> bool:
-    """Arma el cliente del workflow. False si falta cualquier dato o SDK."""
-    global _cliente, _workspace, _workflow
+    """Arma la sesion HTTPS del workflow. False si falta cualquier dato."""
+    global _sesion, _workspace, _workflow
     api_key = str(api_key or "").strip()
     workspace = str(workspace or "").strip()
     workflow_id = str(workflow_id or "").strip()
     if not api_key or not workspace or not workflow_id:
         return False
-    try:
-        from inference_sdk import InferenceHTTPClient, InferenceConfiguration
-    except ImportError:
-        logger.warning("inference-sdk sin instalar; Roboflow queda fuera")
-        return False
-    try:
-        cliente = InferenceHTTPClient(api_url=API_URL, api_key=api_key)
-        try:
-            cfg = InferenceConfiguration(api_key_transport="header")
-        except TypeError:
-            cfg = None
-        if cfg is not None:
-            cliente = cliente.configure(cfg)
-        _cliente, _workspace, _workflow = cliente, workspace, workflow_id
-        return True
-    except Exception:
-        logger.exception("No se pudo crear el cliente Roboflow")
-        return False
+    sesion = requests.Session()
+    sesion.headers.update({
+        "Authorization": "Bearer " + api_key,
+        "Content-Type": "application/json",
+    })
+    _sesion, _workspace, _workflow = sesion, workspace, workflow_id
+    return True
 
 
 def api_disponible() -> bool:
-    return _cliente is not None and time.time() >= _apagada_hasta
+    return _sesion is not None and time.time() >= _apagada_hasta
 
 
 def _apagar(segundos, motivo):
@@ -59,7 +51,7 @@ def _apagar(segundos, motivo):
 
 
 def motivo_sin_api() -> str:
-    if _cliente is None:
+    if _sesion is None:
         return "sin_clave"
     if time.time() < _apagada_hasta:
         return _motivo
@@ -140,7 +132,7 @@ def parsear(result) -> list[tuple[tuple[int, int, int, int], str, float]]:
 
 
 def detectar_leer(img) -> list[tuple[tuple[int, int, int, int], str, float]]:
-    """Full image -> detecciones + texto en un solo request.
+    """Full image -> detecciones + texto en un solo POST HTTPS.
 
     Nunca lanza: red/API fallida devuelve [] y apaga la cadena un rato.
     """
@@ -149,14 +141,11 @@ def detectar_leer(img) -> list[tuple[tuple[int, int, int, int], str, float]]:
     ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 95])
     if not ok:
         return []
-    b64 = "data:image/jpeg;base64," + base64.b64encode(buf.tobytes()).decode("ascii")
+    b64 = base64.b64encode(buf.tobytes()).decode("ascii")
+    url = f"{API_URL}/{_workspace}/workflows/{_workflow}"
+    payload = {"inputs": {"image": {"type": "base64", "value": b64}}}
     try:
-        result = _cliente.run_workflow(
-            workspace_name=_workspace,
-            workflow_id=_workflow,
-            images={"image": b64},
-            use_cache=True,
-        )
+        resp = _sesion.post(url, json=payload, timeout=TIMEOUT_SEG)
     except Exception as exc:
         if _es_error_red(exc):
             _apagar(SIN_RED_SEG, "sin_conexion")
@@ -164,4 +153,18 @@ def detectar_leer(img) -> list[tuple[tuple[int, int, int, int], str, float]]:
             _apagar(ERROR_SEG, "error: " + str(exc)[:60])
         logger.warning("Roboflow fallo: %s", str(exc)[:120])
         return []
-    return parsear(result)
+    if resp.status_code != 200:
+        _apagar(ERROR_SEG, f"error HTTP {resp.status_code}")
+        logger.warning("Roboflow HTTP %s: %s",
+                       resp.status_code, resp.text[:120])
+        return []
+    try:
+        data = resp.json()
+    except ValueError:
+        _apagar(ERROR_SEG, "respuesta no JSON")
+        logger.warning("Roboflow devolvio algo que no es JSON")
+        return []
+    salidas = data.get("outputs") if isinstance(data, dict) else data
+    if not isinstance(salidas, list):
+        salidas = []
+    return parsear(salidas)

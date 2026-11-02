@@ -9,19 +9,52 @@ import roboflow
 FIXTURE = Path(__file__).parent / "fixtures" / "roboflow_result.json"
 
 
+class _Respuesta:
+    def __init__(self, status_code=200, data=None, text=""):
+        self.status_code = status_code
+        self._data = data
+        self.text = text
+
+    def json(self):
+        if self._data is None:
+            raise ValueError("no es JSON")
+        return self._data
+
+
+class _SesionFalsa:
+    """Fake de requests.Session: registra el POST y devuelve/lanza."""
+
+    def __init__(self, respuesta=None, excepcion=None):
+        self._respuesta = respuesta
+        self._excepcion = excepcion
+        self.llamadas = []
+
+    def post(self, url, json=None, timeout=None):
+        self.llamadas.append({"url": url, "json": json, "timeout": timeout})
+        if self._excepcion is not None:
+            raise self._excepcion
+        return self._respuesta
+
+
 @pytest.fixture(autouse=True)
 def _limpiar_estado():
-    roboflow._cliente = None
+    roboflow._sesion = None
     roboflow._workspace = ""
     roboflow._workflow = ""
     roboflow._apagada_hasta = 0.0
     roboflow._motivo = ""
     yield
-    roboflow._cliente = None
+    roboflow._sesion = None
     roboflow._workspace = ""
     roboflow._workflow = ""
     roboflow._apagada_hasta = 0.0
     roboflow._motivo = ""
+
+
+def _configurar_con(sesion, workspace="mi_ws", workflow="mi_wf"):
+    assert roboflow.configurar("sk_x", workspace, workflow) is True
+    roboflow._sesion = sesion
+    return sesion
 
 
 def test_parsea_resultado_real():
@@ -108,41 +141,32 @@ def test_configurar_requiere_todo():
     assert roboflow.api_disponible() is False
 
 
-def test_configurar_ok():
+def test_configurar_ok_arma_sesion_con_bearer():
     assert roboflow.configurar("sk_x", "ws", "wf") is True
     assert roboflow.api_disponible() is True
+    assert roboflow._sesion.headers["Authorization"] == "Bearer sk_x"
     # API viva sin lectura -> mismo contrato que platerecognizer
     assert roboflow.motivo_sin_api() == "sin_lectura_api"
 
 
-def test_sin_cliente_no_disponible():
+def test_sin_sesion_no_disponible():
     assert roboflow.api_disponible() is False
     assert roboflow.detectar_leer(np.zeros((4, 4, 3), np.uint8)) == []
 
 
-def test_falla_red_devuelve_vacia_y_apaga_global(monkeypatch):
-    assert roboflow.configurar("sk_x", "ws", "wf") is True
-
-    class Boom:
-        def run_workflow(self, **_kw):
-            raise ConnectionError("sin red")
-
-    monkeypatch.setattr(roboflow, "_cliente", Boom())
+def test_falla_red_devuelve_vacia_y_apaga_global():
+    sesion = _configurar_con(_SesionFalsa(
+        excepcion=ConnectionError("sin red")))
     img = np.zeros((4, 4, 3), np.uint8)
 
     assert roboflow.detectar_leer(img) == []
     assert roboflow.api_disponible() is False
     assert "sin_conexion" in roboflow.motivo_sin_api()
+    assert len(sesion.llamadas) == 1
 
 
-def test_falla_api_devuelve_vacia_y_se_recupera(monkeypatch):
-    assert roboflow.configurar("sk_x", "ws", "wf") is True
-
-    class Boom:
-        def run_workflow(self, **_kw):
-            raise RuntimeError("HTTP 500")
-
-    monkeypatch.setattr(roboflow, "_cliente", Boom())
+def test_falla_api_devuelve_vacia_y_se_recupera():
+    _configurar_con(_SesionFalsa(excepcion=RuntimeError("boom interno")))
     img = np.zeros((4, 4, 3), np.uint8)
 
     assert roboflow.detectar_leer(img) == []
@@ -150,18 +174,49 @@ def test_falla_api_devuelve_vacia_y_se_recupera(monkeypatch):
     assert "error" in roboflow.motivo_sin_api()
 
 
-def test_usa_workspace_y_workflow_configurados(monkeypatch):
-    assert roboflow.configurar("sk_x", "mi_ws", "mi_wf") is True
-    llamada = {}
+def test_http_500_apaga_sin_lanzar():
+    _configurar_con(_SesionFalsa(
+        respuesta=_Respuesta(status_code=500, text="oops")))
 
-    class Espia:
-        def run_workflow(self, **kw):
-            llamada.update(kw)
-            return []
+    assert roboflow.detectar_leer(np.zeros((4, 4, 3), np.uint8)) == []
+    assert roboflow.api_disponible() is False
+    assert "error HTTP 500" in roboflow.motivo_sin_api()
 
-    monkeypatch.setattr(roboflow, "_cliente", Espia())
+
+def test_respuesta_no_json_apaga():
+    _configurar_con(_SesionFalsa(
+        respuesta=_Respuesta(status_code=200, data=None, text="<html>")))
+
+    assert roboflow.detectar_leer(np.zeros((4, 4, 3), np.uint8)) == []
+    assert "respuesta no JSON" in roboflow.motivo_sin_api()
+
+
+def test_post_usa_url_bearer_y_payload_base64():
+    sesion = _configurar_con(
+        _SesionFalsa(respuesta=_Respuesta(data={"outputs": []})))
     roboflow.detectar_leer(np.zeros((4, 4, 3), np.uint8))
 
-    assert llamada["workspace_name"] == "mi_ws"
-    assert llamada["workflow_id"] == "mi_wf"
-    assert llamada["images"]["image"].startswith("data:image/jpeg;base64,")
+    assert len(sesion.llamadas) == 1
+    llamada = sesion.llamadas[0]
+    assert llamada["url"] == ("https://serverless.roboflow.com/"
+                              "mi_ws/workflows/mi_wf")
+    assert llamada["timeout"] == roboflow.TIMEOUT_SEG
+    imagen = llamada["json"]["inputs"]["image"]
+    assert imagen["type"] == "base64"
+    # base64 CRUDO: sin prefijo data:image (así lo acepta el workflow)
+    assert not imagen["value"].startswith("data:")
+
+
+def test_outputs_se_parsean_como_detecciones():
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    outputs = fixture if isinstance(fixture, list) else [fixture]
+    _configurar_con(_SesionFalsa(
+        respuesta=_Respuesta(data={"outputs": outputs})))
+
+    res = roboflow.detectar_leer(np.zeros((4, 4, 3), np.uint8))
+
+    assert len(res) == 1
+    bbox, texto, conf = res[0]
+    assert bbox == (886, 1041, 225, 232)
+    assert texto == "AWI-935"
+    assert conf == pytest.approx(0.87, abs=0.01)
