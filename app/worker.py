@@ -795,6 +795,19 @@ def _cooldown_placa() -> None:
         time.sleep(seg)
 
 
+def _cooldown_sin_placa() -> None:
+    """Pausa tras descartar una foto SIN placa detectada
+    (cooldown_sin_placa_seg, por defecto 5 s).
+
+    Evita quemar CPU en la calle vacia: mientras no aparezca una placa,
+    el worker espera antes de procesar la proxima foto.
+    """
+    seg = float(_cfg.get("cooldown_sin_placa_seg", 5.0))
+    if seg > 0:
+        logger.debug("Cooldown %.1f s tras descartar foto sin placa", seg)
+        time.sleep(seg)
+
+
 def _trazar_aoi(ruta_foto: Path, img: np.ndarray,
                 bbox: tuple[int, int, int, int], texto: str, conf: float,
                 intentos: list) -> None:
@@ -1032,6 +1045,13 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
                     "WHERE id = ?",
                     (relativo, texto, confianza, evidencia, color,
                      f"{huella:016x}", id_registro))
+        # Mantener fuente al dia: si esta toma llego por la API, el registro
+        # queda como 'platerecognizer' (el pre-chequeo _api_confirmada_hoy
+        # lo usa para no volver a llamar por este vehiculo).
+        fuente_db = {"Api": "platerecognizer", "Modelo": "modelo"}.get(fuente)
+        if fuente_db:
+            con.execute("UPDATE registros SET fuente = ? WHERE id = ?",
+                        (fuente_db, id_registro))
         if texto != t_viejo:
             con.execute("UPDATE pasadas SET placa = ? WHERE placa = ? "
                         "AND fecha_hora >= ?", (texto, t_viejo, desde))
@@ -1076,6 +1096,27 @@ def _es_mejor_toma(vista: str, placa_vieja: str, w: int, h: int,
     return area_nueva >= 1.2 * area_vieja
 
 
+def _api_confirmada_hoy(vista: str, placa: str) -> bool:
+    """True si la ultima toma guardada HOY de esta placa en la vista fue
+    confirmada por la API (fuente 'platerecognizer').
+
+    La API se usa UNA VEZ por vehiculo por dia: si ya respondio por este
+    carro, las tomas siguientes (foto mas clara) reutilizan la placa
+    confirmada sin volver a llamar a PlateRecognizer.
+    """
+    desde = f"{_dia_dedup}T00:00:00"
+    con = _conexion()
+    try:
+        fila = con.execute(
+            "SELECT fuente FROM registros WHERE placa = ? "
+            "AND estado = 'guardado' AND fecha_hora >= ? AND archivo LIKE ? "
+            "ORDER BY id DESC LIMIT 1", (placa, desde, f"{vista}%")
+        ).fetchone()
+    finally:
+        con.close()
+    return bool(fila and str(fila[0] or "").lower() == "platerecognizer")
+
+
 def procesar_imagen(ruta: Path) -> None:
     global _ultima_imagen
 
@@ -1105,6 +1146,7 @@ def procesar_imagen(ruta: Path) -> None:
     candidatos = _candidatos_placa(img)
     if not candidatos:
         _descartar(ruta, "sin_placa")
+        _cooldown_sin_placa()
         return
     candidatos = sorted(candidatos,
                         key=lambda par: par[0][2] * par[0][3], reverse=True)
@@ -1170,7 +1212,15 @@ def procesar_imagen(ruta: Path) -> None:
             return
 
         texto_placa = ""
-        if leer_placa_6 is not None:
+        placa_previa = previa_pre[1] if previa_pre is not None else ""
+        if placa_previa and _api_confirmada_hoy(vista, placa_previa):
+            # Este vehiculo ya tiene confirmacion de la API HOY (la API se
+            # usa UNA VEZ por vehiculo): esta toma solo mejora la foto y
+            # reutiliza la placa confirmada sin volver a llamar.
+            texto_placa, conf_ocr = placa_previa, 1.0
+            intentos_ocr = [("api", placa_previa, 1.0)]
+            bbox_ocr = bbox
+        elif leer_placa_6 is not None:
             texto_placa, conf_ocr, intentos_ocr = leer_placa_6(img, bbox)
             bbox_ocr = bbox
             _trazar_aoi(ruta, img, bbox, texto_placa, conf_ocr, intentos_ocr)
@@ -1315,6 +1365,7 @@ def procesar_imagen(ruta: Path) -> None:
         except Exception:
             logger.debug("log_sin_lectura no disponible", exc_info=True)
         _descartar(ruta, ultimo_fallo[0], ultimo_fallo[1])
+        _cooldown_sin_placa()
         return
 
     bbox, confianza, nitidez, texto_placa, pasada, excedida, sufijo = elegido

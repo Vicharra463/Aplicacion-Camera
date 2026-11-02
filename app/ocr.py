@@ -464,7 +464,13 @@ def evidencia_y_color(texto: str, conf: float,
     es_crnn_directa = (conf >= UMBRAL_CONF_RESUELTA
                        and any(n in ("crnn", "crnn_flota")
                                for n, _t, _c in registro or []))
-    if es_crnn_directa:
+    # La API es la verificadora: su confirmacion es la evidencia maxima
+    # (por encima de crnn-directa local). Sin ella, la foto mas clara de un
+    # carro ya confirmado perdia el reemplazo contra la toma original.
+    es_api = any(n == "api" for n, _t, _c in registro or [])
+    if es_api:
+        base = 90.0 + 10.0 * max(0.0, min(conf, 1.0))
+    elif es_crnn_directa:
         base = 70.0 + 30.0 * max(0.0, min(conf, 1.0))
     else:
         base = (25.0 + 11.0 * min(a_favor, 5)
