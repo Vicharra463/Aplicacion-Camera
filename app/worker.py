@@ -983,10 +983,15 @@ def _destino_libre(carpeta: Path, nombre: str) -> Path:
 _RE_NOMBRE_PLACA = re.compile(r"[^A-Za-z0-9-]+")
 
 
+def _placa_base(texto_placa: str) -> str:
+    """Placa sanitizada en mayusculas: base del nombre Y de la subcarpeta."""
+    base = _RE_NOMBRE_PLACA.sub("-", texto_placa or "").strip("-")
+    return re.sub(r"-{2,}", "-", base).upper()
+
+
 def _nombre_con_placa(vista: str, texto_placa: str, ahora: datetime,
                       sufijo: str = "") -> str:
-    base = _RE_NOMBRE_PLACA.sub("-", texto_placa or "").strip("-")
-    base = re.sub(r"-{2,}", "-", base).upper()
+    base = _placa_base(texto_placa)
     if not base:
         return f"{vista}_{ahora.strftime('%H-%M-%S')}_{ahora.microsecond:03d}"
     return base + sufijo
@@ -1028,7 +1033,8 @@ def _guardar(img: np.ndarray, bbox: tuple[int, int, int, int] | None,
              dudosa: bool = False) -> Path:
     ahora = datetime.now()
     dia = _cfg["procesadas"] / vista / ahora.strftime("%Y-%m-%d")
-    carpeta = dia
+    base = _placa_base(texto_placa)
+    carpeta = dia / base if base else dia
     carpeta.mkdir(parents=True, exist_ok=True)
 
     nombre = _nombre_con_placa(vista, texto_placa, ahora, sufijo)

@@ -335,7 +335,7 @@ procesar_imagen():
      → motor local provisional; regla de 6 en cada entrada
   7. dedup semántico: pHash 64-bit (hamming ≤ 18) + texto cercano
   8. control de pasadas: ventana 60 min / 30 días / máx 3 pasadas
-  9. guardar: imagenes_procesadas\<vista>\AAAA-MM-DD\<PLACA>[sufijos].jpg
+  9. guardar: imagenes_procesadas\<vista>\AAAA-MM-DD\<PLACA>\<PLACA>[sufijos].jpg
      + .txt (etiqueta YOLO) + _crop.jpg, caja coloreada por fuente
  10. registrar() en SQLite + marcar JSON del día + cooldown 5 s
  11. traza aoi-AAAA-MM-DD.jsonl (via_api / via_roboflow)
@@ -464,18 +464,20 @@ D:\Aplicacion-Camera\
 │   pesos entrenados siguen en modelo\reconocedor.onnx y el respaldo de
 │   datos está en D:\Escritorio\CAMARA PLACAS.
 │
-├── tests\                       pytest (sin red, sin modelos reales; 36 tests):
+├── tests\                       pytest (sin red, sin modelos reales; 39 tests):
 │   ├── conftest.py              agrega app\ y portal\ al sys.path
 │   ├── test_roboflow.py         parseo del workflow (fixture real), configurar,
 │   │                            cortacircuitos de red/error, workspace/workflow
 │   ├── test_platerecognizer.py  flujo modelo-primero: confirma solo si el local
 │   │                            leyó, ahorro de cuota, caché 30 s, regla de 6
 │   │                            (rechaza 5/7 y todo-dígitos/todo-letras)
-│   └── test_worker_etiquetas.py etiquetas de fuente, texto_de_api (multilinea,
-│                                ambigüedad, regla de 6), colores de caja
+│   ├── test_worker_etiquetas.py etiquetas de fuente, texto_de_api (multilinea,
+│   │                            ambigüedad, regla de 6), colores de caja
+│   └── test_worker_rutas.py     guardado: subcarpeta por placa dentro de la
+│                                carpeta del día (y fallback sin placa)
 │
 ├── imagenes_procesadas\         fotos por día (datos; .gitignore)
-│   └── <vista>\AAAA-MM-DD\<PLACA>[sufijos].jpg + .txt + _crop.jpg
+│   ├── <vista>\AAAA-MM-DD\<PLACA>\<PLACA>[sufijos].jpg + .txt + _crop.jpg
 └── venv\                        entorno virtual dev (no mover)
 ```
 
@@ -508,7 +510,7 @@ API (`fuente`, `provisional`, `placa_api`, `placa_modelo`,
 | `python entrenamiento\medir_pipeline.py [--dump]` | banco GT-29 |
 | `python entrenamiento\evaluacion\validar_diagnosticos.py [--detector txt\|modelo]` | validador oficial |
 | `python entrenamiento\evaluacion\evaluar_holdout.py [--detector txt\|modelo]` | holdout fuera de GT-29 |
-| `python -m pytest tests\ -q` | suite (36 tests: Roboflow, AOI, etiquetas y colores) |
+| `python -m pytest tests\ -q` | suite (39 tests: Roboflow, AOI, etiquetas, colores y rutas) |
 
 ---
 
