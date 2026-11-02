@@ -167,12 +167,19 @@ def _elegir(data, es_flota):
 
 def leer_placa_6_api(img, bbox, **kw):
     """Misma firma que ocr.leer_placa_6. El primer elemento de `intentos`
-    indica la fuente: ("api", lectura_cruda, conf) o los del motor local."""
+    indica la fuente: ("api", lectura_cruda, conf) o los del motor local.
+
+    La lectura de la API solo se acepta si cumple la regla del sistema:
+    EXACTAMENTE 6 alfanumericos (ocr.es_placa_6); si no, se delega en
+    el motor local igual que si la API no hubiera leido nada.
+    """
     import ocr
     data = leer_api(img, bbox)
     if data:
         placa, conf = _elegir(data, ocr._en_flota)
-        if placa:
+        if placa and ocr.es_placa_6(placa):
             bruta = str(data["results"][0].get("plate", "")).upper()
-            return _con_guion(placa), conf, [("api", _con_guion(bruta), conf)]
+            cruda = _con_guion(bruta) if ocr.es_placa_6(bruta) \
+                else _con_guion(placa)
+            return _con_guion(placa), conf, [("api", cruda, conf)]
     return ocr.leer_placa_6(img, bbox, **kw)     # provisional: motor local

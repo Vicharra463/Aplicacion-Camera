@@ -18,3 +18,4 @@ rapidocr-onnxruntime==1.2.3
 # pinneado porque es el unico con binarios
 requests==2.32.3
 charset-normalizer==3.3.2
+# Roboflow (app/roboflow.py) NO va aqui: inference-sdk arrastra opencv-python y supervision/scipy, que rompen los pins de numpy 1.26.4 y el opencv-python-headless 4.5.3.56 con metadato falso de este archivo. En Server 2012 R2 la cadena Roboflow queda desactivada (sin clave -> logger lo avisa) y siguen PlateRecognizer + motor local.
