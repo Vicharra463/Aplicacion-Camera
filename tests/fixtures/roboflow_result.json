@@ -1,0 +1,26 @@
+[
+  {
+    "predictions": {
+      "image": {
+        "width": 2560,
+        "height": 1440
+      },
+      "predictions": [
+        {
+          "width": 225.0,
+          "height": 232.0,
+          "x": 998.5,
+          "y": 1157.0,
+          "confidence": 0.8703339695930481,
+          "class_id": 1,
+          "class": "License_Plate",
+          "detection_id": "4f2a2568-2ad2-49a3-a18c-3af4050ecfcd",
+          "parent_id": "image"
+        }
+      ]
+    },
+    "plate_text": [
+      "AWI-935"
+    ]
+  }
+]

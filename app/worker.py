@@ -33,15 +33,19 @@ except Exception:
     RUTA_ONNX = None
 
 try:
-    from ocr import leer_placa, leer_placa_6, evidencia_y_color
+    from ocr import (leer_placa, leer_placa_6, evidencia_y_color,
+                     _normalizar, es_placa_6)
 except Exception:
     leer_placa = None
     leer_placa_6 = None
     evidencia_y_color = None
+    _normalizar = None
+    es_placa_6 = None
 
 logger = logging.getLogger("cytv.worker")
 
 _AOI_ACTIVA = False
+_ROBOFLOW_ACTIVO = False
 _leer_local = leer_placa_6
 
 COLA: "queue.Queue[str]" = queue.Queue(maxsize=200)
@@ -168,6 +172,44 @@ def _carpeta_de(nombre_archivo: str) -> str:
     return FOLDER_POR_CANAL.get(canal, CARPETA_POR_DEFECTO)
 
 
+def etiqueta_fuente(intentos: list | None) -> str:
+    """Sufijo de nombre que documenta que la API leo la placa.
+
+    Prioridad roboflow > PlateRecognizer; el motor local no etiqueta.
+    """
+    nombres = [n for n, _t, _c in (intentos or [])]
+    if "roboflow" in nombres:
+        return "_api-Roboflow"
+    if "api" in nombres:
+        return "_api-PlateRecognizer"
+    return ""
+
+
+def texto_de_api(tx: str | None) -> str:
+    """Texto devuelto por una API validado con la regla del motor local.
+
+    REGLA: una placa son EXACTAMENTE 6 alfanumericos (3+3). Se aplica
+    es_placa_6() a cada linea normalizada.
+
+    plate_text de Roboflow viene multi-linea con rótulos al lado
+    ('PERU\\nT2K-790', 'D5W-782\\nTOYOTA'): se valida CADA linea y solo
+    se acepta si hay EXACTAMENTE UNA candidata con forma de placa. Si
+    hay varias (ambigua) o ninguna (rotulo puro: PERU, VISTONY) queda
+    vacio y la lectura cae a PlateRecognizer/motor local sobre la misma
+    bbox.
+    """
+    if not tx or _normalizar is None:
+        return ""
+    candidatas: list[str] = []
+    for linea in str(tx).splitlines():
+        normal = _normalizar(linea.strip())
+        if not normal or not es_placa_6(normal):
+            continue          # no tiene 6 alfanumericos: no es placa
+        if normal not in candidatas:
+            candidatas.append(normal)
+    return candidatas[0] if len(candidatas) == 1 else ""
+
+
 def _carpeta_de_ruta(relativo: str) -> str:
     parte = Path(relativo).parts[0] if relativo else ""
     return parte if parte in FOLDER_POR_CANAL.values() else CARPETA_POR_DEFECTO
@@ -175,7 +217,7 @@ def _carpeta_de_ruta(relativo: str) -> str:
 
 def iniciar(cfg: dict) -> None:
     global _cfg, _ruta_registro, _hashes, _placas, _dia_dedup, _detector, _reposo_seg
-    global leer_placa_6, _AOI_ACTIVA
+    global leer_placa_6, _AOI_ACTIVA, _ROBOFLOW_ACTIVO
     _cfg = cfg
     _ruta_registro = cfg["registro"]
     _reposo_seg = max(0.0, float(cfg.get("reposo_minutos", 10.0))) * 60.0
@@ -195,6 +237,25 @@ def iniciar(cfg: dict) -> None:
         except Exception:
             logger.exception("AOI (PlateRecognizer) no disponible; "
                              "sigo con el motor local")
+
+    fuentes_rf = (cfg.get("roboflow_key", ""),
+                  os.environ.get("ROBOFLOW_API_KEY", ""))
+    rf_key = next((str(f).strip() for f in fuentes_rf if str(f).strip()), "")
+    if rf_key:
+        try:
+            import roboflow
+            if roboflow.configurar(rf_key, cfg.get("roboflow_workspace", ""),
+                                   cfg.get("roboflow_workflow", "")):
+                _ROBOFLOW_ACTIVO = True
+                logger.info("Roboflow activo: workflow %s de %s",
+                            cfg.get("roboflow_workflow", ""),
+                            cfg.get("roboflow_workspace", ""))
+        except Exception:
+            logger.exception("Roboflow no disponible; sigo con la cadena "
+                             "local")
+    else:
+        logger.info("Roboflow sin clave (config.ini [roboflow] api_key o "
+                    "ROBOFLOW_API_KEY); encadena con el detector local")
 
     cfg["procesadas"].mkdir(parents=True, exist_ok=True)
     if str(cfg.get("modo_descarte", "eliminar")).strip().lower() == "retener":
@@ -735,6 +796,21 @@ def _hash_perceptual(img: np.ndarray) -> int:
 _COLOR_ROJO = (0, 0, 255)
 _COLOR_AMARILLO = (0, 255, 255)
 _COLOR_VERDE = (0, 255, 0)
+_COLOR_AZUL = (255, 0, 0)
+
+
+def color_caja(sufijo: str) -> tuple[int, int, int]:
+    """Color del recuadro dibujado en la imagen completa segun la fuente.
+
+    Verde = Roboflow, ambar = PlateRecognizer, azul = motor local.
+    El sufijo ya documenta la fuente ('_api-Roboflow', '_api-PlateRecognizer'),
+    asi que las pasadas ('_2da-pasada') no cambian el color.
+    """
+    if "_api-Roboflow" in sufijo:
+        return _COLOR_VERDE
+    if "_api-PlateRecognizer" in sufijo:
+        return _COLOR_AMARILLO
+    return _COLOR_AZUL
 
 
 def _dibujar_caja(img: np.ndarray, bbox: tuple[int, int, int, int],
@@ -812,7 +888,7 @@ def _trazar_aoi(ruta_foto: Path, img: np.ndarray,
                 bbox: tuple[int, int, int, int], texto: str, conf: float,
                 intentos: list) -> None:
     """Graba el crop enviado a la AOI y una linea JSONL con el desempeno."""
-    if not _AOI_ACTIVA:
+    if not (_AOI_ACTIVA or _ROBOFLOW_ACTIVO):
         return
     try:
         dia = datetime.now().strftime("%Y-%m-%d")
@@ -832,6 +908,8 @@ def _trazar_aoi(ruta_foto: Path, img: np.ndarray,
             "texto": texto,
             "conf": round(float(conf), 4),
             "via_api": any(n == "api" for n, _t, _c in intentos or []),
+            "via_roboflow": any(n == "roboflow" for n, _t, _c in intentos
+                                or []),
             "intentos": [{"nombre": n, "texto": t or "", "conf": round(c, 4)}
                          for n, t, c in (intentos or [])],
             "crop": str(destino) if recorte.size else "",
@@ -918,15 +996,18 @@ def _destino_libre(carpeta: Path, nombre: str) -> Path:
 _RE_NOMBRE_PLACA = re.compile(r"[^A-Za-z0-9-]+")
 
 
-def _nombre_con_placa(vista: str, texto_placa: str, ahora: datetime,
-                      sufijo: str = "", fuente: str = "") -> str:
+def _placa_base(texto_placa: str) -> str:
+    """Placa sanitizada en mayusculas: base del nombre Y de la subcarpeta."""
     base = _RE_NOMBRE_PLACA.sub("-", texto_placa or "").strip("-")
-    base = re.sub(r"-{2,}", "-", base).upper()
+    return re.sub(r"-{2,}", "-", base).upper()
+
+
+def _nombre_con_placa(vista: str, texto_placa: str, ahora: datetime,
+                      sufijo: str = "") -> str:
+    base = _placa_base(texto_placa)
     if not base:
         return f"{vista}_{ahora.strftime('%H-%M-%S')}_{ahora.microsecond:03d}"
-    # fuente: "Api" o "Modelo" — el origen de la lectura queda visible en el nombre
-    origen = f"-{fuente}" if fuente else ""
-    return base + origen + sufijo
+    return base + sufijo
 
 
 def _descartar(ruta: Path, motivo: str, detalle: str = "",
@@ -962,24 +1043,26 @@ def _descartar(ruta: Path, motivo: str, detalle: str = "",
 
 def _guardar(img: np.ndarray, bbox: tuple[int, int, int, int] | None,
              vista: str, texto_placa: str = "", sufijo: str = "",
-             dudosa: bool = False, fuente: str = "") -> Path:
+             dudosa: bool = False) -> Path:
     ahora = datetime.now()
     dia = _cfg["procesadas"] / vista / ahora.strftime("%Y-%m-%d")
-    carpeta = dia
+    base = _placa_base(texto_placa)
+    carpeta = dia / base if base else dia
     carpeta.mkdir(parents=True, exist_ok=True)
 
-    nombre = _nombre_con_placa(vista, texto_placa, ahora, sufijo, fuente)
+    nombre = _nombre_con_placa(vista, texto_placa, ahora, sufijo)
     if dudosa:
         nombre = f"{nombre} (DUDOSA)"
     destino = _destino_libre(carpeta, f"{nombre}.jpg")
     salida = img
     if vista == "placa" and bbox is not None:
+        color = color_caja(sufijo)
         if dudosa:
             fino = max(1, round(min(img.shape[:2]) / 600))
-            salida = _dibujar_caja(img, bbox, _COLOR_VERDE, padding=0.18,
+            salida = _dibujar_caja(img, bbox, color, padding=0.18,
                                    grosor=fino)
         else:
-            salida = _dibujar_caja(img, bbox, _COLOR_VERDE)
+            salida = _dibujar_caja(img, bbox, color)
     cv2.imwrite(str(destino), salida, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
 
     if bbox is not None:
@@ -1008,7 +1091,7 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
                          img: np.ndarray,
                          bbox: tuple[int, int, int, int], texto: str,
                          evidencia: int, color: str, confianza: float,
-                         huella: int, fuente: str = "") -> bool:
+                         huella: int, etiqueta: str = "") -> bool:
     if not t_viejo:
         return False
     desde = f"{_dia_dedup}T00:00:00"
@@ -1033,10 +1116,13 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
         return False
     sufijo = next((s for s in ("_2da-pasada", "_3ra-pasada", "_EXCEDIDA")
                    if viejo.stem.endswith(s)), "")
+    if not etiqueta:
+        etiqueta = next((e for e in ("_api-Roboflow", "_api-PlateRecognizer")
+                         if e in viejo.stem), "")
     viejo.unlink(missing_ok=True)
     viejo.with_suffix(".txt").unlink(missing_ok=True)
     viejo.with_name(viejo.stem + "_crop.jpg").unlink(missing_ok=True)
-    nuevo = _guardar(img, bbox, vista, texto, sufijo=sufijo, fuente=fuente)
+    nuevo = _guardar(img, bbox, vista, texto, sufijo=etiqueta + sufijo)
     relativo = str(nuevo.relative_to(_cfg["procesadas"]))
     con = _conexion()
     try:
@@ -1143,7 +1229,38 @@ def procesar_imagen(ruta: Path) -> None:
             _descartar(ruta, "duplicado", f"({porcentaje:.2f}% de cambio)")
             return
 
-    candidatos = _candidatos_placa(img)
+    # Cadena: Roboflow (full image -> bbox + texto) primero; si no detecta
+    # o falla, cae al detector local + PlateRecognizer + motor local.
+    lecturas_rf: dict[tuple[int, int, int, int], tuple[str, float]] = {}
+    candidatos_rf: list[tuple[tuple[int, int, int, int], float]] = []
+    if _ROBOFLOW_ACTIVO:
+        try:
+            import roboflow
+            detectados = roboflow.detectar_leer(img)
+        except Exception:
+            logger.exception("Roboflow fallo inesperado; uso la cadena local")
+            detectados = []
+        umbral_rf = float(_cfg.get("umbral_modelo", 0.4))
+        for bb, tx, cf in detectados:
+            if cf < umbral_rf:
+                continue
+            candidatos_rf.append((bb, cf))
+            texto_rf = texto_de_api(tx)
+            if texto_rf:
+                lecturas_rf[bb] = (texto_rf, cf)
+            elif tx:
+                logger.info("Roboflow: texto rechazado (%s), "
+                            "lee la cadena local: %s", tx, ruta.name)
+        if detectados and not candidatos_rf:
+            logger.info("Roboflow: %d deteccion(es) bajo umbral %.2f: %s",
+                        len(detectados), umbral_rf, ruta.name)
+
+    if candidatos_rf:
+        candidatos = candidatos_rf
+        logger.debug("Roboflow: %d candidato(s) en %s",
+                     len(candidatos), ruta.name)
+    else:
+        candidatos = _candidatos_placa(img)
     if not candidatos:
         _descartar(ruta, "sin_placa")
         _cooldown_sin_placa()
@@ -1176,7 +1293,9 @@ def procesar_imagen(ruta: Path) -> None:
         corte_borde = (f"(toca el borde: x {x}..{x + w} de {ancho}, "
                        f"y {y}..{y + h} de {alto})")
 
-        if _detector is None:
+        # El check de oscuros filtra basura del detector geometrico;
+        # las detecciones del YOLO de Roboflow no lo necesitan.
+        if _detector is None and not candidatos_rf:
             fraccion = _fraccion_oscuros(recorte)
             if not min_texto <= fraccion <= max_texto:
                 ultimo_fallo = ("sin_texto", f"({fraccion:.1f}% de oscuros)")
@@ -1220,6 +1339,11 @@ def procesar_imagen(ruta: Path) -> None:
             texto_placa, conf_ocr = placa_previa, 1.0
             intentos_ocr = [("api", placa_previa, 1.0)]
             bbox_ocr = bbox
+        elif bbox in lecturas_rf:
+            texto_placa, conf_ocr = lecturas_rf[bbox]
+            intentos_ocr = [("roboflow", texto_placa, conf_ocr)]
+            bbox_ocr = bbox
+            _trazar_aoi(ruta, img, bbox, texto_placa, conf_ocr, intentos_ocr)
         elif leer_placa_6 is not None:
             texto_placa, conf_ocr, intentos_ocr = leer_placa_6(img, bbox)
             bbox_ocr = bbox
@@ -1257,11 +1381,11 @@ def procesar_imagen(ruta: Path) -> None:
             if texto_placa and evidencia_y_color is not None:
                 ev_nueva, color_nuevo = evidencia_y_color(
                     texto_placa, conf_ocr, intentos_ocr)
-                via_api_dup = any(n == "api" for n, _t, _c in intentos_ocr)
                 if _reemplazar_si_mejor(vista, previa[0], previa[1], img,
                                         bbox, texto_placa, ev_nueva,
                                         color_nuevo, confianza, huella,
-                                        "Api" if via_api_dup else "Modelo"):
+                                        etiqueta=etiqueta_fuente(
+                                            intentos_ocr)):
                     ruta.unlink(missing_ok=True)
                     _cooldown_placa()
                     return
@@ -1381,30 +1505,41 @@ def procesar_imagen(ruta: Path) -> None:
                        int(_cfg.get("ventana_reinspeccion_dias", 30)),
                        ruta.name)
 
-    via_api = any(n == "api" for n, _t, _c in intentos_ocr)
-    etiqueta_fuente = "Api" if via_api else "Modelo"
-
-    destino = _guardar(img, bbox, vista, texto_placa, sufijo=sufijo,
-                       dudosa=dudosa, fuente=etiqueta_fuente)
+    destino = _guardar(img, bbox, vista, texto_placa,
+                       sufijo=etiqueta_fuente(intentos_ocr) + sufijo,
+                       dudosa=dudosa)
     relativo = str(destino.relative_to(_cfg["procesadas"]))
-    confirmada = _detector is not None
+    confirmada = _detector is not None or bool(candidatos_rf)
 
-    placa_api = next((t for n, t, _c in intentos_ocr if n == "api"), None)
-    provisional = bool(texto_placa) and _AOI_ACTIVA and not via_api
+    via_roboflow = any(n == "roboflow" for n, _t, _c in intentos_ocr)
+    via_api = any(n == "api" for n, _t, _c in intentos_ocr)
+    placa_api = next((t for n, t, _c in intentos_ocr
+                      if n in ("api", "roboflow") and t), None)
+    provisional = (bool(texto_placa)
+                   and (_AOI_ACTIVA or _ROBOFLOW_ACTIVO)
+                   and not via_api and not via_roboflow)
     motivo = None
     if provisional:
         try:
-            import platerecognizer
-            motivo = platerecognizer.motivo_sin_api()
+            if _ROBOFLOW_ACTIVO:
+                import roboflow
+                motivo = roboflow.motivo_sin_api()
+            elif _AOI_ACTIVA:
+                import platerecognizer
+                motivo = platerecognizer.motivo_sin_api()
+            else:
+                motivo = "sin_lectura_api"
         except Exception:
             motivo = "sin_lectura_api"
     registrar(relativo, placa=texto_placa or None, confianza=confianza,
               estado="guardado" if confirmada else "pendiente", phash=huella,
               evidencia=evidencia, semaforo=color,
-              fuente=(("platerecognizer" if via_api else "modelo")
+              fuente=(("roboflow" if via_roboflow
+                       else "platerecognizer" if via_api else "modelo")
                       if texto_placa else None),
               provisional=provisional, placa_api=placa_api,
-              placa_modelo=None if via_api else (texto_placa or None),
+              placa_modelo=(None if (via_api or via_roboflow)
+                            else (texto_placa or None)),
               motivo_sin_api=motivo)
 
     if texto_placa:

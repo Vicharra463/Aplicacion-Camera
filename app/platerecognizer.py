@@ -184,8 +184,10 @@ def leer_placa_6_api(img, bbox, **kw):
 
     1. El modelo solo detecta y recorta: manda el recorte MEJORADO (mas
        margen y ampliado si queda chico) a PlateRecognizer.
-    2. La API es la lectorA: si responde, su placa manda y queda anotada
-       como fuente 'api' (se guarda la imagen con sufijo -Api).
+    2. La API es la lectora: si responde, su placa manda y queda anotada
+       como fuente 'api' (se guarda la imagen con sufijo -Api), pero SOLO
+       si cumple la regla del sistema: EXACTAMENTE 6 alfanumericos
+       (ocr.es_placa_6); si no, se ignora y se cae al motor local.
     3. Si la API no responde (sin cuota / sin red / sin placa), se usa el
        motor local (CRNN + RapidOCR) como lectura provisional (-Modelo).
     4. Sin caches ni ventanas de tiempo: "una llamada a la API por
@@ -202,10 +204,11 @@ def leer_placa_6_api(img, bbox, **kw):
     data = leer_api(img, bbox)
     if data:
         placa, conf = _elegir(data, ocr._en_flota)
-        if placa:
+        if placa and ocr.es_placa_6(placa):
             bruta = str(data["results"][0].get("plate", "")).upper()
             final = _con_guion(placa)
-            return final, conf, [("api", _con_guion(bruta), conf)]
+            cruda = _con_guion(bruta) if ocr.es_placa_6(bruta) else final
+            return final, conf, [("api", cruda, conf)]
 
     # 3) API no respondio: motor local como lectura provisional.
     return ocr.leer_placa_6(img, bbox, **kw)

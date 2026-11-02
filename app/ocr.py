@@ -93,6 +93,17 @@ def _normalizar(texto: str) -> str:
     return f"{alnum[:3]}-{alnum[3:]}"
 
 
+def es_placa_6(texto: str) -> bool:
+    """True si `texto` tiene forma de placa: EXACTAMENTE 6 caracteres
+    alfanumericos, con letras Y digitos mezclados. Misma regla que
+    _normalizar, expuesta para validar lecturas de las APIs."""
+    alnum = (texto or "").upper().replace("-", "")
+    if len(alnum) != 6:
+        return False
+    return (any(ch.isalpha() for ch in alnum)
+            and any(ch.isdigit() for ch in alnum))
+
+
 def _forma_voto(texto: str) -> str:
     return texto.translate(_EQUIV_VOTOS)
 
