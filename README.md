@@ -110,24 +110,31 @@ Tres fuentes en cadena, con caída automática y cortacircuitos propios:
                                                    ▼
                     ┌──────────────────────────────────────────┐
    por cada bbox ──►│ 2) leer_placa_6_api()  [si hay claves]   │
-                    │    POST crop.jpg → PlateRecognizer        │
+                    │  MODELO-PRIMERO:                          │
+                    │  a) el motor local lee el recorte         │
+                    │  b) si NO leyó → NO se gasta cuota        │
+                    │  c) si leyó → PlateRecognizer CONFIRMA    │
+                    │     (caché 30 s: misma placa, 0 llamadas) │
+                    │  d) API cumple regla 6 → su texto manda;  │
+                    │     si no → queda la local (provisional)  │
                     └────────────────┬─────────────────────────┘
                                      │
-                        ¿leyó con forma de placa?
-                     │                              │
-                    SÍ                            NO / sin claves
-                     │                              │
-                     ▼                              ▼
-        texto listo (_api-PlateRecognizer)   3) ocr.leer_placa_6()
-                                             (CRNN + RapidOCR + votos
-                                              + snap de flota)
+                                     ▼
+                     texto final (_api-PlateRecognizer
+                     o motor local provisional)
 ```
 
 - **Roboflow** es un solo request por foto: detecta **y** lee sobre la
   imagen completa (no consume cuota de PlateRecognizer si leyó).
 - **PlateRecognizer** solo se invoca si Roboflow no produjo lectura
-  válida para esa bbox.
-- **Motor local** solo interviene si las APIs no leyeron o no están.
+  válida para esa bbox **y** el motor local leyó algo primero
+  (flujo **modelo-primero**: la API confirma, no descubre — si el
+  local no leyó, cero llamadas).
+- **Caché de confirmación** (`CONFIRMAR_SEG = 30`): si la API ya
+  confirmó esa misma placa hace menos de 30 s, se reutiliza sin volver
+  a llamar (ráfagas del mismo carro).
+- **Cooldown** (`[camara] cooldown_placa_seg = 5`): tras guardar una
+  placa, el worker espera 5 s antes de tomar la próxima foto.
 - Cada guardado queda etiquetado con su fuente (ver «Colores de caja»).
 
 ### Roboflow — primera fuente (`app/roboflow.py`)
@@ -226,12 +233,20 @@ Orden de protección en `worker.procesar_imagen`:
    la principal red: en CCTV la cámara manda frames cada pocos segundos y
    la gran mayoría son casi idénticos.
 
-2. **Un solo request por foto que pasa el filtro.**
+2. **Pre-chequeo del mismo carro — ANTES del OCR y de la API.**
+   Huella perceptual del recorte contra las placas guardadas **hoy** en
+   esa vista: si ya está y el recorte no mejora el área (umbral 1.2×,
+   `_es_mejor_toma`), se descarta como `duplicado_placa` **sin leer ni
+   llamar a nadie**. La toma más clara de la ráfaga es la única que
+   llega a la lectura.
+
+3. **Un solo request por foto que pasa los filtros.**
    - Roboflow: **1 request full-image** con detección + lectura juntas.
-   - PlateRecognizer: **solo** si Roboflow no leyó esa bbox.
+   - PlateRecognizer: **solo** si Roboflow no leyó esa bbox **y** el
+     motor local leyó algo (confirmación, con caché de 30 s).
    - Motor local: **solo** si las APIs no dieron lectura (o no están).
 
-3. **Dedup semántico — DESPUÉS de leer** (no ahorra la llamada ya
+4. **Dedup semántico — DESPUÉS de leer** (no ahorra la llamada ya
    hecha, evita guardar/repetir):
    - hash perceptual 64-bit, hamming ≤ `umbral_dedup_dist` (18), o
      texto cercano → `duplicado_placa`;
@@ -242,10 +257,14 @@ Orden de protección en `worker.procesar_imagen`:
    - **mejor foto**: si la nueva tiene ≥ 1.2× el área y no menos
      evidencia, reemplaza el archivo guardado.
 
-4. **Caché server-side de Roboflow**: `use_cache=True` — la misma imagen
+5. **Cooldown tras guardar** (`[camara] cooldown_placa_seg = 5`):
+   5 s de pausa antes de tomar la próxima foto — la ráfaga que sigue
+   cae en los pasos 1–2 en vez de consumir cuota.
+
+6. **Caché server-side de Roboflow**: `use_cache=True` — la misma imagen
    no se re-evalúa del lado de Roboflow.
 
-5. **Cortacircuitos = 0 HTTP**: sin clave, sin cuota o apagado por
+7. **Cortacircuitos = 0 HTTP**: sin clave, sin cuota o apagado por
    error/red → ninguna llamada sale de la máquina.
 
 > **Limitación a conocer**: el dedup semántico (pHash + texto) carga al
@@ -309,15 +328,18 @@ procesar_imagen():
   3. candidatos: de Roboflow si detectó; si no, ONNX/geométrico
   4. filtros del recorte: nitidez (Laplaciano ≥ 120), sobreexpuesto (≤2%),
      bordes (≥2%), texto oscuro (5–55%)
-  5. lectura por bbox: texto Roboflow → PlateRecognizer → motor local
-     (cada una con su circuit breaker; regla de 6 en cada entrada)
-  6. dedup semántico: pHash 64-bit (hamming ≤ 18) + texto cercano
-  7. control de pasadas: ventana 60 min / 30 días / máx 3 pasadas
-  8. guardar: imagenes_procesadas\<vista>\AAAA-MM-DD\<PLACA>[sufijos].jpg
+  5. pre-chequeo mismo carro: pHash vs placas de HOY + umbral 1.2×
+     → si no mejora: RETURN sin OCR ni API
+  6. lectura por bbox (flujo modelo-primero):
+     texto Roboflow → [local lee → PlateRecognizer confirma (caché 30s)]
+     → motor local provisional; regla de 6 en cada entrada
+  7. dedup semántico: pHash 64-bit (hamming ≤ 18) + texto cercano
+  8. control de pasadas: ventana 60 min / 30 días / máx 3 pasadas
+  9. guardar: imagenes_procesadas\<vista>\AAAA-MM-DD\<PLACA>[sufijos].jpg
      + .txt (etiqueta YOLO) + _crop.jpg, caja coloreada por fuente
-  9. registrar() en SQLite + marcar JSON del día
- 10. traza aoi-AAAA-MM-DD.jsonl (via_api / via_roboflow)
- 11. si todo falla: descartar a descartadas\ (modo retener) + log_sin_lectura
+ 10. registrar() en SQLite + marcar JSON del día + cooldown 5 s
+ 11. traza aoi-AAAA-MM-DD.jsonl (via_api / via_roboflow)
+ 12. si todo falla: descartar a descartadas\ (modo retener) + log_sin_lectura
 ```
 
 - **Replay al arranque** (`[inicio] replay_descartes = si`): re-evalúa lo
@@ -371,7 +393,8 @@ D:\Aplicacion-Camera\
 │                                  [rutas] recibidos/procesadas/registro/logs/heartbeat/reportes
 │                                  [roboflow] api_key (VACIA en repo), workspace, workflow_id
 │                                  [aoi] tokens = claves PlateRecognizer en orden de prueba
-│                                  [camara] ventana y máximo de pasadas
+│                                  [camara] ventana y máximo de pasadas,
+│                                    cooldown_placa_seg (pausa tras guardar)
 │                                  [recursos] reposo_minutos (libera modelos)
 │                                  [duplicados] umbral_diferencia (% absdiff, ANTES de la API)
 │                                  [inicio] replay_descartes, replay_pausa_seg
@@ -398,7 +421,8 @@ D:\Aplicacion-Camera\
 │   │                            recarga en caliente si cambian los pesos)
 │   ├── platerecognizer.py       adaptador 2da fuente: rotación de claves [aoi] +
 │   │                            circuit breaker por clave (402/403/429/red),
-│   │                            regla de 6 antes de aceptar, fallback local
+│   │                            flujo modelo-primero (local lee → API confirma,
+│   │                            caché 30 s), regla de 6 antes de aceptar
 │   ├── decodificador_flota.py   diccionario cerrado + distancia edición ponderada
 │   ├── gt_placas.py             GT-29: 29 diagnósticos verificados visualmente
 │   ├── log_sin_lectura.py       JSONL diagnóstico de fotos sin placa (apagado por defecto)
@@ -440,12 +464,13 @@ D:\Aplicacion-Camera\
 │   pesos entrenados siguen en modelo\reconocedor.onnx y el respaldo de
 │   datos está en D:\Escritorio\CAMARA PLACAS.
 │
-├── tests\                       pytest (sin red, sin modelos reales; 34 tests):
+├── tests\                       pytest (sin red, sin modelos reales; 36 tests):
 │   ├── conftest.py              agrega app\ y portal\ al sys.path
 │   ├── test_roboflow.py         parseo del workflow (fixture real), configurar,
 │   │                            cortacircuitos de red/error, workspace/workflow
-│   ├── test_platerecognizer.py  regla de 6: acepta 6, rechaza 5/7 y todo-dígitos
-│   │                            o todo-letras, fallback local, sin lectura API
+│   ├── test_platerecognizer.py  flujo modelo-primero: confirma solo si el local
+│   │                            leyó, ahorro de cuota, caché 30 s, regla de 6
+│   │                            (rechaza 5/7 y todo-dígitos/todo-letras)
 │   └── test_worker_etiquetas.py etiquetas de fuente, texto_de_api (multilinea,
 │                                ambigüedad, regla de 6), colores de caja
 │
@@ -483,7 +508,7 @@ API (`fuente`, `provisional`, `placa_api`, `placa_modelo`,
 | `python entrenamiento\medir_pipeline.py [--dump]` | banco GT-29 |
 | `python entrenamiento\evaluacion\validar_diagnosticos.py [--detector txt\|modelo]` | validador oficial |
 | `python entrenamiento\evaluacion\evaluar_holdout.py [--detector txt\|modelo]` | holdout fuera de GT-29 |
-| `python -m pytest tests\ -q` | suite (34 tests: Roboflow, AOI, etiquetas y colores) |
+| `python -m pytest tests\ -q` | suite (36 tests: Roboflow, AOI, etiquetas y colores) |
 
 ---
 
