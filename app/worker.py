@@ -48,7 +48,9 @@ _AOI_ACTIVA = False
 _ROBOFLOW_ACTIVO = False
 _leer_local = leer_placa_6
 
-COLA: "queue.Queue[str]" = queue.Queue(maxsize=200)
+COLA: "queue.Queue[str]" = queue.Queue(maxsize=1000)
+_encolados: set[str] = set()
+_encolados_lock = threading.Lock()
 
 _MOTIVOS_VOLUMEN = {"sin_texto", "color_no_placa"}
 
@@ -762,12 +764,16 @@ def calcular_diferencia(img1: np.ndarray, img2: np.ndarray) -> float:
 
 
 def encolar(ruta: str) -> bool:
-    try:
-        COLA.put_nowait(ruta)
-        return True
-    except queue.Full:
-        logger.warning("Cola llena: %s queda para el barrido de huerfanos", Path(ruta).name)
-        return False
+    with _encolados_lock:
+        if ruta in _encolados:
+            return False
+        try:
+            COLA.put_nowait(ruta)
+            _encolados.add(ruta)
+            return True
+        except queue.Full:
+            logger.warning("Cola llena: %s queda para el barrido de huerfanos", Path(ruta).name)
+            return False
 
 
 _MOTIVOS_SIN_REPLAY = {"duplicado", "duplicado_placa"}
@@ -943,6 +949,17 @@ def _fraccion_rojo(recorte: np.ndarray) -> float:
     h, s, v = cv2.split(hsv)
     rojo = (((h <= 10) | (h >= 170)) & (s >= 70) & (v >= 50))
     return float(np.count_nonzero(rojo)) / rojo.size * 100.0
+
+
+def _pasa_gate_ancho(w: int, ancho: int, umbral: float = 0.20) -> bool:
+    """True si el bbox es estrecho enough para ser placa (no texto lateral).
+
+    Texto lateral de omnibus/camion: 0.24-0.46 del ancho de imagen.
+    Placa real (GT-29): 0.037-0.082. Umbral 0.20 deja ~2.4x de margen.
+    """
+    if ancho <= 0:
+        return False
+    return (w / ancho) < umbral
 
 
 def _hash_perceptual(img: np.ndarray) -> int:
@@ -1140,6 +1157,20 @@ def _es_misma_placa(vista: str, huella: int, texto: str = "") -> bool:
     return _buscar_misma(vista, huella, texto) is not None
 
 
+def _es_lectura_lateral(huella: int, texto: str, previa_huella: int,
+                        texto_previo: str, umbral: int = 18) -> bool:
+    """True si es la misma placa leida distinto desde el costado.
+
+    Texto similar (dist <= 2 via _cerca_texto) pero hash lejano =
+    sticker/angulo lateral, no la placa del frente: no reemplazar.
+    """
+    if not texto or not texto_previo:
+        return False
+    if _forma_comparable(texto) == _forma_comparable(texto_previo):
+        return False
+    return bin(huella ^ previa_huella).count("1") > umbral
+
+
 def _carpeta_descartes() -> Path:
     propio = _cfg.get("descartes")
     if propio:
@@ -1265,7 +1296,8 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
                          bbox: tuple[int, int, int, int], texto: str,
                          evidencia: int, color: str, confianza: float,
                          huella: int, etiqueta: str = "",
-                         fuente: str | None = None) -> bool:
+                         fuente: str | None = None,
+                         origen: str = "") -> bool:
     if not t_viejo:
         return False
     desde = f"{_dia_dedup}T00:00:00"
@@ -1296,6 +1328,13 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
     viejo.unlink(missing_ok=True)
     viejo.with_suffix(".txt").unlink(missing_ok=True)
     viejo.with_name(viejo.stem + "_crop.jpg").unlink(missing_ok=True)
+    # Si el texto cambio, _guardar creara OTRA carpeta: esta quedo
+    # sin archivos y viviria hasta el proximo arranque. Sin este
+    # rmdir, MEJOR FOTO deja carpetas fantasma todo el dia.
+    try:
+        viejo.parent.rmdir()
+    except OSError:
+        pass  # no vacia (otros archivos) o ya no existe
     nuevo = _guardar(img, bbox, vista, texto, sufijo=etiqueta + sufijo)
     relativo = str(nuevo.relative_to(_cfg["procesadas"]))
     con = _conexion()
@@ -1328,8 +1367,9 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
     _placas.setdefault(vista, set()).discard(t_viejo)
     _placas[vista].add(texto)
     _marcar_json()
-    logger.info("MEJOR FOTO: %s -> %s (area %.4f vs %.4f): %s",
-                t_viejo, texto, area_nueva, area_vieja, relativo)
+    logger.info("MEJOR FOTO: %s -> %s (area %.4f vs %.4f): %s <- %s",
+                t_viejo, texto, area_nueva, area_vieja, relativo,
+                origen or "(origen desconocido)")
     return True
 
 
@@ -1386,6 +1426,7 @@ def procesar_imagen(ruta: Path) -> None:
     global _ultima_imagen
 
     if not ruta.exists():
+        logger.info("Archivo ya no existe (omitido): %s", ruta.name)
         return
 
     _actualizar_dia()
@@ -1453,6 +1494,7 @@ def procesar_imagen(ruta: Path) -> None:
     umbral_quemada = _cfg.get("umbral_sobreexpuesto", 2.0)
     umbral_bordes = _cfg.get("umbral_bordes", 2.0)
     umbral_rojo_max = _cfg.get("umbral_rojo_max", 15.0)
+    umbral_ancho_bbox = _cfg.get("umbral_ancho_bbox", 0.20)
     ocr_requerido = _cfg.get("ocr_requerido", "si") == "si"
 
     alto, ancho = img.shape[:2]
@@ -1501,6 +1543,15 @@ def procesar_imagen(ruta: Path) -> None:
         rojo = _fraccion_rojo(recorte)
         if rojo > umbral_rojo_max:
             ultimo_fallo = ("color_no_placa", f"({rojo:.1f}% rojo)")
+            continue
+
+        # Gate de ancho: texto lateral de omnibus/camion (letreto, nombre,
+        # cinta) mide 0.24-0.46 del ancho de la imagen; placa real 0.04-0.14
+        # (GT-29 max 0.082). Umbral 0.20 deja ~2.4x de margen.
+        if not _pasa_gate_ancho(w, ancho, umbral_ancho_bbox):
+            rel_ancho = w / ancho if ancho else 1.0
+            ultimo_fallo = ("texto_lateral",
+                            f"({rel_ancho:.2f} del ancho de imagen)")
             continue
 
         # Pre-chequeo mismo carro (ahorra cuota de la API): si la huella
@@ -1565,6 +1616,14 @@ def procesar_imagen(ruta: Path) -> None:
         huella = _hash_perceptual(recorte)
         previa = _buscar_misma(vista, huella, texto_placa)
         if previa is not None:
+            # Texto similar pero hash lejano = placa del costado con otra
+            # lectura: no reemplazar la placa guardada; descartar.
+            if _es_lectura_lateral(huella, texto_placa, previa[0],
+                                   previa[1], _cfg.get("umbral_dedup", 18)):
+                _descartar(
+                    ruta, "duplicado_placa",
+                    f"(lectura lateral {texto_placa} ~ {previa[1]})")
+                return
             if texto_placa and evidencia_y_color is not None:
                 ev_nueva, color_nuevo = evidencia_y_color(
                     texto_placa, conf_ocr, intentos_ocr)
@@ -1574,7 +1633,8 @@ def procesar_imagen(ruta: Path) -> None:
                                         etiqueta=etiqueta_fuente(
                                             intentos_ocr),
                                         fuente=fuente_de_intentos(
-                                            intentos_ocr)):
+                                            intentos_ocr),
+                                        origen=ruta.name):
                     ruta.unlink(missing_ok=True)
                     _cooldown_placa()
                     return
@@ -1748,8 +1808,8 @@ def procesar_imagen(ruta: Path) -> None:
     leida = f" (placa {texto_placa}" if texto_placa else ""
     cierre_leida = f", pasada {pasada}{sufijo})" if texto_placa else ")"
     logger.info("Placa detectada%s%s: %s (nitidez %.1f, %s %.2f, "
-                "%.2f%% de cambio)", leida, cierre_leida, relativo, nitidez,
-                origen, confianza, porcentaje)
+                "%.2f%% de cambio) <- %s", leida, cierre_leida, relativo,
+                nitidez, origen, confianza, porcentaje, ruta.name)
 
     _ultima_imagen[vista] = img.copy()
     ruta.unlink(missing_ok=True)
@@ -1764,6 +1824,8 @@ def bucle_worker() -> None:
     while True:
         try:
             ruta = COLA.get(timeout=1.0)
+            with _encolados_lock:
+                _encolados.discard(ruta)
         except queue.Empty:
             _vaciar_json_pendiente()
             if (_reposo_seg > 0 and not _en_reposo

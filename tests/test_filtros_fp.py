@@ -108,3 +108,71 @@ def test_api_se_llama_cuando_si_hay_texto(monkeypatch):
 
     assert llamadas["api"] == 1
     assert res[0] == "ABC-123"
+
+
+# ------------------------------------------------- gate ancho lateral ---
+
+def test_gate_ancho_placa_real_pasa():
+    # GT-29: min 0.037, max 0.082 del ancho de imagen
+    assert worker._pasa_gate_ancho(80, 1920, 0.20) is True   # 0.042
+    assert worker._pasa_gate_ancho(157, 1920, 0.20) is True  # 0.082 (max GT)
+
+
+def test_gate_ancho_texto_lateral_falla():
+    # Texto lateral omnibus/camion medido: 0.24-0.46
+    assert worker._pasa_gate_ancho(460, 1920, 0.20) is False  # 0.24
+    assert worker._pasa_gate_ancho(883, 1920, 0.20) is False  # 0.46
+
+
+def test_gate_ancho_en_el_limite():
+    # Umbral estricto: 0.20 exacto NO pasa (>= umbral falla)
+    assert worker._pasa_gate_ancho(384, 1920, 0.20) is False  # 0.20
+    assert worker._pasa_gate_ancho(383, 1920, 0.20) is True   # 0.1995
+
+
+def test_gate_ancho_ancho_invalido():
+    # Division por cero / imagen sin ancho -> no pasa
+    assert worker._pasa_gate_ancho(100, 0, 0.20) is False
+
+
+# ------------------------------------------- lectura lateral (dedup) ---
+
+def test_lectura_lateral_texto_cercano_hash_lejano_es_lateral():
+    # CSV-990 vs C8V-990: dist texto 1, hash lejano -> lateral
+    assert worker._es_lectura_lateral(
+        0xFFFF0000FFFF0000, "C8V-990",
+        0x0000FFFF0000FFFF, "CSV-990", umbral=18) is True
+
+
+def test_lectura_lateral_texto_igual_no_es_lateral():
+    # Misma placa, mismo texto (hash cercano o no): MEJOR FOTO legitimo
+    assert worker._es_lectura_lateral(
+        0xFFFF0000FFFF0000, "BDY-412",
+        0x0000FFFF0000FFFF, "BDY-412", umbral=18) is False
+
+
+def test_lectura_lateral_hash_cercano_no_es_lateral():
+    # Texto distinto pero hash cercano = misma foto, otra lectura OCR
+    # (ej. BLN-7U5 -> BLN-703): permite MEJOR FOTO
+    h = 0x0000000000000000
+    h2 = h ^ (1 << 5)  # 5 bits de distancia <= 18
+    assert worker._es_lectura_lateral(
+        h2, "BLN-703", h, "BLN-7U5", umbral=18) is False
+
+
+def test_lectura_lateral_texto_vacio_no_es_lateral():
+    assert worker._es_lectura_lateral(
+        0xFFFF, "", 0x0000, "CSV-990", umbral=18) is False
+    assert worker._es_lectura_lateral(
+        0xFFFF, "C8V-990", 0x0000, "", umbral=18) is False
+
+
+def test_lectura_lateral_hash_en_el_limite():
+    # 18 bits exactos NO es lateral (umbral estricto >)
+    h = 0
+    h2 = sum(1 << i for i in range(18))  # exactamente 18 bits
+    assert worker._es_lectura_lateral(
+        h2, "ABC-123", h, "ABC-124", umbral=18) is False
+    h3 = sum(1 << i for i in range(19))  # 19 bits -> lateral
+    assert worker._es_lectura_lateral(
+        h3, "ABC-123", h, "ABC-124", umbral=18) is True
