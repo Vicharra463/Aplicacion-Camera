@@ -1422,6 +1422,38 @@ def _api_confirmada_hoy(vista: str, placa: str) -> bool:
     return bool(fila and str(fila[0] or "").lower() == "platerecognizer")
 
 
+def _rf_leer_recorte(img: np.ndarray,
+                     bbox: tuple[int, int, int, int]) -> tuple[str, float]:
+    """API 1 de la cadena dual: Roboflow lee el recorte del detector.
+
+    Primera respuesta valida gana: devuelve ('', 0.0) si esta apagado,
+    falla o no trae placa de 6, y asi entra la siguiente API
+    (PlateRecognizer) sin gastar de mas. El recorte va tal cual lo
+    detecto el modelo.
+    """
+    if not _ROBOFLOW_ACTIVO:
+        return "", 0.0
+    try:
+        import roboflow
+        x, y, w, h = bbox
+        recorte = img[y:y + h, x:x + w]
+        if recorte.size == 0:
+            return "", 0.0
+        umbral_rf = float(_cfg.get("umbral_modelo", 0.4))
+        mejor_texto, mejor_conf = "", 0.0
+        for _bb, tx, cf in roboflow.detectar_leer(recorte):
+            if cf < umbral_rf:
+                continue
+            texto = texto_de_api(tx)
+            if texto and cf > mejor_conf:
+                mejor_texto, mejor_conf = texto, cf
+        return mejor_texto, mejor_conf
+    except Exception:
+        logger.exception("Roboflow fallo leyendo el recorte; "
+                         "sigo con PlateRecognizer")
+        return "", 0.0
+
+
 def procesar_imagen(ruta: Path) -> None:
     global _ultima_imagen
 
@@ -1449,16 +1481,21 @@ def procesar_imagen(ruta: Path) -> None:
             _descartar(ruta, "duplicado", f"({porcentaje:.2f}% de cambio)")
             return
 
-    # Cadena: Roboflow (full image -> bbox + texto) primero; si no detecta
-    # o falla, cae al detector local + PlateRecognizer + motor local.
+    # Cadena dual-API: el detector LOCAL primero (gratis y siempre);
+    # Roboflow sobre la foto completa es SOLO red de seguridad cuando el
+    # modelo no ve nada. La lectura (RF recorte -> PlateRecognizer ->
+    # motor local) pasa despues de los filtros, para no gastar cuota en
+    # fotos que igual se descartan.
     lecturas_rf: dict[tuple[int, int, int, int], tuple[str, float]] = {}
     candidatos_rf: list[tuple[tuple[int, int, int, int], float]] = []
-    if _ROBOFLOW_ACTIVO:
+    candidatos = _candidatos_placa(img)
+    if not candidatos and _ROBOFLOW_ACTIVO:
         try:
             import roboflow
             detectados = roboflow.detectar_leer(img)
         except Exception:
-            logger.exception("Roboflow fallo inesperado; uso la cadena local")
+            logger.exception("Roboflow fallo en la red de seguridad; "
+                             "sin candidatos")
             detectados = []
         umbral_rf = float(_cfg.get("umbral_modelo", 0.4))
         for bb, tx, cf in detectados:
@@ -1474,13 +1511,10 @@ def procesar_imagen(ruta: Path) -> None:
         if detectados and not candidatos_rf:
             logger.info("Roboflow: %d deteccion(es) bajo umbral %.2f: %s",
                         len(detectados), umbral_rf, ruta.name)
-
-    if candidatos_rf:
         candidatos = candidatos_rf
-        logger.debug("Roboflow: %d candidato(s) en %s",
-                     len(candidatos), ruta.name)
-    else:
-        candidatos = _candidatos_placa(img)
+        if candidatos:
+            logger.debug("Roboflow (red de seguridad): %d candidato(s) "
+                         "en %s", len(candidatos), ruta.name)
     if not candidatos:
         _descartar(ruta, "sin_placa")
         _cooldown_sin_placa()
@@ -1578,40 +1612,51 @@ def procesar_imagen(ruta: Path) -> None:
             intentos_ocr = [("api", placa_previa, 1.0)]
             bbox_ocr = bbox
         elif bbox in lecturas_rf:
+            # Red de seguridad: el modelo no vio nada y Roboflow hallo la
+            # placa en la foto completa; su texto ya viene listo.
             texto_placa, conf_ocr = lecturas_rf[bbox]
             intentos_ocr = [("roboflow", texto_placa, conf_ocr)]
             bbox_ocr = bbox
             _trazar_aoi(ruta, img, bbox, texto_placa, conf_ocr, intentos_ocr)
-        elif leer_placa_6 is not None:
-            texto_placa, conf_ocr, intentos_ocr = leer_placa_6(img, bbox)
-            bbox_ocr = bbox
-            _trazar_aoi(ruta, img, bbox, texto_placa, conf_ocr, intentos_ocr)
-            if not texto_placa:
-                logger.info(
-                    "Sin lectura solida: %s | bbox (%d,%d,%d,%d) | "
-                    "intentos: %s", ruta.name, x, y, w, h,
-                    " | ".join(f"{n}={(t or 'sin lectura')}({c:.2f})"
-                               for n, t, c in intentos_ocr))
-                if toca_borde:
-                    ultimo_fallo = ("placa_cortada", corte_borde)
-                    continue
-                if ocr_requerido:
-                    ultimo_fallo = ("texto_invalido",
-                                    "(sin consenso en los intentos)")
-                    continue
-        elif leer_placa is not None:
-            texto_placa = leer_placa(_recorte_con_margen(img, bbox))
-            if not texto_placa:
-                if toca_borde:
-                    ultimo_fallo = ("placa_cortada", corte_borde)
-                    continue
-                if ocr_requerido:
-                    ultimo_fallo = ("texto_invalido",
-                                    "(el recorte no se lee como placa)")
-                    continue
-        elif toca_borde:
-            ultimo_fallo = ("placa_cortada", corte_borde)
-            continue
+        else:
+            # API 1: Roboflow lee el recorte; si no da placa valida, API 2
+            # PlateRecognizer; si falla, motor local. Primera valida gana.
+            rf_texto, rf_conf = _rf_leer_recorte(img, bbox)
+            if rf_texto:
+                texto_placa, conf_ocr = rf_texto, rf_conf
+                intentos_ocr = [("roboflow", rf_texto, rf_conf)]
+                bbox_ocr = bbox
+                _trazar_aoi(ruta, img, bbox, rf_texto, rf_conf, intentos_ocr)
+            elif leer_placa_6 is not None:
+                texto_placa, conf_ocr, intentos_ocr = leer_placa_6(img, bbox)
+                bbox_ocr = bbox
+                _trazar_aoi(ruta, img, bbox, texto_placa, conf_ocr, intentos_ocr)
+                if not texto_placa:
+                    logger.info(
+                        "Sin lectura solida: %s | bbox (%d,%d,%d,%d) | "
+                        "intentos: %s", ruta.name, x, y, w, h,
+                        " | ".join(f"{n}={(t or 'sin lectura')}({c:.2f})"
+                                   for n, t, c in intentos_ocr))
+                    if toca_borde:
+                        ultimo_fallo = ("placa_cortada", corte_borde)
+                        continue
+                    if ocr_requerido:
+                        ultimo_fallo = ("texto_invalido",
+                                        "(sin consenso en los intentos)")
+                        continue
+            elif leer_placa is not None:
+                texto_placa = leer_placa(_recorte_con_margen(img, bbox))
+                if not texto_placa:
+                    if toca_borde:
+                        ultimo_fallo = ("placa_cortada", corte_borde)
+                        continue
+                    if ocr_requerido:
+                        ultimo_fallo = ("texto_invalido",
+                                        "(el recorte no se lee como placa)")
+                        continue
+            elif toca_borde:
+                ultimo_fallo = ("placa_cortada", corte_borde)
+                continue
 
         huella = _hash_perceptual(recorte)
         previa = _buscar_misma(vista, huella, texto_placa)
@@ -1674,14 +1719,23 @@ def procesar_imagen(ruta: Path) -> None:
             rx0, ry0 = max(0, bx - ex), max(0, by - ey)
             rx1, ry1 = min(ancho, bx + bw + ex), min(alto, by + bh + ey)
             bbox_re = (rx0, ry0, rx1 - rx0, ry1 - ry0)
-            if leer_placa_6 is not None:
+            rf_re, rf_conf_re = _rf_leer_recorte(img, bbox_re)
+            if rf_re:
+                texto_re = rf_re
+                conf_re = rf_conf_re
+                intentos_re = [("roboflow", rf_re, rf_conf_re)]
+                _trazar_aoi(ruta, img, bbox_re, rf_re, rf_conf_re,
+                            intentos_re)
+            elif leer_placa_6 is not None:
                 texto_re, conf_re, intentos_re = leer_placa_6(
                     img, bbox_re, reintento=False)
                 _trazar_aoi(ruta, img, bbox_re, texto_re, conf_re,
-                             intentos_re)
-            else:
+                            intentos_re)
+            elif leer_placa is not None:
                 texto_re = leer_placa(_recorte_con_margen(img, bbox_re))
                 conf_re, intentos_re = 0.0, []
+            else:
+                continue
             intentos_ocr.extend(intentos_re)
             if not texto_re:
                 continue
