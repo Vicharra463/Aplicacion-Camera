@@ -1,0 +1,6 @@
+runs/
+*.pt
+*.onnx
+*.log
+*.log.err
+__pycache__/

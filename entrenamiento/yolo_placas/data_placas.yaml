@@ -1,0 +1,6 @@
+train: 'C:/Users/FELIPE/Downloads/Peru License Plate.v9i.yolov8/train/images'
+val: 'C:/Users/FELIPE/Downloads/Peru License Plate.v9i.yolov8/valid/images'
+test: 'C:/Users/FELIPE/Downloads/Peru License Plate.v9i.yolov8/test/images'
+
+nc: 1
+names: ['placa']
