@@ -218,4 +218,10 @@ def leer_placa_6_api(img, bbox, **kw):
             return final, conf, [("api", cruda, conf)]
 
     # 3) API no respondio: motor local como lectura provisional.
-    return ocr.leer_placa_6(img, bbox, **kw)
+    placa_l, conf_l, reg_l = ocr.leer_placa_6(img, bbox, **kw)
+    # El marcador 'api_rechazada' va AL FINAL de intentos: no cambia la
+    # fuente (intentos[0]) ni el orden de lectura. El worker lo usa para
+    # saber que la API fue consultada y no confirmo (copia la foto a
+    # rechazadas_api para diagnostico de cuota/validacion).
+    return (placa_l, conf_l,
+            reg_l + [("api_rechazada", "api: sin lectura valida", 0.0)])

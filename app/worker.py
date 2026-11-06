@@ -27,10 +27,11 @@ except Exception:
     pass
 
 try:
-    from modelo import DetectorPlacas, RUTA_ONNX
+    from modelo import DetectorPlacas, RUTA_ONNX, enmascarar_osd
 except Exception:
     DetectorPlacas = None
     RUTA_ONNX = None
+    enmascarar_osd = None
 
 try:
     from ocr import (leer_placa, leer_placa_6, evidencia_y_color,
@@ -58,7 +59,8 @@ FOLDER_POR_CANAL = {"01": "placa", "02": "placa"}
 CARPETA_POR_DEFECTO = "placa"
 _RE_CANAL = re.compile(r"_(\d{2})_")
 
-FALLOS_SIN_REEVAL = {"baja_nitidez", "sobreexpuesta", "ocluida"}
+FALLOS_SIN_REEVAL = {"baja_nitidez", "sobreexpuesta", "ocluida",
+                     "fuera_franja"}
 LETRAS_REVISAR = "WQH"
 
 _ultima_imagen: dict[str, np.ndarray] = {}
@@ -461,6 +463,10 @@ def _actualizar_dia() -> None:
     _hashes = {}
     _placas = {}
     _ultima_imagen = {}
+    try:
+        _purgar_rechazadas_api()
+    except Exception:
+        logger.debug("No se pudo purgar rechazadas_api", exc_info=True)
 
 
 def registrar(archivo: str, placa: str | None = None,
@@ -865,7 +871,11 @@ def _candidatos_placa(img: np.ndarray) -> list[tuple[tuple[int, int, int, int], 
     if _detector is None:
         _asegurar_detector()
     if _detector is not None:
-        return _detector.detectar(img)
+        # ROI activo: img ya viene enmascarada (mask antes del corte);
+        # enmascarar=False evita que ZONAS_OSD (normalizadas al encuadre
+        # original) tapen la placa del recorte.
+        return _detector.detectar(
+            img, enmascarar=not _cfg.get("roi_habilitado", False))
 
     gris = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     gris = cv2.bilateralFilter(gris, 9, 75, 75)
@@ -960,6 +970,122 @@ def _pasa_gate_ancho(w: int, ancho: int, umbral: float = 0.20) -> bool:
     if ancho <= 0:
         return False
     return (w / ancho) < umbral
+
+
+# ------------------------------------------------- ROI franja verde ---
+# La camara es fija: la linea verde de arriba es el limite del corte
+# (todo lo de atras --fondo, timestamp, pared-- se descarta) y la franja
+# entre las dos lineas verdes es la referencia de donde debe quedar el
+# carro con la placa TOTALMENTE visible. Coordenadas normalizadas (0-1)
+# sobre la imagen ORIGINAL, calibradas con scripts\calibrar_roi.py.
+
+def _franja_verde() -> tuple[float, float]:
+    """(y_sup, y_inf) normalizadas sobre la imagen original.
+
+    ROI apagado o config rota -> (0.0, 1.0): se degrada a sin ROI en
+    vez de fallar (rollback total con habilitado = no).
+    """
+    if not _cfg.get("roi_habilitado"):
+        return 0.0, 1.0
+    sup = float(_cfg.get("roi_linea_verde_sup", 0.0))
+    inf = float(_cfg.get("roi_linea_verde_inf", 1.0))
+    if not (0.0 <= sup < inf <= 1.0) or (inf - sup) < 0.05:
+        return 0.0, 1.0
+    return sup, inf
+
+
+def _recortar_roi(img: np.ndarray) -> tuple[np.ndarray, float]:
+    """Recorta la foto por encima de la linea verde de arriba.
+
+    Devuelve (imagen_recortada, y_sup_en_px). ROI apagado -> (img, 0.0).
+    """
+    sup, _ = _franja_verde()
+    if sup <= 0.0:
+        return img, 0.0
+    alto = img.shape[0]
+    y_sup = int(round(alto * sup))
+    if y_sup <= 0 or y_sup >= alto:
+        return img, 0.0
+    return img[y_sup:, :], float(y_sup)
+
+
+def _preparar_imagen(img: np.ndarray) -> tuple[np.ndarray, float]:
+    """Mascara OSD (solo con ROI activo) y recorte de la franja verde.
+
+    ORDEN CRITICO: la mascara ZONAS_OSD esta calibrada sobre el encuadre
+    ORIGINAL (timestamp arriba-izq, 'Camera 01' abajo-dcha). Si se aplica
+    despues del corte, la zona de arriba-izquierda cae sobre la placa del
+    recorte y la tapa: medido con GT-29, AFH-559 cumple la franja pero
+    con_osd=0 / sin_osd=1 (el detector no la veia). Con ROI activo se
+    enmascara ANTES de recortar y el detector entra con enmascarar=False.
+    Con ROI apagado no se toca nada: la mascara la sigue aplicando
+    detectar por su cuenta, como siempre (rollback total).
+    """
+    if _cfg.get("roi_habilitado") and enmascarar_osd is not None:
+        img = enmascarar_osd(img)
+    return _recortar_roi(img)
+
+
+def _franja_inf_px(alto: int) -> int | None:
+    """Borde inferior de la franja en pixeles de la imagen en proceso.
+
+    `alto` es de la imagen YA recortada (arranca en linea_verde_sup).
+    None = sin franja que chequear (ROI apagado o solo corte superior).
+    """
+    if not _cfg.get("roi_habilitado"):
+        return None
+    sup, inf = _franja_verde()
+    if inf >= 1.0:
+        return None
+    return int(round((inf - sup) / (1.0 - sup) * alto))
+
+
+def _placa_en_franja(y: int, h: int, alto: int) -> bool:
+    """True si el bbox queda TOTALMENTE dentro de la franja verde.
+
+    La placa que cruza la linea verde de abajo (auto que paso de mas) o
+    la de arriba (toca_borde sobre el corte) no es "totalmente visible".
+    Tolerancia 4px, la misma que toca_borde. ROI apagado -> siempre True.
+    """
+    limite = _franja_inf_px(alto)
+    if limite is None:
+        return True
+    return (y + h) <= limite + 4
+
+
+def _distancia_franja(cy: float, sup: float, inf: float) -> float:
+    """Distancia (0-1, coords de la imagen ORIGINAL) del centro de la
+    placa al centro de la franja verde.
+
+    `cy` viene normalizado sobre la imagen en proceso (recortada si hay
+    ROI); se mapea a la original con sup + cy * (1 - sup).
+    """
+    centro = (sup + inf) / 2.0
+    cy_orig = sup + cy * (1.0 - sup)
+    return abs(cy_orig - centro)
+
+
+def _mejora_por_posicion(cy_nuevo: float, cy_viejo: float | None) -> bool:
+    """True si la toma nueva esta claramente (>=25%) mas cerca del centro
+    de la franja verde que la ya guardada: el carro quedo mas asentado en
+    la linea verde y la placa esta mas visible. Solo con ROI activo; si no,
+    manda solo el area (criterio viejo de MEJOR FOTO).
+    """
+    if not _cfg.get("roi_habilitado") or cy_viejo is None:
+        return False
+    sup, inf = _franja_verde()
+    nueva = _distancia_franja(cy_nuevo, sup, inf)
+    vieja = _distancia_franja(cy_viejo, sup, inf)
+    return nueva < 0.75 * vieja
+
+
+def _etiqueta_centro_y(jpg: Path) -> float | None:
+    """cy normalizado (0-1) del bbox guardado en el .txt YOLO vecino."""
+    try:
+        partes = jpg.with_suffix(".txt").read_text(encoding="utf-8").split()
+        return float(partes[2])
+    except Exception:
+        return None
 
 
 def _hash_perceptual(img: np.ndarray) -> int:
@@ -1178,6 +1304,76 @@ def _carpeta_descartes() -> Path:
     return _cfg["procesadas"].parent / "descartadas"
 
 
+def _carpeta_rechazadas_api() -> Path:
+    propio = _cfg.get("rechazadas_api")
+    if propio:
+        return Path(propio)
+    return _cfg["procesadas"].parent / "rechazadas_api"
+
+
+def _guardar_rechazada_api(ruta: Path, intentos: list, resultado: str,
+                           detalle: str = "",
+                           rf_rechazado: bool = False) -> None:
+    """Copia la foto ORIGINAL (sin recortar) + traza JSONL.
+
+    Documenta por que la API no confirmo la lectura: rechazo de
+    Roboflow (rf_rechazado) y/o de PlateRecognizer (intento
+    'api_rechazada'). Solo se llama cuando hubo rechazo real (gasto de
+    cuota sin confirmacion), nunca ante calle vacia.
+    """
+    dia = datetime.now().strftime("%Y-%m-%d")
+    vista = _carpeta_de(ruta.name)
+    carpeta = _carpeta_rechazadas_api() / dia / vista
+    carpeta.mkdir(parents=True, exist_ok=True)
+    destino = _destino_libre(carpeta, ruta.name)
+    try:
+        shutil.copy2(str(ruta), str(destino))
+    except OSError:
+        logger.warning("No se pudo copiar a rechazadas_api: %s", ruta.name)
+        return
+    traza = {
+        "ts": datetime.now().isoformat(timespec="seconds"),
+        "foto": ruta.name,
+        "copia": str(destino),
+        "resultado": resultado,
+        "detalle": detalle,
+        "rf_rechazado": bool(rf_rechazado),
+        "intentos": [[n, t, round(float(c), 3)] for n, t, c in intentos],
+        "roi": {"habilitado": bool(_cfg.get("roi_habilitado")),
+                "sup": _cfg.get("roi_linea_verde_sup"),
+                "inf": _cfg.get("roi_linea_verde_inf")},
+    }
+    try:
+        with (carpeta / "rechazadas.jsonl").open("a",
+                                                 encoding="utf-8") as fh:
+            fh.write(json.dumps(traza, ensure_ascii=False) + "\n")
+    except OSError:
+        logger.warning("No se pudo escribir la traza de rechazadas_api")
+    logger.info("Rechazo de API copiado: %s -> %s (resultado=%s%s)",
+                ruta.name, destino.name, resultado,
+                f", {detalle}" if detalle else "")
+
+
+def _purgar_rechazadas_api() -> None:
+    """Borra rechazadas_api\\<dia> mas viejas que [log] retencion_dias."""
+    raiz = _carpeta_rechazadas_api()
+    if not raiz.is_dir():
+        return
+    dias = int(_cfg.get("retencion", 30))
+    limite = (datetime.now() - timedelta(days=dias)).date()
+    for carpeta in raiz.iterdir():
+        if not carpeta.is_dir():
+            continue
+        try:
+            fecha = datetime.strptime(carpeta.name, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        if fecha < limite:
+            shutil.rmtree(carpeta, ignore_errors=True)
+            logger.info("rechazadas_api: purgada %s (>%d dias)",
+                        carpeta.name, dias)
+
+
 def _destino_libre(carpeta: Path, nombre: str) -> Path:
     destino = carpeta / nombre
     indice = 1
@@ -1317,7 +1513,16 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
     alto, ancho = img.shape[:2]
     area_nueva = (bbox[2] * bbox[3]) / (ancho * alto)
     area_vieja = _area_etiqueta(viejo)
-    if not (area_nueva >= 1.2 * area_vieja
+    # Reemplaza si la nueva toma crece 1.2x (criterio original) O si esta
+    # claramente mejor posicionada en la franja verde (>=25% mas cerca
+    # del centro): el carro mas asentado en la linea verde gana aunque
+    # el area no crezca. La evidencia sigue siendo obligatoria: nunca se
+    # degrada la calidad de la lectura guardada.
+    mejora_area = area_nueva >= 1.2 * area_vieja
+    mejora_pos = _mejora_por_posicion(
+        (bbox[1] + bbox[3] / 2) / alto if alto else 0.0,
+        _etiqueta_centro_y(viejo))
+    if not ((mejora_area or mejora_pos)
             and evidencia >= (ev_vieja or 0)):
         return False
     sufijo = next((s for s in ("_2da-pasada", "_3ra-pasada", "_EXCEDIDA")
@@ -1373,15 +1578,15 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
     return True
 
 
-def _es_mejor_toma(vista: str, placa_vieja: str, w: int, h: int,
+def _es_mejor_toma(vista: str, placa_vieja: str,
+                   bbox: tuple[int, int, int, int],
                    ancho: int, alto: int) -> bool:
-    """True si el recorte nuevo es claramente mas grande (mas cerca / mas
-    nítido) que la mejor toma ya guardada HOY de esa placa.
-
-    Umbral 1.2x, el mismo que usa _reemplazar_si_mejor. Se usa ANTES de
-    llamar a la API para no gastar cuota en frames de la RAFAGA del mismo
-    carro que no mejoran la foto (el modelo ya la vio pasar). La mas clara
-    se queda; las demas se descartan sin tocar PlateRecognizer.
+    """True si la toma nueva merece llegar a la API: es claramente mas
+    grande (1.2x, criterio original) o esta claramente mejor posicionada
+    en la franja verde (>=25% mas cerca del centro de la franja: el
+    carro quedo mas asentado en la linea verde y la placa esta mas
+    visible). Se usa ANTES de llamar a la API para no gastar cuota en
+    frames de la RAFAGA del mismo carro que no mejoran la foto.
     """
     desde = f"{_dia_dedup}T00:00:00"
     con = _conexion()
@@ -1396,9 +1601,13 @@ def _es_mejor_toma(vista: str, placa_vieja: str, w: int, h: int,
     if not fila:
         return True   # sin toma previa registrada: vale la pena intentar
     viejo = _cfg["procesadas"] / fila[0]
+    x, y, w, h = bbox
     area_nueva = (w * h) / (ancho * alto)
     area_vieja = _area_etiqueta(viejo)
-    return area_nueva >= 1.2 * area_vieja
+    if area_nueva >= 1.2 * area_vieja:
+        return True
+    cy_nuevo = (y + h / 2) / alto if alto else 0.0
+    return _mejora_por_posicion(cy_nuevo, _etiqueta_centro_y(viejo))
 
 
 def _api_confirmada_hoy(vista: str, placa: str) -> bool:
@@ -1469,6 +1678,31 @@ def procesar_imagen(ruta: Path) -> None:
         ruta.unlink(missing_ok=True)
         return
 
+    # ROI franja verde: mascara OSD (si activa) + corta lo de atras de
+    # la linea verde de arriba ANTES de todo (diff, detector, Roboflow).
+    # Todo lo demas corre sobre el recorte, con coordenadas consistentes.
+    img, _y_roi = _preparar_imagen(img)
+
+    # Traza de rechazo de API: si alguna API fue consultada y no confirmo
+    # (Roboflow sin lectura valida o PlateRecognizer 'api_rechazada'), la
+    # foto ORIGINAL se copia a rechazadas_api\ con un JSONL para poder
+    # diagnosticar cuota/validacion con la foto en la mano.
+    api_rechazado = False
+    ya_enmascarada = bool(_cfg.get("roi_habilitado", False))
+    conf_ocr = 0.0
+    intentos_ocr: list = []
+
+    def _anotar_rechazo(resultado: str, detalle: str = "") -> None:
+        if not (api_rechazado
+                or any(n == "api_rechazada" for n, _t, _c in intentos_ocr)):
+            return
+        try:
+            _guardar_rechazada_api(ruta, intentos_ocr, resultado,
+                                   detalle, rf_rechazado=api_rechazado)
+        except Exception:
+            logger.exception("No se pudo copiar a rechazadas_api %s",
+                             ruta.name)
+
     vista = _carpeta_de(ruta.name)
     logger.debug("Imagen %s -> vista %s (%dx%d)", ruta.name, vista,
                  img.shape[1], img.shape[0])
@@ -1500,14 +1734,24 @@ def procesar_imagen(ruta: Path) -> None:
         umbral_rf = float(_cfg.get("umbral_modelo", 0.4))
         for bb, tx, cf in detectados:
             if cf < umbral_rf:
+                intentos_ocr.append(("roboflow_rechazada",
+                                     str(tx or ""), float(cf)))
                 continue
             candidatos_rf.append((bb, cf))
             texto_rf = texto_de_api(tx)
             if texto_rf:
                 lecturas_rf[bb] = (texto_rf, cf)
             elif tx:
+                intentos_ocr.append(("roboflow_rechazada",
+                                     str(tx), float(cf)))
                 logger.info("Roboflow: texto rechazado (%s), "
                             "lee la cadena local: %s", tx, ruta.name)
+        if detectados and not lecturas_rf:
+            # RF gasto cuota y no confirmo NINGUNA placa: si la foto
+            # termina descartada o leida por el motor local, queda
+            # copiada en rechazadas_api para diagnostico. (detectados
+            # vacio = calle vacia, no es un rechazo que interese.)
+            api_rechazado = True
         if detectados and not candidatos_rf:
             logger.info("Roboflow: %d deteccion(es) bajo umbral %.2f: %s",
                         len(detectados), umbral_rf, ruta.name)
@@ -1516,6 +1760,7 @@ def procesar_imagen(ruta: Path) -> None:
             logger.debug("Roboflow (red de seguridad): %d candidato(s) "
                          "en %s", len(candidatos), ruta.name)
     if not candidatos:
+        _anotar_rechazo("sin_placa")
         _descartar(ruta, "sin_placa")
         _cooldown_sin_placa()
         return
@@ -1530,11 +1775,14 @@ def procesar_imagen(ruta: Path) -> None:
     umbral_rojo_max = _cfg.get("umbral_rojo_max", 15.0)
     umbral_ancho_bbox = _cfg.get("umbral_ancho_bbox", 0.20)
     ocr_requerido = _cfg.get("ocr_requerido", "si") == "si"
+    # gates_fp = no -> la unica validacion de la foto es la franja
+    # verde (decision 2026-11: camara mira solo la linea; los filtros
+    # FP clasicos quedan apagados con esta llave en [filtros]).
+    gates_fp = bool(_cfg.get("gates_fp", True))
 
     alto, ancho = img.shape[:2]
     elegido = None
     ultimo_fallo: tuple[str, str] = ("sin_placa", "")
-    conf_ocr, intentos_ocr = 0.0, []
     bbox_ocr: tuple[int, int, int, int] | None = None
     huella = 0
 
@@ -1549,44 +1797,64 @@ def procesar_imagen(ruta: Path) -> None:
         corte_borde = (f"(toca el borde: x {x}..{x + w} de {ancho}, "
                        f"y {y}..{y + h} de {alto})")
 
-        # El check de oscuros filtra basura del detector geometrico;
-        # las detecciones del YOLO de Roboflow no lo necesitan.
-        if _detector is None and not candidatos_rf:
-            fraccion = _fraccion_oscuros(recorte)
-            if not min_texto <= fraccion <= max_texto:
-                ultimo_fallo = ("sin_texto", f"({fraccion:.1f}% de oscuros)")
+        # Gate de franja verde: la placa debe quedar TOTALMENTE entre las
+        # dos lineas verdes; la que cruza la de abajo (auto paso de mas)
+        # no es la toma que queremos. El borde de arriba ya lo cubre
+        # toca_borde (el corte ES la linea verde superior).
+        if not _placa_en_franja(y, h, alto):
+            ultimo_fallo = ("fuera_franja",
+                            f"(fuera de franja verde: y {y}..{y + h} "
+                            f"de {alto})")
+            continue
+
+        # nitidez se calcula siempre: elegido la guarda en el registro.
+        nitidez = _nitidez(recorte)
+
+        # Gates FP (oscuros, nitidez, sobreexpuesta, bordes, rojo, ancho):
+        # con gates_fp = no se saltan TODOS: la validacion es solo la
+        # franja verde de arriba.
+        if gates_fp:
+            # El check de oscuros filtra basura del detector geometrico;
+            # las detecciones del YOLO de Roboflow no lo necesitan.
+            if _detector is None and not candidatos_rf:
+                fraccion = _fraccion_oscuros(recorte)
+                if not min_texto <= fraccion <= max_texto:
+                    ultimo_fallo = ("sin_texto",
+                                    f"({fraccion:.1f}% de oscuros)")
+                    continue
+
+            if nitidez < umbral_nitidez:
+                ultimo_fallo = ("baja_nitidez", f"(nitidez {nitidez:.1f})")
                 continue
 
-        nitidez = _nitidez(recorte)
-        if nitidez < umbral_nitidez:
-            ultimo_fallo = ("baja_nitidez", f"(nitidez {nitidez:.1f})")
-            continue
+            quemada = _fraccion_sobreexpuesta(recorte)
+            if quemada > umbral_quemada:
+                ultimo_fallo = ("sobreexpuesta",
+                                f"({quemada:.1f}% saturada)")
+                continue
 
-        quemada = _fraccion_sobreexpuesta(recorte)
-        if quemada > umbral_quemada:
-            ultimo_fallo = ("sobreexpuesta", f"({quemada:.1f}% saturada)")
-            continue
+            bordes = _fraccion_bordes(recorte)
+            if bordes < umbral_bordes:
+                ultimo_fallo = ("ocluida", f"({bordes:.1f}% de bordes)")
+                continue
 
-        bordes = _fraccion_bordes(recorte)
-        if bordes < umbral_bordes:
-            ultimo_fallo = ("ocluida", f"({bordes:.1f}% de bordes)")
-            continue
+            # Gate de color: cintas reflectoras y luces no son placas.
+            # Reales miden <4% de rojo; la cinta reflejo del FP conocido
+            # ~32%.
+            rojo = _fraccion_rojo(recorte)
+            if rojo > umbral_rojo_max:
+                ultimo_fallo = ("color_no_placa", f"({rojo:.1f}% rojo)")
+                continue
 
-        # Gate de color: cintas reflectoras y luces no son placas. Reales
-        # miden <4% de rojo; la cinta reflejo del FP conocido ~32%.
-        rojo = _fraccion_rojo(recorte)
-        if rojo > umbral_rojo_max:
-            ultimo_fallo = ("color_no_placa", f"({rojo:.1f}% rojo)")
-            continue
-
-        # Gate de ancho: texto lateral de omnibus/camion (letreto, nombre,
-        # cinta) mide 0.24-0.46 del ancho de la imagen; placa real 0.04-0.14
-        # (GT-29 max 0.082). Umbral 0.20 deja ~2.4x de margen.
-        if not _pasa_gate_ancho(w, ancho, umbral_ancho_bbox):
-            rel_ancho = w / ancho if ancho else 1.0
-            ultimo_fallo = ("texto_lateral",
-                            f"({rel_ancho:.2f} del ancho de imagen)")
-            continue
+            # Gate de ancho: texto lateral de omnibus/camion (letreto,
+            # nombre, cinta) mide 0.24-0.46 del ancho de la imagen; placa
+            # real 0.04-0.14 (GT-29 max 0.082). Umbral 0.20 deja ~2.4x
+            # de margen.
+            if not _pasa_gate_ancho(w, ancho, umbral_ancho_bbox):
+                rel_ancho = w / ancho if ancho else 1.0
+                ultimo_fallo = ("texto_lateral",
+                                f"({rel_ancho:.2f} del ancho de imagen)")
+                continue
 
         # Pre-chequeo mismo carro (ahorra cuota de la API): si la huella
         # perceptual ya corresponde a una placa guardada HOY en esta vista
@@ -1596,7 +1864,7 @@ def procesar_imagen(ruta: Path) -> None:
         huella_pre = _hash_perceptual(recorte)
         previa_pre = _buscar_misma(vista, huella_pre)
         if (previa_pre is not None
-                and not _es_mejor_toma(vista, previa_pre[1], w, h,
+                and not _es_mejor_toma(vista, previa_pre[1], bbox,
                                        ancho, alto)):
             _descartar(ruta, "duplicado_placa",
                        f"(mismo carro, ya guardada {previa_pre[1]})")
@@ -1622,13 +1890,16 @@ def procesar_imagen(ruta: Path) -> None:
             # API 1: Roboflow lee el recorte; si no da placa valida, API 2
             # PlateRecognizer; si falla, motor local. Primera valida gana.
             rf_texto, rf_conf = _rf_leer_recorte(img, bbox)
+            if _ROBOFLOW_ACTIVO and not rf_texto:
+                api_rechazado = True
             if rf_texto:
                 texto_placa, conf_ocr = rf_texto, rf_conf
                 intentos_ocr = [("roboflow", rf_texto, rf_conf)]
                 bbox_ocr = bbox
                 _trazar_aoi(ruta, img, bbox, rf_texto, rf_conf, intentos_ocr)
             elif leer_placa_6 is not None:
-                texto_placa, conf_ocr, intentos_ocr = leer_placa_6(img, bbox)
+                texto_placa, conf_ocr, intentos_ocr = leer_placa_6(
+                    img, bbox, enmascarar=not ya_enmascarada)
                 bbox_ocr = bbox
                 _trazar_aoi(ruta, img, bbox, texto_placa, conf_ocr, intentos_ocr)
                 if not texto_placa:
@@ -1665,6 +1936,8 @@ def procesar_imagen(ruta: Path) -> None:
             # lectura: no reemplazar la placa guardada; descartar.
             if _es_lectura_lateral(huella, texto_placa, previa[0],
                                    previa[1], _cfg.get("umbral_dedup", 18)):
+                _anotar_rechazo("duplicado_placa",
+                                "lectura lateral")
                 _descartar(
                     ruta, "duplicado_placa",
                     f"(lectura lateral {texto_placa} ~ {previa[1]})")
@@ -1680,11 +1953,13 @@ def procesar_imagen(ruta: Path) -> None:
                                         fuente=fuente_de_intentos(
                                             intentos_ocr),
                                         origen=ruta.name):
+                    _anotar_rechazo("guardado_reemplazo")
                     ruta.unlink(missing_ok=True)
                     _cooldown_placa()
                     return
             detalle = f"(placa {texto_placa} ya guardada hoy en {vista})" \
                 if texto_placa else f"(misma placa ya guardada hoy en {vista})"
+            _anotar_rechazo("duplicado_placa", "placa ya guardada")
             _descartar(ruta, "duplicado_placa", detalle)
             return
 
@@ -1693,6 +1968,8 @@ def procesar_imagen(ruta: Path) -> None:
             pasada, minutos = _pasada_de_placa(texto_placa)
             ventana = float(_cfg.get("ventana_reinspeccion_min", 60))
             if minutos < ventana:
+                _anotar_rechazo("duplicado_placa",
+                                "ventana reinspeccion")
                 _descartar(ruta, "duplicado_placa",
                            f"(placa {texto_placa} registrada hace "
                            f"{minutos:.0f} min, ventana {ventana:.0f} min)")
@@ -1720,6 +1997,8 @@ def procesar_imagen(ruta: Path) -> None:
             rx1, ry1 = min(ancho, bx + bw + ex), min(alto, by + bh + ey)
             bbox_re = (rx0, ry0, rx1 - rx0, ry1 - ry0)
             rf_re, rf_conf_re = _rf_leer_recorte(img, bbox_re)
+            if _ROBOFLOW_ACTIVO and not rf_re:
+                api_rechazado = True
             if rf_re:
                 texto_re = rf_re
                 conf_re = rf_conf_re
@@ -1728,7 +2007,8 @@ def procesar_imagen(ruta: Path) -> None:
                             intentos_re)
             elif leer_placa_6 is not None:
                 texto_re, conf_re, intentos_re = leer_placa_6(
-                    img, bbox_re, reintento=False)
+                    img, bbox_re, reintento=False,
+                    enmascarar=not ya_enmascarada)
                 _trazar_aoi(ruta, img, bbox_re, texto_re, conf_re,
                             intentos_re)
             elif leer_placa is not None:
@@ -1743,6 +2023,8 @@ def procesar_imagen(ruta: Path) -> None:
                          bbox_re[0]:bbox_re[0] + bbox_re[2]]
             huella_re = _hash_perceptual(rec_re)
             if _es_misma_placa(vista, huella_re, texto_re):
+                _anotar_rechazo("duplicado_placa",
+                                "reeval: ya guardada")
                 _descartar(ruta, "duplicado_placa",
                            f"(reeval: placa {texto_re} ya guardada hoy "
                            f"en {vista})")
@@ -1750,6 +2032,8 @@ def procesar_imagen(ruta: Path) -> None:
             pasada_re, minutos_re = _pasada_de_placa(texto_re)
             ventana = float(_cfg.get("ventana_reinspeccion_min", 60))
             if minutos_re < ventana:
+                _anotar_rechazo("duplicado_placa",
+                                "reeval: ventana")
                 _descartar(ruta, "duplicado_placa",
                            f"(reeval: placa {texto_re} registrada hace "
                            f"{minutos_re:.0f} min, ventana {ventana:.0f} min)")
@@ -1791,6 +2075,7 @@ def procesar_imagen(ruta: Path) -> None:
                 filtro=ultimo_fallo[0], detalle=ultimo_fallo[1])
         except Exception:
             logger.debug("log_sin_lectura no disponible", exc_info=True)
+        _anotar_rechazo(ultimo_fallo[0], ultimo_fallo[1])
         _descartar(ruta, ultimo_fallo[0], ultimo_fallo[1])
         _cooldown_sin_placa()
         return
@@ -1808,6 +2093,7 @@ def procesar_imagen(ruta: Path) -> None:
                        int(_cfg.get("ventana_reinspeccion_dias", 30)),
                        ruta.name)
 
+    _anotar_rechazo("guardado")
     destino = _guardar(img, bbox, vista, texto_placa,
                        sufijo=etiqueta_fuente(intentos_ocr) + sufijo,
                        dudosa=dudosa)

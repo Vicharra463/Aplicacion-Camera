@@ -18,12 +18,15 @@ import configparser
 import sys
 from pathlib import Path
 
+sys.path.insert(0, r"D:\Aplicacion-Camera")
 sys.path.insert(0, r"D:\Aplicacion-Camera\app")
 import cv2
 
 from gt_placas import DIAGNOSTICOS, RAIZ
 from modelo import DetectorPlacas
 import platerecognizer
+import worker
+from ftp_server import cargar_config
 
 CONFIG = Path(r"D:\Aplicacion-Camera\config.ini")
 
@@ -49,7 +52,13 @@ def main() -> int:
         return 1
 
     detector = DetectorPlacas(ruta)
-    print(f"[eval] modelo={ruta.name}  claves={len(platerecognizer._tokens)}")
+    # ROI franja verde de produccion: mismo codigo (_recortar_roi) y
+    # mismas claves (cargar_config) que el worker. Con habilitado = no
+    # la imagen pasa identico que siempre.
+    worker._cfg = cargar_config()
+    roi = worker._cfg.get("roi_habilitado", False)
+    print(f"[eval] modelo={ruta.name}  claves={len(platerecognizer._tokens)}"
+          f"  roi={'si' if roi else 'no'}")
 
     aciertos = 0
     por_api = 0
@@ -61,15 +70,18 @@ def main() -> int:
         if img is None:
             fallos.append(f"{dia}/{nombre}: FOTO NO ENCONTRADA")
             continue
+        img, _y_roi = worker._preparar_imagen(img)
 
-        detecciones = detector.detectar(img)
+        detecciones = detector.detectar(
+            img, enmascarar=not worker._cfg.get("roi_habilitado", False))
         bboxes = [bb for (bb, _c) in
                   sorted(detecciones, key=lambda par: par[0][2] * par[0][3],
                          reverse=True)]
 
         placa, conf, intentos = "", 0.0, []
         for bb in bboxes:
-            placa, conf, intentos = platerecognizer.leer_placa_6_api(img, bb)
+            placa, conf, intentos = platerecognizer.leer_placa_6_api(
+                img, bb, enmascarar=not roi)
             if placa:
                 break
 

@@ -87,6 +87,7 @@ def cargar_config() -> dict:
         "logs": ruta_rel("rutas", "logs"),
         "heartbeat": ruta_rel("rutas", "heartbeat"),
         "reportes": opt("rutas", "reportes", "reportes"),
+        "rechazadas_api": opt("rutas", "rechazadas_api", "rechazadas_api"),
         "aoi_tokens": ini.get("aoi", "tokens", fallback=""),
         "roboflow_key": ini.get("roboflow", "api_key", fallback=""),
         "roboflow_workspace": ini.get("roboflow", "workspace",
@@ -109,6 +110,14 @@ def cargar_config() -> dict:
         "umbral_sobreexpuesto": ini.getfloat("filtros", "umbral_sobreexpuesto",
                                              fallback=2.0),
         "umbral_bordes": ini.getfloat("filtros", "umbral_bordes", fallback=2.0),
+        # gates_fp = no -> solo el gate de franja verde valida la foto
+        # (los filtros FP clasicos quedan apagados por config).
+        "gates_fp": ini.get("filtros", "gates_fp",
+                            fallback="si").strip().lower() == "si",
+        "umbral_rojo_max": ini.getfloat("filtros", "umbral_rojo_max",
+                                        fallback=15.0),
+        "umbral_ancho_bbox": ini.getfloat("filtros", "umbral_ancho_bbox",
+                                          fallback=0.20),
         "umbral_dedup": ini.getint("filtros", "umbral_dedup_dist", fallback=12),
         "descartes": opt("filtros", "descartes", "descartadas"),
         
@@ -120,6 +129,16 @@ def cargar_config() -> dict:
         "max_pasadas": ini.getint("camara", "max_pasadas", fallback=3),
         "cooldown_placa_seg": ini.getfloat("camara", "cooldown_placa_seg",
                                            fallback=5.0),
+        # ROI franja verde: recorte del worker + gate de placa totalmente
+        # visible. Sin estas claves aca, worker._cfg.get() usa el default
+        # en silencio y editar el ini no hace nada (mismo gotcha que
+        # umbral_ancho_bbox hasta 2026-11).
+        "roi_habilitado": ini.get("roi", "habilitado",
+                                  fallback="no").strip().lower() == "si",
+        "roi_linea_verde_sup": ini.getfloat("roi", "linea_verde_sup",
+                                             fallback=0.0),
+        "roi_linea_verde_inf": ini.getfloat("roi", "linea_verde_inf",
+                                             fallback=1.0),
         "reposo_minutos": ini.getfloat("recursos", "reposo_minutos",
                                        fallback=10.0),
         "nivel_log": ini.get("log", "nivel"),

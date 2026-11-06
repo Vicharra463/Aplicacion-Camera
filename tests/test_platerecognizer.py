@@ -1,4 +1,4 @@
-import ocr
+﻿import ocr
 import platerecognizer as pr
 import pytest
 
@@ -77,6 +77,43 @@ def test_api_rechaza_placa_distinta_de_6_y_cae_al_local(monkeypatch):
     assert not any(nombre == "api" for nombre, _t, _c in intentos)
 
 
+def test_api_rechazada_se_marca_en_intentos(monkeypatch):
+    # La traza de rechazadas_api necesita SABER que la API fue consultada
+    # y no confirmo (el worker la copia a rechazadas_api\ para diagnostico).
+    # El marcador va AL FINAL: no cambia la fuente ni el orden de lectura.
+    monkeypatch.setattr(pr, "leer_api", lambda img, bbox: None)
+    monkeypatch.setattr(ocr, "leer_placa_6", _local_falso("LOC-123"))
+
+    placa, _conf, intentos = pr.leer_placa_6_api(None, None)
+
+    assert placa == "LOC-123"
+    assert intentos[-1][0] == "api_rechazada"
+    assert not any(nombre == "api" for nombre, _t, _c in intentos)
+
+
+def test_api_rechazada_placa_invalida_tambien_se_marca(monkeypatch):
+    monkeypatch.setattr(pr, "leer_api",
+                        lambda img, bbox: _data("ABC1234"))
+    monkeypatch.setattr(ocr, "leer_placa_6", _local_falso("LOC-123"))
+
+    _placa, _conf, intentos = pr.leer_placa_6_api(None, None)
+
+    assert intentos[-1][0] == "api_rechazada"
+
+
+def test_sin_barrido_no_se_marca_rechazo(monkeypatch):
+    # Si ni el barrido gratis ve texto, la API NUNCA se llamo: no hay
+    # rechazo que registrar (no se gasto cuota).
+    monkeypatch.setattr(ocr, "hay_texto", lambda img, bbox, **k: False)
+    monkeypatch.setattr(pr, "leer_api",
+                        lambda img, bbox: pytest.fail("no debe llamar"))
+    monkeypatch.setattr(ocr, "leer_placa_6", _local_falso("LOC-123"))
+
+    _placa, _conf, intentos = pr.leer_placa_6_api(None, None)
+
+    assert not any(n == "api_rechazada" for n, _t, _c in intentos)
+
+
 def test_api_rechaza_placa_de_5_y_cae_al_local(monkeypatch):
     monkeypatch.setattr(pr, "leer_api", lambda img, bbox: _data("ABC12"))
     monkeypatch.setattr(ocr, "leer_placa_6", _local_falso("LOC-123"))
@@ -110,3 +147,4 @@ def test_api_con_placa_invalida_y_local_tambien_sin_lectura(monkeypatch):
     placa, _conf, intentos = pr.leer_placa_6_api(None, None)
     assert placa == ""
     assert not any(nombre == "api" for nombre, _t, _c in intentos)
+

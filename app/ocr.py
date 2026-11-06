@@ -397,7 +397,7 @@ def _leer_en_bbox(img: np.ndarray, bbox: tuple[int, int, int, int],
 
 
 def _reintento_onnx(img: np.ndarray, bbox: tuple[int, int, int, int],
-                    margen_base: float
+                    margen_base: float, enmascarar: bool = True
                     ) -> tuple[str, float, list[tuple[str, str, float]]]:
     global _detector_onnx
     registro: list[tuple[str, str, float]] = []
@@ -407,7 +407,7 @@ def _reintento_onnx(img: np.ndarray, bbox: tuple[int, int, int, int],
             if not RUTA_ONNX.is_file():
                 return "", 0.0, registro
             _detector_onnx = DetectorPlacas(RUTA_ONNX)
-        detecciones = _detector_onnx.detectar(img)
+        detecciones = _detector_onnx.detectar(img, enmascarar=enmascarar)
         if not detecciones:
             return "", 0.0, registro
         b2 = max(detecciones, key=lambda par: par[0][2] * par[0][3])[0]
@@ -427,8 +427,9 @@ def _reintento_onnx(img: np.ndarray, bbox: tuple[int, int, int, int],
 
 
 def leer_placa_6(img: np.ndarray, bbox: tuple[int, int, int, int],
-                  margen_base: float = 0.35, reintento: bool = True
-                  ) -> tuple[str, float, list[tuple[str, str, float]]]:
+                 margen_base: float = 0.35, reintento: bool = True,
+                 enmascarar: bool = True
+                 ) -> tuple[str, float, list[tuple[str, str, float]]]:
     bx, by, bw, bh = (int(v) for v in bbox)
     if bw < ANCHO_MINIMO or bh < ALTO_MINIMO:
         return "", 0.0, [("calidad", f"bbox {bw}x{bh} bajo minimo", 0.0)]
@@ -442,7 +443,8 @@ def leer_placa_6(img: np.ndarray, bbox: tuple[int, int, int, int],
         return t_crnn, 0.0, registro
     if not reintento:
         return "", 0.0, registro
-    t2, c2, reg2 = _reintento_onnx(img, bbox, margen_base)
+    t2, c2, reg2 = _reintento_onnx(img, bbox, margen_base,
+                                   enmascarar=enmascarar)
     return t2, c2, registro + reg2
 
 

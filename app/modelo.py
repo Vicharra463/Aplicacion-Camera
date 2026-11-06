@@ -74,14 +74,21 @@ class DetectorPlacas:
                     ruta.name, self.lado, self.lado, self.umbral)
 
     
-    def detectar(self, img: np.ndarray) -> list[tuple[tuple[int, int, int, int], float]]:
-        """Devuelve [((x, y, w, h), confianza)] en coordenadas de la imagen."""
+    def detectar(self, img: np.ndarray,
+                 enmascarar: bool = True) -> list[tuple[tuple[int, int, int, int], float]]:
+        """Devuelve [((x, y, w, h), confianza)] en coordenadas de la imagen.
+
+        enmascarar=False: la imagen ya viene con la mascara OSD aplicada
+        (ROI activo la aplica ANTES de recortar; volver a enmascarar con
+        ZONAS_OSD normalizadas al encuadre original taparia la placa del
+        recorte).
+        """
         alto, ancho = img.shape[:2]
         lado = self.lado
 
         
         
-        entrada = enmascarar_osd(img)
+        entrada = enmascarar_osd(img) if enmascarar else img
 
         
         
