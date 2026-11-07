@@ -120,9 +120,9 @@ def test_placa_en_franja_sin_roi_pasa(sin_roi):
 # ------------------------------------------------------------- posicion ---
 
 def test_distancia_franja_centro_de_franja_es_cero(roi):
-    # centro de la franja en coords originales: (0.40+0.80)/2 = 0.60
-    # en coords de la recortada: (0.60-0.40)/(1-0.40) = 0.3333
-    dist = worker._distancia_franja(1 / 3, 0.40, 0.80)
+    # cy viene en coords de la foto ORIGINAL (el .txt guarda cy sobre
+    # la foto completa): centro de la franja (0.40+0.80)/2 = 0.60
+    dist = worker._distancia_franja(0.60, 0.40, 0.80)
     assert dist == pytest.approx(0.0, abs=1e-6)
 
 
@@ -132,15 +132,14 @@ def test_distancia_franja_sin_roi_es_distancia_al_centro(sin_roi):
 
 
 def test_mejora_posicion_clara(roi):
-    # vieja: cy_rec 0.90 -> orig 0.94, dist 0.34 del centro (0.60)
-    # nueva: cy_rec 0.50 -> orig 0.70, dist 0.10  (< 75% de 0.34)
-    assert worker._mejora_por_posicion(0.50, 0.90) is True
+    # centro de franja 0.60; vieja cy 0.94 -> dist 0.34
+    # nueva cy 0.70 -> dist 0.10 (< 75% de 0.34)
+    assert worker._mejora_por_posicion(0.70, 0.94) is True
 
 
 def test_mejora_posicion_marginal_no_cuenta(roi):
     # dist 0.20 -> 0.16: solo 20% mas cerca, umbral es 25%
-    # vieja orig 0.80 (cy_rec 0.6667), nueva orig 0.76 (cy_rec 0.60)
-    assert worker._mejora_por_posicion(0.60, 2 / 3) is False
+    assert worker._mejora_por_posicion(0.76, 0.80) is False
 
 
 def test_mejora_posicion_igual_no_cuenta(roi):

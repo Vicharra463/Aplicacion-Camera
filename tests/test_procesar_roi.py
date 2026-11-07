@@ -314,6 +314,57 @@ def test_roboflow_que_ve_no_confirma_es_rechazo(proc, monkeypatch):
     assert traza["rf_rechazado"] is True
 
 
+# -------------------------------------------------- foto guardada ROI ---
+
+def test_guarda_foto_completa_con_bandas_y_etiqueta_roi(proc):
+    # El pedido de FELIPE: la foto guardada lleva el nombre de la placa,
+    # las bandas de colores del ROI y la etiqueta "ROI", para poder VER
+    # en la foto donde queda la placa respecto de las lineas.
+    ruta = proc.foto("fotoroi.jpg", 90, 110)
+    worker.procesar_imagen(ruta)
+
+    guardadas = _guardadas(proc)
+    assert len(guardadas) == 1
+    assert "ABC-123" in guardadas[0].name       # nombre = la placa
+
+    img = cv2.imread(str(guardadas[0]))
+    assert img is not None
+    # Se guarda la foto ORIGINAL completa (160), no el recorte (88):
+    # el corte es solo para el detector.
+    assert img.shape[0] == ALTO
+
+    # Bandas de colores (BGR): roja arriba, verde en la franja,
+    # naranja abajo. Mismo estilo que scripts\vista_roi.py.
+    assert int(img[10, 5, 2]) > int(img[10, 5, 1])            # R > G: rojo
+    assert int(img[100, 5, 1]) > int(img[100, 5, 2])          # G > R: verde
+    assert (int(img[150, 5, 2]) > int(img[150, 5, 1])
+            > int(img[150, 5, 0]))                             # naranja
+
+    # Etiqueta "ROI": texto blanco sobre la banda roja (arriba-izq).
+    region = img[8:60, 8:ANCHO]
+    assert bool(np.all(region > 230, axis=2).any()), \
+        "falta la etiqueta ROI en la foto guardada"
+
+    # El .txt queda normalizado a la foto COMPLETA (coherente con la
+    # imagen guardada): cy = ((90+110)/2) / 160 = 0.625.
+    partes = guardadas[0].with_suffix(".txt").read_text(
+        encoding="utf-8").split()
+    assert abs(float(partes[2]) - ((90 + 110) / 2 / ALTO)) < 0.01
+
+
+def test_roi_apagado_guarda_sin_bandas(proc):
+    proc.cfg["roi_habilitado"] = False
+    ruta = proc.foto("fotocolor.jpg", 90, 110)
+    worker.procesar_imagen(ruta)
+
+    guardadas = _guardadas(proc)
+    assert len(guardadas) == 1
+    img = cv2.imread(str(guardadas[0]))
+    assert img.shape[0] == ALTO
+    # Sin ROI no hay tintas: el fondo blanco queda intacto.
+    assert int(img[10, 5, 1]) > 200
+
+
 # ------------------------------------------------------------- purga ---
 
 def test_purga_rechazadas_por_retencion(proc):

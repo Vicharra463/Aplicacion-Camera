@@ -38,7 +38,10 @@ def leer_config() -> tuple[float, float, bool]:
     p.read(RUTA_CONFIG, encoding="utf-8-sig")
     sup = p.getfloat("roi", "linea_verde_sup", fallback=0.45)
     inf = p.getfloat("roi", "linea_verde_inf", fallback=0.75)
-    hab = p.getboolean("roi", "habilitado", fallback=False)
+    # En español: "si"/"no" (getboolean de configparser solo entiende
+    # yes/no/true/false en ingles y revienta con "si").
+    hab = p.get("roi", "habilitado", fallback="no").strip().lower() in (
+        "si", "true", "yes", "1")
     return sup, inf, hab
 
 

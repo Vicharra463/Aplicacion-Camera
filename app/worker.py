@@ -234,6 +234,34 @@ def _carpeta_de_ruta(relativo: str) -> str:
     return parte if parte in FOLDER_POR_CANAL.values() else CARPETA_POR_DEFECTO
 
 
+def _cargar_dedup_dia(con, limite_dia: str) -> None:
+    """Carga la memoria del dedup del dia (_hashes/_placas) desde registros.
+
+    La DB es la memoria; el archivo en disco es solo evidencia: NO se
+    chequea is_file(). Con ese filtro, una foto movida o borrada (p. ej.
+    llevada a FOTOS CAMARA) borraba la placa de la memoria y la segunda
+    toma del mismo carro entraba como si fuera nueva: repeticiones.
+    """
+    global _hashes, _placas
+    _hashes = {}
+    _placas = {}
+    for valor, archivo, placa in con.execute(
+            "SELECT phash, archivo, placa FROM registros "
+            "WHERE phash IS NOT NULL AND fecha_hora >= ?",
+            (limite_dia,)):
+        if not archivo:
+            continue
+        _hashes.setdefault(_carpeta_de_ruta(archivo), {})[
+            int(valor, 16)] = placa or ""
+    for texto, archivo in con.execute(
+            "SELECT placa, archivo FROM registros "
+            "WHERE placa IS NOT NULL AND fecha_hora >= ?",
+            (limite_dia,)):
+        if not texto or not archivo:
+            continue
+        _placas.setdefault(_carpeta_de_ruta(archivo), set()).add(texto)
+
+
 def iniciar(cfg: dict) -> None:
     global _cfg, _ruta_registro, _hashes, _placas, _dia_dedup, _detector, _reposo_seg
     global leer_placa_6, _AOI_ACTIVA, _ROBOFLOW_ACTIVO
@@ -286,7 +314,7 @@ def iniciar(cfg: dict) -> None:
         con.execute(
             """
             CREATE TABLE IF NOT EXISTS registros (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
                 fecha_hora TEXT    NOT NULL,
                 archivo    TEXT    NOT NULL,
                 placa      TEXT,
@@ -312,11 +340,11 @@ def iniciar(cfg: dict) -> None:
         con.execute(
             """
             CREATE TABLE IF NOT EXISTS pasadas (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                placa     TEXT    NOT NULL,
-                pasada    INTEGER NOT NULL,
-                fecha_hora TEXT   NOT NULL,
-                excedida  INTEGER NOT NULL DEFAULT 0
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                placa      TEXT    NOT NULL,
+                pasada     INTEGER NOT NULL,
+                fecha_hora TEXT    NOT NULL,
+                excedida   INTEGER NOT NULL DEFAULT 0
             )
             """
         )
@@ -327,7 +355,7 @@ def iniciar(cfg: dict) -> None:
         con.execute(
             """
             CREATE TABLE IF NOT EXISTS candidatas (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
                 fecha_hora TEXT    NOT NULL,
                 placa      TEXT    NOT NULL,
                 archivo    TEXT    NOT NULL,
@@ -358,27 +386,7 @@ def iniciar(cfg: dict) -> None:
         except Exception:
             logger.exception("Reconciliacion de carpetas del dia fallo "
                              "(el servicio sigue)")
-        carpeta_dia = _cfg["procesadas"]
-        _hashes = {}
-        _placas = {}
-        for valor, archivo, placa in con.execute(
-                "SELECT phash, archivo, placa FROM registros "
-                "WHERE phash IS NOT NULL AND fecha_hora >= ?",
-                (limite_dia,)):
-            if archivo and not (carpeta_dia / archivo).is_file():
-                continue
-            vista = _carpeta_de_ruta(archivo)
-            _hashes.setdefault(vista, {})[int(valor, 16)] = placa or ""
-        for texto, archivo in con.execute(
-                "SELECT placa, archivo FROM registros "
-                "WHERE placa IS NOT NULL AND fecha_hora >= ?",
-                (limite_dia,)
-        ):
-            if not texto:
-                continue
-            if archivo and not (carpeta_dia / archivo).is_file():
-                continue
-            _placas.setdefault(_carpeta_de_ruta(archivo), set()).add(texto)
+        _cargar_dedup_dia(con, limite_dia)
     finally:
         con.close()
     total_huellas = sum(len(v) for v in _hashes.values())
@@ -1054,15 +1062,14 @@ def _placa_en_franja(y: int, h: int, alto: int) -> bool:
 
 
 def _distancia_franja(cy: float, sup: float, inf: float) -> float:
-    """Distancia (0-1, coords de la imagen ORIGINAL) del centro de la
-    placa al centro de la franja verde.
+    """Distancia (0-1) del centro de la placa al centro de la franja.
 
-    `cy` viene normalizado sobre la imagen en proceso (recortada si hay
-    ROI); se mapea a la original con sup + cy * (1 - sup).
+    `cy` esta normalizado sobre la IMAGEN ORIGINAL (coords de la foto
+    guardada y del .txt: con ROI activo la foto se guarda COMPLETA con
+    las bandas, el recorte es solo para el detector).
     """
     centro = (sup + inf) / 2.0
-    cy_orig = sup + cy * (1.0 - sup)
-    return abs(cy_orig - centro)
+    return abs(cy - centro)
 
 
 def _mejora_por_posicion(cy_nuevo: float, cy_viejo: float | None) -> bool:
@@ -1086,6 +1093,41 @@ def _etiqueta_centro_y(jpg: Path) -> float | None:
         return float(partes[2])
     except Exception:
         return None
+
+
+def _dibujar_roi(img: np.ndarray, sup: float, inf: float) -> np.ndarray:
+    """Bandas de colores del ROI + etiqueta "ROI" sobre la foto COMPLETA.
+
+    La foto guardada conserva el encuadre original (el corte es solo
+    para el detector) y pinta, igual que scripts\\vista_roi.py:
+      * banda ROJA  [0, sup)          -> se corta, no se detecta
+      * banda VERDE [sup, inf)        -> aqui debe estar el vehiculo
+      * banda NARANJA [inf, 1)        -> lo que cruza la linea no cuenta
+    Mas la etiqueta "ROI" arriba-izq para poder VER en la foto donde
+    queda la placa respecto de las lineas.
+    """
+    alto, ancho = img.shape[:2]
+    y_sup = int(round(sup * alto))
+    y_inf = int(round(inf * alto))
+    vista = img.copy()
+    rojo = vista[0:y_sup]
+    if rojo.size:
+        vista[0:y_sup] = (rojo * 0.45 + np.array([0, 0, 180]) * 0.55
+                          ).astype(np.uint8)
+    verde = vista[y_sup:y_inf]
+    if verde.size:
+        vista[y_sup:y_inf] = (verde * 0.55 + np.array([0, 150, 0]) * 0.45
+                              ).astype(np.uint8)
+    bajo = vista[y_inf:]
+    if bajo.size:
+        vista[y_inf:] = (bajo * 0.6 + np.array([0, 140, 255]) * 0.4
+                         ).astype(np.uint8)
+    cv2.line(vista, (0, y_sup), (ancho - 1, y_sup), (0, 255, 0), 2)
+    cv2.line(vista, (0, y_inf), (ancho - 1, y_inf), (0, 200, 255), 2)
+    cv2.putText(vista, "ROI", (10, max(40, min(y_sup - 8, 56))),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.1, (255, 255, 255), 3,
+                cv2.LINE_AA)
+    return vista
 
 
 def _hash_perceptual(img: np.ndarray) -> int:
@@ -1445,14 +1487,20 @@ def _guardar(img: np.ndarray, bbox: tuple[int, int, int, int] | None,
         nombre = f"{nombre} (DUDOSA)"
     destino = _destino_libre(carpeta, f"{nombre}.jpg")
     salida = img
+    if _cfg.get("roi_habilitado"):
+        # Foto guardada COMPLETA con las bandas de colores y la etiqueta
+        # ROI: sirve para ver donde queda la placa respecto de las
+        # lineas (el corte es solo para el detector).
+        sup, inf = _franja_verde()
+        salida = _dibujar_roi(img, sup, inf)
     if vista == "placa" and bbox is not None:
         color = color_caja(sufijo)
         if dudosa:
             fino = max(1, round(min(img.shape[:2]) / 600))
-            salida = _dibujar_caja(img, bbox, color, padding=0.18,
+            salida = _dibujar_caja(salida, bbox, color, padding=0.18,
                                    grosor=fino)
         else:
-            salida = _dibujar_caja(img, bbox, color)
+            salida = _dibujar_caja(salida, bbox, color)
     if not cv2.imwrite(str(destino), salida,
                        [int(cv2.IMWRITE_JPEG_QUALITY), 100]):
         # REGLA: una carpeta de placa SIEMPRE tiene sus archivos. Si la
@@ -1526,7 +1574,7 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
             and evidencia >= (ev_vieja or 0)):
         return False
     sufijo = next((s for s in ("_2da-pasada", "_3ra-pasada", "_EXCEDIDA")
-                   if viejo.stem.endswith(s)), "")
+                    if viejo.stem.endswith(s)), "")
     if not etiqueta:
         etiqueta = next((e for e in ("_api-Roboflow", "_api-PlateRecognizer")
                          if e in viejo.stem), "")
@@ -1540,7 +1588,11 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
         viejo.parent.rmdir()
     except OSError:
         pass  # no vacia (otros archivos) o ya no existe
-    nuevo = _guardar(img, bbox, vista, texto, sufijo=etiqueta + sufijo)
+    
+    # NUEVO: Sufijo condicional si el ROI está habilitado
+    sufijo_roi = "_roi-evaluado" if _cfg.get("roi_habilitado") else ""
+    
+    nuevo = _guardar(img, bbox, vista, texto, sufijo=etiqueta + sufijo_roi + sufijo)
     relativo = str(nuevo.relative_to(_cfg["procesadas"]))
     con = _conexion()
     try:
@@ -1681,7 +1733,19 @@ def procesar_imagen(ruta: Path) -> None:
     # ROI franja verde: mascara OSD (si activa) + corta lo de atras de
     # la linea verde de arriba ANTES de todo (diff, detector, Roboflow).
     # Todo lo demas corre sobre el recorte, con coordenadas consistentes.
-    img, _y_roi = _preparar_imagen(img)
+    # La foto que se GUARDA es la original COMPLETA (con bandas ROI):
+    # el corte es solo para el detector; y_roi es el desplazamiento en
+    # px para llevar el bbox del recorte a coords de la foto completa.
+    img_full = img.copy() if _cfg.get("roi_habilitado") else None
+    img, y_roi = _preparar_imagen(img)
+    dy_roi = int(round(y_roi))
+    foto_save = img_full if img_full is not None else img
+    alto_save, ancho_save = foto_save.shape[:2]
+
+    def _bbox_full(b):
+        if b is None:
+            return None
+        return (b[0], b[1] + dy_roi, b[2], b[3])
 
     # Traza de rechazo de API: si alguna API fue consultada y no confirmo
     # (Roboflow sin lectura valida o PlateRecognizer 'api_rechazada'), la
@@ -1701,7 +1765,7 @@ def procesar_imagen(ruta: Path) -> None:
                                    detalle, rf_rechazado=api_rechazado)
         except Exception:
             logger.exception("No se pudo copiar a rechazadas_api %s",
-                             ruta.name)
+                               ruta.name)
 
     vista = _carpeta_de(ruta.name)
     logger.debug("Imagen %s -> vista %s (%dx%d)", ruta.name, vista,
@@ -1864,8 +1928,9 @@ def procesar_imagen(ruta: Path) -> None:
         huella_pre = _hash_perceptual(recorte)
         previa_pre = _buscar_misma(vista, huella_pre)
         if (previa_pre is not None
-                and not _es_mejor_toma(vista, previa_pre[1], bbox,
-                                       ancho, alto)):
+                and not _es_mejor_toma(vista, previa_pre[1],
+                                       _bbox_full(bbox),
+                                       ancho_save, alto_save)):
             _descartar(ruta, "duplicado_placa",
                        f"(mismo carro, ya guardada {previa_pre[1]})")
             return
@@ -1945,8 +2010,9 @@ def procesar_imagen(ruta: Path) -> None:
             if texto_placa and evidencia_y_color is not None:
                 ev_nueva, color_nuevo = evidencia_y_color(
                     texto_placa, conf_ocr, intentos_ocr)
-                if _reemplazar_si_mejor(vista, previa[0], previa[1], img,
-                                        bbox, texto_placa, ev_nueva,
+                if _reemplazar_si_mejor(vista, previa[0], previa[1],
+                                        foto_save, _bbox_full(bbox),
+                                        texto_placa, ev_nueva,
                                         color_nuevo, confianza, huella,
                                         etiqueta=etiqueta_fuente(
                                             intentos_ocr),
@@ -2094,8 +2160,12 @@ def procesar_imagen(ruta: Path) -> None:
                        ruta.name)
 
     _anotar_rechazo("guardado")
-    destino = _guardar(img, bbox, vista, texto_placa,
-                       sufijo=etiqueta_fuente(intentos_ocr) + sufijo,
+    
+    # NUEVO: Sufijo condicional si el ROI está habilitado
+    sufijo_roi = "_roi-evaluado" if _cfg.get("roi_habilitado") else ""
+
+    destino = _guardar(foto_save, _bbox_full(bbox), vista, texto_placa,
+                       sufijo=etiqueta_fuente(intentos_ocr) + sufijo_roi + sufijo,
                        dudosa=dudosa)
     relativo = str(destino.relative_to(_cfg["procesadas"]))
     confirmada = _detector is not None or bool(candidatos_rf)
