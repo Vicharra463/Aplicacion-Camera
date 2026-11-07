@@ -70,6 +70,10 @@ _placas: dict[str, set[str]] = {}
 
 _dia_dedup: str = ""
 
+# Timestamp de camara (YYYYMMDDHHMMSS...) de la ULTIMA placa guardada:
+# base del cooldown por evento/rafaga (un carro = una placa por pasada).
+_ultima_placa_foto_ts: datetime | None = None
+
 _cfg: dict = {}
 _ruta_registro: Path | None = None
 
@@ -1211,6 +1215,36 @@ def _sufijo_pasada(pasada: int) -> str:
     return {1: "", 2: "_2da-pasada", 3: "_3ra-pasada"}.get(pasada, "_EXCEDIDA")
 
 
+# Formatos de placa peruana validos (MTC): ABC-123, A1B-234, AB1-234
+# (desde 2010) y la vieja AB-1234. Mata lo que NO es placa aunque el
+# OCR "lea" algo: 5TC-000 (cartel lateral de micro), 00F-245,
+# VST-0NY, SES-05A, A68-778.
+_RE_PLACA_PE = re.compile(
+    r"^(?:[A-Z]{3}|[A-Z]\d[A-Z]|[A-Z]{2}\d)[-\s]?\d{3}$"
+    r"|^[A-Z]{2}[-\s]?\d{4}$")
+
+
+def _formato_placa_valido(texto: str) -> bool:
+    """True si el texto tiene formato de placa peruana."""
+    t = (texto or "").strip().upper()
+    return bool(_RE_PLACA_PE.match(t))
+
+
+def _ts_de_foto(nombre: str) -> datetime | None:
+    """Timestamp de camara embebido en el nombre (20261106140422407).
+
+    Devuelve None en archivos ya renombrados (replay): sin timestamp no
+    se aplica el cooldown por evento (mejor dejar pasar que perder).
+    """
+    m = re.search(r"(20\d{15})", nombre)
+    if not m:
+        return None
+    try:
+        return datetime.strptime(m.group(1)[:14], "%Y%m%d%H%M%S")
+    except ValueError:
+        return None
+
+
 def _cooldown_placa() -> None:
     """Pausa tras guardar una placa (cooldown_placa_seg, por defecto 5 s)."""
     seg = float(_cfg.get("cooldown_placa_seg", 5.0))
@@ -2148,6 +2182,42 @@ def procesar_imagen(ruta: Path) -> None:
 
     bbox, confianza, nitidez, texto_placa, pasada, excedida, sufijo = elegido
 
+    # Gate de formato: solo placas peruanas reales. Los carteles y
+    # stickers leidos como placa (5TC-000) no pasan de aca.
+    if (texto_placa and _cfg.get("validar_formato", True)
+            and not _formato_placa_valido(texto_placa)):
+        detalle_fmt = f"(texto {texto_placa} no es formato peruano)"
+        _anotar_rechazo("formato_invalido", detalle_fmt)
+        _descartar(ruta, "formato_invalido", detalle_fmt)
+        return
+
+    # Confianza minima de la deteccion: placas reales 0.83+; placards
+    # (UN1-910 0.64) y stickers (WO3-330 0.65) quedan afuera. 0 = sin
+    # informacion (rutas sin scoring) no se rechaza.
+    min_conf = float(_cfg.get("confianza_minima", 0.66))
+    if confianza and confianza < min_conf:
+        detalle_conf = f"(confianza {confianza:.2f} < {min_conf})"
+        _anotar_rechazo("confianza_baja", detalle_conf)
+        _descartar(ruta, "confianza_baja", detalle_conf)
+        return
+
+    # Cooldown POR EVENTO (rafaga): si la foto viene de la misma
+    # ventana de tiempo de la camara que la ultima placa guardada, se
+    # rechaza aunque el texto sea DISTINTO (el mismo carro genera
+    # varios textos). Un carro = una placa por pasada.
+    global _ultima_placa_foto_ts
+    ventana_ev = float(_cfg.get("cooldown_evento_seg", 15.0))
+    if ventana_ev > 0 and _ultima_placa_foto_ts is not None:
+        ts_foto = _ts_de_foto(ruta.name)
+        if ts_foto is not None:
+            delta = abs((ts_foto - _ultima_placa_foto_ts).total_seconds())
+            if delta <= ventana_ev:
+                detalle_ev = (f"(misma rafaga que la placa guardada hace "
+                              f"{delta:.0f}s, texto {texto_placa})")
+                _anotar_rechazo("cooldown_evento", detalle_ev)
+                _descartar(ruta, "cooldown_evento", detalle_ev)
+                return
+
     evidencia, color = (evidencia_y_color(texto_placa, conf_ocr, intentos_ocr)
                         if evidencia_y_color is not None and texto_placa
                         else (0, "rojo"))
@@ -2222,6 +2292,9 @@ def procesar_imagen(ruta: Path) -> None:
                 nitidez, origen, confianza, porcentaje, ruta.name)
 
     _ultima_imagen[vista] = img.copy()
+    ts_guardada = _ts_de_foto(ruta.name)
+    if ts_guardada is not None:
+        _ultima_placa_foto_ts = ts_guardada
     ruta.unlink(missing_ok=True)
     _cooldown_placa()
 

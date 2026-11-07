@@ -129,6 +129,21 @@ def cargar_config() -> dict:
         "max_pasadas": ini.getint("camara", "max_pasadas", fallback=3),
         "cooldown_placa_seg": ini.getfloat("camara", "cooldown_placa_seg",
                                            fallback=5.0),
+        # Cooldown POR EVENTO (rafaga): rechaza fotos de la misma
+        # ventana de tiempo de la camara que la ultima placa guardada,
+        # aunque el texto sea distinto (un carro = una placa por
+        # pasada). 0 = apagado.
+        "cooldown_evento_seg": ini.getfloat("camara", "cooldown_evento_seg",
+                                            fallback=15.0),
+        # GATES ANTI-FANTASMA (2026-11-06):
+        #   validar_formato  = solo formatos peruanos (ABC-123, A1B-234,
+        #                      AB1-234, AB-1234); mata carteles/stickers.
+        #   confianza_minima = descarta detecciones flojas (placards,
+        #                      stickers); 0 = sin minimo.
+        "validar_formato": ini.get("filtros", "validar_formato",
+                                   fallback="si").strip().lower() == "si",
+        "confianza_minima": ini.getfloat("filtros", "confianza_minima",
+                                         fallback=0.66),
         # ROI franja verde: recorte del worker + gate de placa totalmente
         # visible. Sin estas claves aca, worker._cfg.get() usa el default
         # en silencio y editar el ini no hace nada (mismo gotcha que
