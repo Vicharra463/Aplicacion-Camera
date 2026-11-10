@@ -47,9 +47,10 @@ def test_api_sin_respuesta_usa_el_local(monkeypatch):
 
 
 def test_sin_cache_cada_toma_llama_a_la_api(monkeypatch):
-    # Sin caches ni ventanas de tiempo en este nivel: "una llamada a la
-    # API por vehiculo por dia" lo garantiza el worker con el pre-chequeo
-    # mismo-carro (_api_confirmada_hoy), no un cache aqui.
+    # Sin caches ni ventanas de tiempo en este nivel: desde 2026-11-10
+    # TODA foto que se guarda paso por la cadena (el worker no reutiliza
+    # lecturas: pre-chequeo por hash y _api_confirmada_hoy eliminados),
+    # asi que aca tampoco hay cache.
     llamadas = []
 
     def espia(img, bbox):

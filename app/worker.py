@@ -83,6 +83,15 @@ _t_ultima_actividad: float = 0.0
 _en_reposo = False
 _json_pendiente = False
 
+# Ventana de evaluacion por vista (2026-11-10, pedido FELIPE): de una
+# RAFAGA se evalua UNA sola foto cada roi_eval_ventana_seg (la mas
+# cerca de la linea de prioridad); las demas se descartan internas.
+# {vista: {"ruta": Path, "score": (dist_linea, -area), "fase": ...}}
+# fases: "abierta" (candidata vigente) | "lista" (ventana cerrada,
+# elegida encolada esperando su reproceso -> ahi SI pasa por API).
+_eval_ventanas: dict[str, dict] = {}
+_eval_ventanas_lock = threading.Lock()
+
 
 def _conexion() -> sqlite3.Connection:
     con = sqlite3.connect(_ruta_registro)
@@ -197,8 +206,8 @@ def fuente_de_intentos(intentos: list | None) -> str:
     """Origen de la lectura para la columna registros.fuente.
 
     Unica fuente de verdad de la semantica: 'roboflow' / 'platerecognizer'
-    / 'modelo'. La usan registrar() y el reemplazo de MEJOR FOTO para que
-    el pre-chequeo _api_confirmada_hoy no pierda la confirmacion de la API.
+    / 'modelo'. La usan registrar(), el reemplazo de MEJOR FOTO y el
+    matching confiable (Levenshtein 0) de las lecturas de API.
     """
     nombres = [n for n, _t, _c in (intentos or [])]
     if "roboflow" in nombres:
@@ -1152,6 +1161,133 @@ def _mejora_por_posicion(cy_nuevo: float, cy_viejo: float | None) -> bool:
     return nueva < vieja - _tolerancia_prioridad()
 
 
+def _tolerancia_ventana() -> float:
+    """Semiancho (0-1) de la VENTANA de posicion sobre la linea de
+    prioridad (2026-11-10, pedido FELIPE).
+
+    Solo llega a evaluarse la foto cuya placa cae dentro de
+    linea_prioridad +/- esto ("un poquito lejos, no tan lejos");
+    afuera se descarta como fuera_de_area sin gastar API. Naranja si
+    quedo pegada (<= 2x), rojo si quedo lejos. Config:
+    [roi] tolerancia_ventana. Default 0.04.
+    """
+    try:
+        tol = float(_cfg.get("roi_tolerancia_ventana", 0.04) or 0.0)
+    except (TypeError, ValueError):
+        return 0.04
+    return max(0.0, tol)
+
+
+def _eval_ventana_seg() -> float:
+    """Segundos de la ventana de evaluacion por vista (default 15).
+
+    0 = apagado: cada foto se evalua directo (comportamiento sin
+    ventana, usado por fixtures de tests). Config:
+    [roi] eval_ventana_seg.
+    """
+    try:
+        seg = float(_cfg.get("roi_eval_ventana_seg", 15.0) or 0.0)
+    except (TypeError, ValueError):
+        return 15.0
+    return max(0.0, seg)
+
+
+def _programar_cierre_ventana(vista: str, seg: float) -> None:
+    """Timer daemon que cierra la ventana de evaluacion de la vista."""
+    def _cerrar() -> None:
+        try:
+            _eval_ventana_cerrar(vista)
+        except Exception:
+            logger.exception("Fallo el cierre de ventana de %s", vista)
+
+    t = threading.Timer(seg, _cerrar)
+    t.daemon = True
+    t.start()
+
+
+def _eval_ventana_cerrar(vista: str) -> None:
+    """Cierra la ventana ABIERTA: encola a la elegida para que se
+    reprocese (y ahi SI pase por OCR/API) y deja la ventana en fase
+    'lista'. Sin estado o ya cerrada -> no hace nada (timer viejo).
+    """
+    with _eval_ventanas_lock:
+        est = _eval_ventanas.get(vista)
+        if est is None or est["fase"] != "abierta":
+            return
+        est["fase"] = "lista"
+        elegida = est["ruta"]
+    if not encolar(str(elegida)):
+        # Cola llena / ya encolada: la elegida queda en fase 'lista' y
+        # la reprocesa el proximo barrido o una re-llegada de la foto.
+        logger.warning("No se pudo encolar la elegida de la ventana: %s",
+                       elegida.name)
+
+
+def _eval_ventana_salta_rf(vista: str) -> bool:
+    """True si hay una ventana ABIERTA: Roboflow (red de seguridad) se
+    salta en esa vista para no gastar cuota en fotos que la ventana va
+    a descartar. Fase 'lista' -> False: la elegida SI pasa por la red.
+    """
+    if _eval_ventana_seg() <= 0:
+        return False
+    with _eval_ventanas_lock:
+        est = _eval_ventanas.get(vista)
+        return bool(est and est["fase"] == "abierta")
+
+
+def _eval_ventana_probar(vista: str, ruta: Path, cy: float,
+                         area: float) -> str:
+    """Ventana best-of por vista: 1 foto evaluada por ventana.
+
+    `cy` = centro de la placa sobre la foto completa; `area` = w*h del
+    bbox (desempate: mas grande gana). Devuelve:
+      "procesar"  -> sigue por la cadena OCR/API (seg=0 directo, es la
+                     elegida re-llegada, o su reproceso post-cierre);
+      "espera"    -> es/queda como candidata de la ventana: NO se
+                     evalua aun y NO se borra;
+      "descartar" -> candidata peor: se borra el archivo aca mismo
+                     (interno, sin carpeta de motivos, sin API).
+    El reemplazo de una candidata por otra mejor borra la vieja.
+    """
+    seg = _eval_ventana_seg()
+    if seg <= 0:
+        return "procesar"
+    puntaje = (_distancia_franja(cy, *_franja_verde()), -float(area))
+    programar = False
+    with _eval_ventanas_lock:
+        est = _eval_ventanas.get(vista)
+        if est is None:
+            _eval_ventanas[vista] = {"ruta": ruta, "score": puntaje,
+                                     "fase": "abierta"}
+            programar = True
+        elif est["fase"] == "lista":
+            if est["ruta"] == ruta:
+                # La elegida vuelve a llegar (la re-encolo el cierre):
+                # se evalua AHORA, con toda la cadena OCR/API.
+                del _eval_ventanas[vista]
+                return "procesar"
+            # Llego otra foto con la ventana ya cerrada: ventana nueva.
+            _eval_ventanas[vista] = {"ruta": ruta, "score": puntaje,
+                                     "fase": "abierta"}
+            programar = True
+        elif est["ruta"] == ruta:
+            # Misma candidata re-llegada (barrido/pendiente): sigue
+            # siendo la mejor y no se reprograma el timer.
+            return "espera"
+        elif puntaje < est["score"]:
+            vieja = est["ruta"]
+            est["ruta"], est["score"] = ruta, puntaje
+            vieja.unlink(missing_ok=True)
+            return "espera"
+        else:
+            ruta.unlink(missing_ok=True)
+            return "descartar"
+    # Fuera del lock: nunca armar el timer con el lock tomado.
+    if programar:
+        _programar_cierre_ventana(vista, seg)
+    return "espera"
+
+
 def _etiqueta_centro_y(jpg: Path) -> float | None:
     """cy normalizado (0-1) del bbox guardado en el .txt YOLO vecino."""
     try:
@@ -1278,7 +1414,8 @@ def _dibujar_caja(img: np.ndarray, bbox: tuple[int, int, int, int],
     return salida
 
 
-def _pasada_de_placa(placa: str, vista: str | None = None) -> tuple[int, float]:
+def _pasada_de_placa(placa: str, vista: str | None = None,
+                     confiable: bool = False) -> tuple[int, float]:
     dias = int(_cfg.get("ventana_reinspeccion_dias", 30))
     limite = (datetime.now() - timedelta(days=dias)).isoformat(timespec="seconds")
     con = _conexion()
@@ -1291,7 +1428,7 @@ def _pasada_de_placa(placa: str, vista: str | None = None) -> tuple[int, float]:
     if not filas:
         # Sin historial en DB: el disco del dia manda (carpetas + JSON
         # con Levenshtein). Si ya esta guardada hoy => pasada 2.
-        if vista and _placa_existe_hoy(placa, vista):
+        if vista and _placa_existe_hoy(placa, vista, confiable=confiable):
             return 2, 0.0
         return 1, float("inf")
     ultima = datetime.fromisoformat(filas[-1])
@@ -1448,15 +1585,26 @@ def _forma_comparable(texto: str) -> str:
     return _sin_guion(texto).upper().translate(_EQUIV_COMPARAR)
 
 
-def _buscar_misma(vista: str, huella: int, texto: str = ""):
+def _buscar_misma(vista: str, huella: int, texto: str = "",
+                  confiable: bool = False):
+    """Match de misma placa en el historial de la vista.
+
+    confiable = la lectura viene de la API (roboflow/PlateRecognizer):
+    texto EXACTO (Levenshtein 0, un error de la API es otra placa) y
+    SIN el fallback por hash (2026-11-10: los atajos que reutilizaban
+    lecturas viejas sin pasar por la API se eliminaron).
+    """
     guardados = _hashes.get(vista, {})
     if texto:
         forma = _forma_comparable(texto)
-        umbral_leven = int(_cfg.get("umbral_leven_pasada", 1))
+        umbral_leven = (0 if confiable
+                        else int(_cfg.get("umbral_leven_pasada", 1)))
         for h, t in guardados.items():
             if t and _cerca_texto(forma, _forma_comparable(t),
                                   max_dist=umbral_leven):
                 return h, t
+    if confiable:
+        return None
     umbral = _cfg.get("umbral_dedup", 18)
     for h, t in guardados.items():
         if bin(huella ^ h).count("1") <= umbral:
@@ -1489,16 +1637,19 @@ def _placas_del_dia(vista: str, dia: str | None = None) -> list[str]:
 
 
 def _placa_existe_hoy(texto: str, vista: str,
-                      dia: str | None = None) -> bool:
+                      dia: str | None = None,
+                      confiable: bool = False) -> bool:
     """True si la placa ya existe hoy en carpetas del dia o el JSON.
 
     Matching con Levenshtein <= umbral_leven_pasada (default 1): un error
     de OCR cuenta como la misma placa; 2+ errores NO (evita el falso
-    positivo de '4 de 6' entre placas distintas).
+    positivo de '4 de 6' entre placas distintas). confiable = lectura de
+    API -> distancia 0 (exacta): AOM-861 NO es la AOM-361 guardada.
     """
     if not texto:
         return False
-    umbral = int(_cfg.get("umbral_leven_pasada", 1))
+    umbral = (0 if confiable
+              else int(_cfg.get("umbral_leven_pasada", 1)))
     forma = _forma_comparable(texto)
     for p in _placas_del_dia(vista, dia=dia):
         if _cerca_texto(forma, _forma_comparable(p), max_dist=umbral):
@@ -1506,8 +1657,10 @@ def _placa_existe_hoy(texto: str, vista: str,
     return False
 
 
-def _es_misma_placa(vista: str, huella: int, texto: str = "") -> bool:
-    return _buscar_misma(vista, huella, texto) is not None
+def _es_misma_placa(vista: str, huella: int, texto: str = "",
+                    confiable: bool = False) -> bool:
+    return _buscar_misma(vista, huella, texto,
+                         confiable=confiable) is not None
 
 
 def _es_lectura_lateral(huella: int, texto: str, previa_huella: int,
@@ -1800,10 +1953,9 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
                     (relativo, texto, confianza, evidencia, color,
                      f"{huella:016x}", id_registro))
         # Mantener fuente al dia: si esta toma llego por la API, el
-        # registro queda como 'roboflow'/'platerecognizer' (el pre-chequeo
-        # _api_confirmada_hoy lo usa para no volver a llamar por este
-        # vehiculo). Nunca se degrada a 'modelo': una confirmacion de la
-        # API del dia no se pierde si la foto mas clara se lee local.
+        # registro queda como 'roboflow'/'platerecognizer'. Nunca se
+        # degrada a 'modelo': la confirmacion de la API no se pierde si
+        # una toma posterior se lee local.
         # (Antes aca leia una variable 'fuente' inexistente: NameError en
         # cada MEJOR FOTO, que hacia rollback del UPDATE mientras el
         # archivo nuevo ya estaba en disco -> carpeta sin fila en el
@@ -1826,59 +1978,6 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
                 t_viejo, texto, area_nueva, area_vieja, relativo,
                 origen or "(origen desconocido)")
     return True
-
-
-def _es_mejor_toma(vista: str, placa_vieja: str,
-                   bbox: tuple[int, int, int, int],
-                   ancho: int, alto: int) -> bool:
-    """True si la toma nueva merece llegar a la API: es claramente mas
-    grande (1.2x, criterio original) o esta claramente mejor posicionada
-    en la franja verde (>=25% mas cerca del centro de la franja: el
-    carro quedo mas asentado en la linea verde y la placa esta mas
-    visible). Se usa ANTES de llamar a la API para no gastar cuota en
-    frames de la RAFAGA del mismo carro que no mejoran la foto.
-    """
-    desde = f"{_dia_dedup}T00:00:00"
-    con = _conexion()
-    try:
-        fila = con.execute(
-            "SELECT archivo FROM registros WHERE placa = ? "
-            "AND estado = 'guardado' AND fecha_hora >= ? AND archivo LIKE ? "
-            "ORDER BY id DESC LIMIT 1", (placa_vieja, desde, f"{vista}%")
-        ).fetchone()
-    finally:
-        con.close()
-    if not fila:
-        return True   # sin toma previa registrada: vale la pena intentar
-    viejo = _cfg["procesadas"] / fila[0]
-    x, y, w, h = bbox
-    area_nueva = (w * h) / (ancho * alto)
-    area_vieja = _area_etiqueta(viejo)
-    if area_nueva >= 1.2 * area_vieja:
-        return True
-    cy_nuevo = (y + h / 2) / alto if alto else 0.0
-    return _mejora_por_posicion(cy_nuevo, _etiqueta_centro_y(viejo))
-
-
-def _api_confirmada_hoy(vista: str, placa: str) -> bool:
-    """True si la ultima toma guardada HOY de esta placa en la vista fue
-    confirmada por la API (fuente 'platerecognizer').
-
-    La API se usa UNA VEZ por vehiculo por dia: si ya respondio por este
-    carro, las tomas siguientes (foto mas clara) reutilizan la placa
-    confirmada sin volver a llamar a PlateRecognizer.
-    """
-    desde = f"{_dia_dedup}T00:00:00"
-    con = _conexion()
-    try:
-        fila = con.execute(
-            "SELECT fuente FROM registros WHERE placa = ? "
-            "AND estado = 'guardado' AND fecha_hora >= ? AND archivo LIKE ? "
-            "ORDER BY id DESC LIMIT 1", (placa, desde, f"{vista}%")
-        ).fetchone()
-    finally:
-        con.close()
-    return bool(fila and str(fila[0] or "").lower() == "platerecognizer")
 
 
 def _rf_leer_recorte(img: np.ndarray,
@@ -1990,7 +2089,11 @@ def procesar_imagen(ruta: Path) -> None:
     lecturas_rf: dict[tuple[int, int, int, int], tuple[str, float]] = {}
     candidatos_rf: list[tuple[tuple[int, int, int, int], float]] = []
     candidatos = _candidatos_placa(img)
-    if not candidatos and _ROBOFLOW_ACTIVO:
+    # Ventana abierta en esta vista -> sin red de seguridad: la foto o
+    # es la candidata de la ventana o se descarta; Roboflow gastaria
+    # cuota para nada. (La elegida, fase 'lista', SI pasa por la red.)
+    if (not candidatos and _ROBOFLOW_ACTIVO
+            and not _eval_ventana_salta_rf(vista)):
         try:
             import roboflow
             detectados = roboflow.detectar_leer(img)
@@ -2091,6 +2194,37 @@ def procesar_imagen(ruta: Path) -> None:
                             f"de {ancho})")
             continue
 
+        # Centro de la placa sobre la FOTO COMPLETA (mismas coords que
+        # el .txt y _dibujar_roi): base del gate de posicion y del
+        # ranking de la ventana.
+        cy_pos = ((y + h / 2.0 + dy_roi) / alto_save
+                  if alto_save else 0.0)
+
+        # Gate de POSICION (2026-11-10, pedido FELIPE): con la linea de
+        # prioridad calibrada solo pasa la placa dentro de
+        # linea_prioridad +/- tolerancia_ventana ("un poquito lejos, no
+        # tan lejos"). Naranja si quedo pegada, rojo si quedo lejos;
+        # se descarta SIN gastar API. Sin linea -> gate apagado.
+        ref_pos = _linea_prioridad()
+        if ref_pos is not None:
+            dist_pos = abs(cy_pos - ref_pos)
+            tol_pos = _tolerancia_ventana()
+            if dist_pos > tol_pos:
+                variante = "naranja" if dist_pos <= 2 * tol_pos else "rojo"
+                ultimo_fallo = (
+                    f"fuera_de_area/{variante}",
+                    f"(fuera de ventana de linea: cy {cy_pos:.3f} vs "
+                    f"{ref_pos:.3f} +/-{tol_pos:.3f})")
+                continue
+
+        # Ventana best-of: 1 foto por roi_eval_ventana_seg; mientras la
+        # ventana esta abierta la foto NO se evalua (queda como
+        # candidata o se descarta interna). "procesar" = es la elegida
+        # (reproceso tras el cierre) o seg=0 (directo) -> ahi SI pasa
+        # por la cadena OCR/API completa.
+        if _eval_ventana_probar(vista, ruta, cy_pos, w * h) != "procesar":
+            return
+
         # nitidez se calcula siempre: elegido la guarda en el registro.
         nitidez = _nitidez(recorte)
 
@@ -2140,50 +2274,14 @@ def procesar_imagen(ruta: Path) -> None:
                                 f"({rel_ancho:.2f} del ancho de imagen)")
                 continue
 
-        # Pre-chequeo mismo carro: si la huella perceptual ya corresponde
-        # a una placa guardada HOY y el recorte no mejora, se reutiliza
-        # el texto sin gastar API. NO se descarta: la misma placa el
-        # mismo dia cuenta como pasada siguiente (2026-11-09).
-        huella_pre = _hash_perceptual(recorte)
-        previa_pre = _buscar_misma(vista, huella_pre)
-        if (previa_pre is not None
-                and not _es_mejor_toma(vista, previa_pre[1],
-                                       _bbox_full(bbox),
-                                       ancho_save, alto_save)
-                and previa_pre[1]):
-            # Reutiliza la placa ya conocida: sin OCR ni API; sigue al
-            # conteo de pasadas con el texto existente.
-            texto_placa, conf_ocr = previa_pre[1], 1.0
-            intentos_ocr = [("hash", previa_pre[1], 1.0)]
-            bbox_ocr = bbox
-            huella = huella_pre
-            pasada, minutos = (1, float("inf"))
-            if texto_placa:
-                pasada, minutos = _pasada_de_placa(texto_placa, vista)
-                ventana = float(_cfg.get("ventana_reinspeccion_min", 0.0))
-                if ventana > 0 and minutos < ventana:
-                    _anotar_rechazo("duplicado_placa",
-                                    "ventana reinspeccion")
-                    _descartar(ruta, "duplicado_placa",
-                               f"(placa {texto_placa} registrada hace "
-                               f"{minutos:.0f} min, ventana {ventana:.0f} min)")
-                    return
-            max_pasadas = int(_cfg.get("max_pasadas", 3))
-            excedida = texto_placa and pasada > max_pasadas
-            elegido = (bbox, confianza, nitidez, texto_placa, pasada,
-                       bool(excedida), _sufijo_pasada(pasada))
-            break
-
+        # 2026-11-10 (pedido FELIPE): SIN atajos de API. El pre-chequeo
+        # por hash (reutilizaba lecturas viejas) y _api_confirmada_hoy
+        # ("1 API por vehiculo por dia") se eliminaron: TODA foto que se
+        # guarda pasa por la cadena OCR/API completa y queda etiquetada
+        # con su fuente (_api-*). La ventana best-of de arriba es la que
+        # ahora evita el gasto de cuota en la rafaga.
         texto_placa = ""
-        placa_previa = previa_pre[1] if previa_pre is not None else ""
-        if placa_previa and _api_confirmada_hoy(vista, placa_previa):
-            # Este vehiculo ya tiene confirmacion de la API HOY (la API se
-            # usa UNA VEZ por vehiculo): esta toma solo mejora la foto y
-            # reutiliza la placa confirmada sin volver a llamar.
-            texto_placa, conf_ocr = placa_previa, 1.0
-            intentos_ocr = [("api", placa_previa, 1.0)]
-            bbox_ocr = bbox
-        elif bbox in lecturas_rf:
+        if bbox in lecturas_rf:
             # Red de seguridad: el modelo no vio nada y Roboflow hallo la
             # placa en la foto completa; su texto ya viene listo.
             texto_placa, conf_ocr = lecturas_rf[bbox]
@@ -2234,7 +2332,13 @@ def procesar_imagen(ruta: Path) -> None:
                 continue
 
         huella = _hash_perceptual(recorte)
-        previa = _buscar_misma(vista, huella, texto_placa)
+        # Lectura de API -> matching EXACTO (Levenshtein 0): AOM-361 y
+        # AOM-861 son placas distintas aunque la OCR local las acerque
+        # (2026-11-10: falsos positivos de pasadas cruzadas).
+        confiable = fuente_de_intentos(intentos_ocr) in (
+            "roboflow", "platerecognizer")
+        previa = _buscar_misma(vista, huella, texto_placa,
+                               confiable=confiable)
         if previa is not None:
             # Texto similar pero hash lejano = placa del costado con otra
             # lectura: no reemplazar la placa guardada; archivar sin
@@ -2267,7 +2371,8 @@ def procesar_imagen(ruta: Path) -> None:
 
         pasada, minutos = (1, float("inf"))
         if texto_placa:
-            pasada, minutos = _pasada_de_placa(texto_placa, vista)
+            pasada, minutos = _pasada_de_placa(texto_placa, vista,
+                                               confiable=confiable)
             ventana = float(_cfg.get("ventana_reinspeccion_min", 0.0))
             if ventana > 0 and minutos < ventana:
                 _anotar_rechazo("duplicado_placa",
@@ -2325,10 +2430,14 @@ def procesar_imagen(ruta: Path) -> None:
             rec_re = img[bbox_re[1]:bbox_re[1] + bbox_re[3],
                          bbox_re[0]:bbox_re[0] + bbox_re[2]]
             huella_re = _hash_perceptual(rec_re)
-            if _es_misma_placa(vista, huella_re, texto_re):
+            re_confiable = fuente_de_intentos(intentos_re) in (
+                "roboflow", "platerecognizer")
+            if _es_misma_placa(vista, huella_re, texto_re,
+                               confiable=re_confiable):
                 # Misma placa en reeval: NO se descarta; cuenta como
                 # pasada siguiente (2026-11-09).
-                pasada_re, minutos_re = _pasada_de_placa(texto_re, vista)
+                pasada_re, minutos_re = _pasada_de_placa(
+                    texto_re, vista, confiable=re_confiable)
                 ventana = float(_cfg.get("ventana_reinspeccion_min", 0.0))
                 if ventana > 0 and minutos_re < ventana:
                     _anotar_rechazo("duplicado_placa",
@@ -2348,7 +2457,8 @@ def procesar_imagen(ruta: Path) -> None:
                 logger.info("REEVALUACION EXITOSA (intento %d/3): %s <- %s",
                             intento + 1, texto_re, ruta.name)
                 break
-            pasada_re, minutos_re = _pasada_de_placa(texto_re, vista)
+            pasada_re, minutos_re = _pasada_de_placa(
+                texto_re, vista, confiable=re_confiable)
             ventana = float(_cfg.get("ventana_reinspeccion_min", 0.0))
             if ventana > 0 and minutos_re < ventana:
                 _anotar_rechazo("duplicado_placa",

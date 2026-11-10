@@ -171,6 +171,13 @@ def cargar_config() -> dict:
         "roi_tolerancia_prioridad": ini.getfloat("roi",
                                                   "tolerancia_prioridad",
                                                   fallback=0.02),
+        # Ventana de posicion (2026-11-10): gate +/- tolerancia sobre la
+        # linea de prioridad y 1 foto evaluada por eval_ventana_seg.
+        "roi_tolerancia_ventana": ini.getfloat("roi",
+                                                "tolerancia_ventana",
+                                                fallback=0.04),
+        "roi_eval_ventana_seg": ini.getfloat("roi", "eval_ventana_seg",
+                                              fallback=15.0),
         "reposo_minutos": ini.getfloat("recursos", "reposo_minutos",
                                        fallback=10.0),
         "nivel_log": ini.get("log", "nivel"),

@@ -233,12 +233,20 @@ Orden de protección en `worker.procesar_imagen`:
    la principal red: en CCTV la cámara manda frames cada pocos segundos y
    la gran mayoría son casi idénticos.
 
-2. **Pre-chequeo del mismo carro — ANTES del OCR y de la API.**
-   Huella perceptual del recorte contra las placas guardadas **hoy** en
-   esa vista: si ya está y el recorte no mejora el área (umbral 1.2×,
-   `_es_mejor_toma`), se descarta como `duplicado_placa` **sin leer ni
-   llamar a nadie**. La toma más clara de la ráfaga es la única que
-   llega a la lectura.
+2. **Gate de posición + ventana best-of — ANTES del OCR y de la API.**
+   - **Posición**: con `linea_prioridad` calibrada, la placa debe caer
+     dentro de `linea_prioridad ± tolerancia_ventana` (0.04); afuera
+     se descarta como `fuera_de_area` (naranja si quedó pegada, rojo
+     si quedó lejos) **sin gastar cuota**.
+   - **Ventana**: de una ráfaga solo se evalúa **1 foto cada
+     `eval_ventana_seg`** (15 s): la más cerca de la línea (más
+     grande si empate). Las peores se descartan internas; la elegida
+     se reprocesa al cerrar la ventana y ahí sí pasa por toda la
+     cadena.
+   - Desde 2026-11-10 **no hay atajos de API**: ninguna foto reutiliza
+     una lectura vieja (se eliminaron el pre-chequeo por hash y
+     `_api_confirmada_hoy`); **toda foto guardada pasó por la cadena
+     OCR/API** y queda etiquetada `_api-*`.
 
 3. **Un solo request por foto que pasa los filtros.**
    - Roboflow: **1 request full-image** con detección + lectura juntas.
@@ -328,12 +336,15 @@ procesar_imagen():
   3. candidatos: de Roboflow si detectó; si no, ONNX/geométrico
   4. filtros del recorte: nitidez (Laplaciano ≥ 120), sobreexpuesto (≤2%),
      bordes (≥2%), texto oscuro (5–55%)
-  5. pre-chequeo mismo carro: pHash vs placas de HOY + umbral 1.2×
-     → si no mejora: RETURN sin OCR ni API
-  6. lectura por bbox (flujo modelo-primero):
-     texto Roboflow → [local lee → PlateRecognizer confirma (caché 30s)]
-     → motor local provisional; regla de 6 en cada entrada
-  7. dedup semántico: pHash 64-bit (hamming ≤ 18) + texto cercano
+   5. gate de posición (linea_prioridad ± tolerancia_ventana) + ventana
+      best-of (1 foto/eval_ventana_seg=15 s, la más cerca de la línea):
+      fuera de ventana → fuera_de_area sin API; las peores de la ráfaga
+      se descartan internas; la elegida se reprocesa al cerrar
+   6. lectura por bbox (flujo modelo-primero):
+      texto Roboflow → [local lee → PlateRecognizer confirma (caché 30s)]
+      → motor local provisional; regla de 6 en cada entrada
+   7. dedup semántico: pHash 64-bit (hamming ≤ 18) + texto cercano
+      (Levenshtein 0 si la lectura es de API, ≤1 si es motor local)
   8. control de pasadas: ventana 60 min / 30 días / máx 3 pasadas
   9. guardar: imagenes_procesadas\<vista>\AAAA-MM-DD\<PLACA>\<PLACA>[sufijos].jpg
      + .txt (etiqueta YOLO) + _crop.jpg, caja coloreada por fuente

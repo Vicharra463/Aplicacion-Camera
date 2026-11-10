@@ -31,6 +31,7 @@ import worker  # noqa: E402
 
 # Real (antes de que fixtures la mockeen): para tests de integracion.
 _pasada_de_placa_real = worker._pasada_de_placa
+_buscar_misma_real = worker._buscar_misma
 
 SUP, INF = 0.35, 0.85
 ALTO, ANCHO = 160, 120
@@ -88,6 +89,9 @@ def proc(monkeypatch):
             "cooldown_placa_seg": 0.0,
             "cooldown_sin_placa_seg": 0.0,
             "cooldown_evento_seg": 0.0,
+            # 2026-11-10: sin ventana de evaluacion en esta fixture: los
+            # tests de motivos/pasadas hablan directo con la cadena OCR.
+            "roi_eval_ventana_seg": 0.0,
             "retencion": 30,
             "umbral_leven_pasada": 1,
             "revisar_carpetas_dia": True,
@@ -132,8 +136,13 @@ def proc(monkeypatch):
         monkeypatch.setattr(worker, "_trazar_aoi", lambda *a, **k: None)
         monkeypatch.setattr(worker, "_marcar_json", lambda: None)
         monkeypatch.setattr(worker, "_buscar_misma", lambda *a, **k: None)
-        monkeypatch.setattr(worker, "_es_mejor_toma", lambda *a, **k: False)
-        monkeypatch.setattr(worker, "_api_confirmada_hoy", lambda *a: False)
+        # Atajos que se eliminan en 2026-11-10: raising=False para que el
+        # fixture sirva antes (donde los llaman) y despues (borrados)
+        # sin reventar con AttributeError.
+        monkeypatch.setattr(worker, "_es_mejor_toma",
+                            lambda *a, **k: False, raising=False)
+        monkeypatch.setattr(worker, "_api_confirmada_hoy",
+                            lambda *a: False, raising=False)
 
         import log_sin_lectura
         monkeypatch.setattr(log_sin_lectura, "registrar_worker",
@@ -244,12 +253,15 @@ def test_texto_invalido_absorbe_confianza_baja(proc):
     assert "confianza_baja" not in {m for m, _ in proc.descartes}
 
 
-def test_no_existe_motivo_duplicado_placa(proc):
+def test_no_existe_motivo_duplicado_placa(proc, monkeypatch):
     # misma placa ya guardada: NO se bota como duplicado_placa
+    # (2026-11-10: con los atajos de API eliminados, el match por hash
+    # solo puede archivar la foto como pasada, jamas como duplicado)
     proc.state["texto"] = "ABC-123"
-    # simular hash/texto ya presente
-    monkeypatch_hash = lambda *a, **k: ("hash", "ABC-123")
-    worker._buscar_misma = monkeypatch_hash
+    monkeypatch.setattr(worker, "_buscar_misma",
+                        lambda *a, **k: ("hash", "ABC-123"))
+    monkeypatch.setattr(worker, "_reemplazar_si_mejor",
+                        lambda *a, **k: False)
     ruta = proc.foto("mismo_carro.jpg", 70, 100)
     worker.procesar_imagen(ruta)
     motivos = {m for m, _ in proc.descartes}
@@ -313,9 +325,10 @@ def test_lectura_lateral_archiva_sin_pasada(proc, monkeypatch):
     proc.state["texto"] = "ABC-123"
     monkeypatch.setattr(worker, "_buscar_misma",
                         lambda *a, **k: (999, "ABC-123"))
-    # pre-check: si "mejora" no entra al atajo de hash; el chequeo de
-    # lateral es post-OCR. Fuerza mejora=True para saltar el pre-check.
-    monkeypatch.setattr(worker, "_es_mejor_toma", lambda *a, **k: True)
+    # pre-2026-11-10: mejora=True saltaba el atajo de hash pre-OCR;
+    # raising=False por si el atajo ya no existe (call site eliminado).
+    monkeypatch.setattr(worker, "_es_mejor_toma",
+                        lambda *a, **k: True, raising=False)
     monkeypatch.setattr(worker, "_es_lectura_lateral", lambda *a, **k: True)
     monkeypatch.setattr(worker, "_pasada_de_placa",
                         lambda *a, **k: (2, 0.0))
@@ -459,6 +472,74 @@ def test_pasada_de_placa_fallback_disco_si_db_vacia(proc, monkeypatch):
     # sin disco -> sigue siendo pasada 1
     pasada2, _ = worker._pasada_de_placa("ZZZ-999", "placa")
     assert pasada2 == 1
+
+
+# --------------------------------- lectura confiable (API): distancia 0 ---
+
+def test_placa_existe_hoy_confiable_es_exacto(proc):
+    # Si la lectura viene de la API NO se tolera 1 error: AOM-361 vs
+    # AOM-861 son placas distintas y producian pasadas cruzadas.
+    dia = "2026-11-09"
+    base = proc.cfg["procesadas"] / "placa" / dia / "AOM-361"
+    base.mkdir(parents=True)
+    (base / "x.jpg").write_bytes(b"x")
+    # local (default): 1 error sigue concuerda
+    assert worker._placa_existe_hoy("AOM-861", "placa", dia=dia) is True
+    # confiable (API): solo exacto
+    assert worker._placa_existe_hoy("AOM-861", "placa",
+                                    dia=dia, confiable=True) is False
+    assert worker._placa_existe_hoy("AOM-361", "placa",
+                                    dia=dia, confiable=True) is True
+
+
+def test_buscar_misma_confiable_umbral_cero_sin_fallback_hash(proc,
+                                                              monkeypatch):
+    # confiable=True: texto exacto (0) y SIN el fallback por hash que
+    # reutilizaba lecturas viejas (el pre-chequeo que se elimino).
+    monkeypatch.setattr(worker, "_hashes",
+                        {"placa": {11: "XYZ-999"}})
+    # 11 = los bits de la huella guardada: hamming 0 -> el fallback de
+    # hash la encontraria igual con umbral_dedup=12
+    assert _buscar_misma_real("placa", 11, "ABC-123") is not None
+    # confiable: "ABC-123" no es "XYZ-999" exacto -> None (no hash)
+    assert _buscar_misma_real("placa", 11, "ABC-123",
+                              confiable=True) is None
+    # texto exacto si matchea
+    assert _buscar_misma_real("placa", 11, "XYZ-999",
+                              confiable=True) == (11, "XYZ-999")
+    # 1 error de OCR con confiable: NO concuerda
+    assert _buscar_misma_real("placa", 11, "XYZ-998",
+                              confiable=True) is None
+    # sin confiable: 1 error sigue concuerdando (umbral_leven_pasada)
+    assert _buscar_misma_real("placa", 11, "XYZ-998") is not None
+
+
+def test_pasada_de_placa_confiable_no_falla_por_levenshtein(proc,
+                                                            monkeypatch):
+    # La leida de API es exacta: AOM-861 NO es la AOM-361 en disco.
+    class _ConVacia:
+        def execute(self, *a, **k):
+            return []
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(worker, "_conexion", lambda: _ConVacia())
+    monkeypatch.setattr(worker, "_pasada_de_placa", _pasada_de_placa_real)
+
+    dia = datetime.now().strftime("%Y-%m-%d")
+    base = proc.cfg["procesadas"] / "placa" / dia / "AOM-361"
+    base.mkdir(parents=True)
+    (base / "x.jpg").write_bytes(b"x")
+
+    # local: 1 error -> pasada 2
+    assert worker._pasada_de_placa("AOM-861", "placa")[0] == 2
+    # confiable: distinta -> pasada 1
+    assert worker._pasada_de_placa("AOM-861", "placa",
+                                   confiable=True)[0] == 1
+    # confiable exacta: misma -> pasada 2
+    assert worker._pasada_de_placa("AOM-361", "placa",
+                                   confiable=True)[0] == 2
 
 
 # ------------------------------------------------------- config ---

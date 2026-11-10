@@ -73,6 +73,8 @@ def proc(monkeypatch):
             "max_pasadas": 3,
             "cooldown_placa_seg": 0.0,
             "cooldown_sin_placa_seg": 0.0,
+            # 2026-11-10: directo a la cadena, sin ventana best-of
+            "roi_eval_ventana_seg": 0.0,
             "retencion": 30,
         }
 
