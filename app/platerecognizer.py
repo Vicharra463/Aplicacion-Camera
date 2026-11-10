@@ -21,10 +21,12 @@ _cuota: dict[str, tuple[float, str]] = {}
 _apagada_hasta = 0.0   # apagado GLOBAL (solo errores de red)
 _motivo = ""
 
-# Sin caches ni ventanas de tiempo: "una llamada a la API por vehiculo por
-# dia" lo garantiza el worker con el pre-chequeo mismo-carro (si el carro ya
-# tiene confirmacion de la API hoy, la toma siguiente reutiliza la placa y
-# no se vuelve a llamar).
+# Sin caches de texto: desde 2026-11-10 toda lectura de API se usa para
+# ESE intento (el worker no reutiliza lecturas: los atajos pre-chequeo
+# hash y _api_confirmada_hoy se eliminaron en fd0de94). El gasto de
+# cuota lo regulan la ventana best-of (roi_eval_ventana_seg) y el
+# cooldown_placa_seg; si una clave se queda sin cuota (402/403) se
+# aparta 1 h y se prueba la siguiente.
 
 _EST_OK, _EST_VACIO, _EST_AGOTADA, _EST_RATE, _EST_RED, _EST_ERROR = range(6)
 

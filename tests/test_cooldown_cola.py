@@ -109,3 +109,17 @@ def test_reposo_apagado_nunca_entra(entorno, monkeypatch):
     monkeypatch.setattr(worker, "_reposo_seg", 0.0)
     monkeypatch.setattr(worker, "_t_ultima_actividad", time.time() - 700)
     assert worker._debe_entrar_en_reposo() is False
+
+
+# ----------------------------------------------------- config ---
+
+def test_config_ini_cooldown_placa_90():
+    # 2026-11-10, pedido FELIPE: 90 s tras guardar una placa (protege
+    # la cuota de la API). Pin como el de cooldown_evento_seg en
+    # test_gates_placa: si cambia el valor, cambia primero el test.
+    from pathlib import Path
+    import configparser
+    raiz = Path(__file__).resolve().parents[1]
+    p = configparser.ConfigParser()
+    p.read(raiz / "config.ini", encoding="utf-8-sig")
+    assert p.getfloat("camara", "cooldown_placa_seg") == pytest.approx(90.0)

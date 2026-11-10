@@ -674,7 +674,9 @@ def _depurar_carpetas_vacias() -> int:
     for vista_dir in sorted(p for p in procesadas.iterdir() if p.is_dir()):
         for dia_dir in sorted(p for p in vista_dir.iterdir() if p.is_dir()):
             for placa_dir in sorted(p for p in dia_dir.iterdir() if p.is_dir()):
-                principales = [f for f in placa_dir.glob("*.jpg")
+                # rglob (2026-11-10, FASE 2): las fotos de las pasadas
+                # 2+ viven en subcarpetas (segunda/tercera/excedida).
+                principales = [f for f in placa_dir.rglob("*.jpg")
                                if not f.stem.endswith(("_crop",
                                                        "_original"))]
                 if principales:
@@ -1389,8 +1391,9 @@ def color_caja(sufijo: str) -> tuple[int, int, int]:
     """Color del recuadro dibujado en la imagen completa segun la fuente.
 
     Verde = Roboflow, ambar = PlateRecognizer, azul = motor local.
-    El sufijo ya documenta la fuente ('_api-Roboflow', '_api-PlateRecognizer'),
-    asi que las pasadas ('_2da-pasada') no cambian el color.
+    El sufijo ya documenta la fuente ('_api-Roboflow', '_api-PlateRecognizer');
+    desde 2026-11-10 el nombre del archivo no lleva sufijo de pasada
+    (la pasada vive en su subcarpeta), asi que solo decide la fuente.
     """
     if "_api-Roboflow" in sufijo:
         return _COLOR_VERDE
@@ -1451,7 +1454,14 @@ def _registrar_pasada(placa: str, pasada: int, excedida: bool) -> None:
 
 
 def _sufijo_pasada(pasada: int) -> str:
+    # Solo para el log de cierre (desde 2026-11-10 el nombre del archivo
+    # ya NO lleva el sufijo: lo dice la subcarpeta, ver _carpeta_pasada).
     return {1: "", 2: "_2da-pasada", 3: "_3ra-pasada"}.get(pasada, "_EXCEDIDA")
+
+
+def _carpeta_pasada(pasada: int) -> str:
+    """Subcarpeta de la pasada dentro de <dia>/<PLACA>/ ("" = raiz)."""
+    return {1: "", 2: "segunda", 3: "tercera"}.get(pasada, "excedida")
 
 
 # Formatos de placa peruana validos (MTC): ABC-123, A1B-234, AB1-234
@@ -1485,12 +1495,12 @@ def _ts_de_foto(nombre: str) -> datetime | None:
 
 
 def _cooldown_placa() -> None:
-    """Pausa tras guardar una placa (cooldown_placa_seg, por defecto 5 s).
+    """Pausa tras guardar una placa (cooldown_placa_seg, por defecto 90 s).
 
     Solo duerme si la cola quedo vacia: con fotos pendientes el worker
     drena primero y el sleep no bloquea el drenaje.
     """
-    seg = float(_cfg.get("cooldown_placa_seg", 5.0))
+    seg = float(_cfg.get("cooldown_placa_seg", 90.0))
     if seg > 0 and COLA.qsize() == 0:
         logger.debug("Cooldown %.1f s tras guardar placa", seg)
         time.sleep(seg)
@@ -1815,11 +1825,18 @@ def _descartar(ruta: Path, motivo: str, detalle: str = "",
 
 def _guardar(img: np.ndarray, bbox: tuple[int, int, int, int] | None,
              vista: str, texto_placa: str = "", sufijo: str = "",
-             dudosa: bool = False) -> Path:
+             dudosa: bool = False, pasada: int = 1,
+             carpeta: Path | None = None) -> Path:
     ahora = datetime.now()
     dia = _cfg["procesadas"] / vista / ahora.strftime("%Y-%m-%d")
     base = _placa_base(texto_placa)
-    carpeta = dia / base if base else dia
+    raiz = dia / base if base else dia
+    if carpeta is None:
+        # 2026-11-10 (FASE 2): cada pasada vive en su subcarpeta
+        # (segunda/tercera/excedida) y el nombre del archivo ya NO
+        # lleva sufijo de pasada.
+        sub = _carpeta_pasada(pasada)
+        carpeta = raiz / sub if sub else raiz
     carpeta.mkdir(parents=True, exist_ok=True)
 
     nombre = _nombre_con_placa(vista, texto_placa, ahora, sufijo)
@@ -1923,8 +1940,6 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
     if not ((mejora_area or mejora_pos)
             and evidencia >= (ev_vieja or 0)):
         return False
-    sufijo = next((s for s in ("_2da-pasada", "_3ra-pasada", "_EXCEDIDA")
-                    if viejo.stem.endswith(s)), "")
     if not etiqueta:
         etiqueta = next((e for e in ("_api-Roboflow", "_api-PlateRecognizer")
                          if e in viejo.stem), "")
@@ -1942,8 +1957,13 @@ def _reemplazar_si_mejor(vista: str, h_vieja: int, t_viejo: str,
     
     # NUEVO: Sufijo condicional si el ROI está habilitado
     sufijo_roi = "_roi-evaluado" if _cfg.get("roi_habilitado") else ""
-    
-    nuevo = _guardar(img, bbox, vista, texto, sufijo=etiqueta + sufijo_roi + sufijo)
+
+    # 2026-11-10 (FASE 2): el reemplazo vuelve a la MISMA carpeta de
+    # viejo (raiz, segunda/, tercera/ o excedida/) cuando la placa no
+    # cambio; si cambio, _guardar arma la carpeta de la placa nueva.
+    nuevo = _guardar(img, bbox, vista, texto,
+                     sufijo=etiqueta + sufijo_roi,
+                     carpeta=viejo.parent if texto == t_viejo else None)
     relativo = str(nuevo.relative_to(_cfg["procesadas"]))
     con = _conexion()
     try:
@@ -2571,8 +2591,8 @@ def procesar_imagen(ruta: Path) -> None:
     sufijo_roi = "_roi-evaluado" if _cfg.get("roi_habilitado") else ""
 
     destino = _guardar(foto_save, _bbox_full(bbox), vista, texto_placa,
-                       sufijo=etiqueta_fuente(intentos_ocr) + sufijo_roi + sufijo,
-                       dudosa=dudosa)
+                       sufijo=etiqueta_fuente(intentos_ocr) + sufijo_roi,
+                       dudosa=dudosa, pasada=pasada)
     relativo = str(destino.relative_to(_cfg["procesadas"]))
     confirmada = _detector is not None or bool(candidatos_rf)
 

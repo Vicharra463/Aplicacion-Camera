@@ -301,9 +301,11 @@ def test_misma_placa_mismo_dia_cuenta_pasada_2(proc, monkeypatch):
 
     assert not any(m == "duplicado_placa" for m, _ in proc.descartes)
     assert len(_guardadas(proc)) == 1
-    # sufijo de pasada 2 en el nombre
+    # 2026-11-10 (FASE 2 carpetas de pasadas): la 2a pasada vive en la
+    # subcarpeta segunda/ y el nombre del archivo ya NO lleva sufijo.
     guardadas = _guardadas(proc)
-    assert any("_2da-pasada" in p.name for p in guardadas)
+    assert any(p.parent.name == "segunda" for p in guardadas)
+    assert not any("_2da-pasada" in p.name for p in guardadas)
 
 
 def test_misma_placa_tres_pasadas_y_luego_excedida(proc, monkeypatch):
@@ -313,11 +315,112 @@ def test_misma_placa_tres_pasadas_y_luego_excedida(proc, monkeypatch):
     monkeypatch.setattr(worker, "_placa_existe_hoy", lambda *a, **k: True)
     ruta = proc.foto("cuarta.jpg", 70, 100)
     worker.procesar_imagen(ruta)
-    # 4a se GUARDA con sufijo _EXCEDIDA, no se bota
+    # 4a se GUARDA en la subcarpeta excedida/, no se bota
     assert not any("duplicado" in m for m, _ in proc.descartes)
     guardadas = _guardadas(proc)
     assert len(guardadas) == 1
-    assert "_EXCEDIDA" in guardadas[0].name
+    assert guardadas[0].parent.name == "excedida"
+    assert "_EXCEDIDA" not in guardadas[0].name
+
+
+def test_tercera_pasada_vive_en_subcarpeta(proc, monkeypatch):
+    # 2026-11-10 (FASE 2): tercera pasada -> subcarpeta tercera/
+    proc.state["texto"] = "ABC-123"
+    monkeypatch.setattr(worker, "_pasada_de_placa",
+                        lambda *a, **k: (3, 0.0))
+    monkeypatch.setattr(worker, "_placa_existe_hoy", lambda *a, **k: True)
+    ruta = proc.foto("tercera_visita.jpg", 70, 100)
+    worker.procesar_imagen(ruta)
+    guardadas = _guardadas(proc)
+    assert len(guardadas) == 1
+    assert guardadas[0].parent.name == "tercera"
+    assert "_3ra-pasada" not in guardadas[0].name
+
+
+def test_primera_pasada_se_queda_en_la_raiz(proc):
+    # la 1a pasada NUNCA crea subcarpeta: vive en <dia>/<PLACA>/
+    proc.state["texto"] = "ABC-123"
+    ruta = proc.foto("primera.jpg", 70, 100)
+    worker.procesar_imagen(ruta)
+    guardadas = _guardadas(proc)
+    assert len(guardadas) == 1
+    assert guardadas[0].parent.name == "ABC-123"
+    assert not any(p.parent.name in ("segunda", "tercera", "excedida")
+                   for p in guardadas)
+
+
+def test_mejor_foto_de_segunda_pasada_reemplaza_en_su_subcarpeta(
+        proc, monkeypatch):
+    # 2026-11-10 (FASE 2): la MEJOR FOTO de la 2a pasada reemplaza
+    # DENTRO de segunda/ (viejo.parent), nunca en la raiz.
+    proc.state["texto"] = "ABC-123"
+    # DB real: _reemplazar_si_mejor consulta registros (patron de
+    # test_reconciliacion._entorno, encima del cfg del fixture proc).
+    monkeypatch.setattr(worker, "_ruta_registro", proc.tmp / "registro.db")
+    monkeypatch.setattr(worker, "_dia_dedup",
+                        datetime.now().strftime("%Y-%m-%d"))
+    con = worker._conexion()
+    try:
+        con.execute(
+            "CREATE TABLE registros ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "fecha_hora TEXT NOT NULL, archivo TEXT NOT NULL,"
+            "placa TEXT, confianza REAL,"
+            "estado TEXT NOT NULL DEFAULT 'guardado',"
+            "evidencia INTEGER, semaforo TEXT, phash TEXT, fuente TEXT,"
+            "provisional INTEGER, placa_api TEXT, placa_modelo TEXT,"
+            "motivo_sin_api TEXT)")
+        con.execute(
+            "CREATE TABLE pasadas ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "placa TEXT NOT NULL, pasada INTEGER NOT NULL,"
+            "fecha_hora TEXT NOT NULL, excedida INTEGER NOT NULL DEFAULT 0)")
+        con.commit()
+    finally:
+        con.close()
+    # 1a pasada en la raiz (mismo rect, color rojo)
+    ruta1 = proc.foto("p1.jpg", 70, 100, color=ROJO)
+    worker.procesar_imagen(ruta1)
+    # 2a pasada: mismo rect, distinto color -> dif > umbral 8%, no dup
+    monkeypatch.setattr(worker, "_pasada_de_placa",
+                        lambda *a, **k: (2, 0.0))
+    monkeypatch.setattr(worker, "_placa_existe_hoy", lambda *a, **k: True)
+    ruta2 = proc.foto("p2.jpg", 70, 100, color=AZUL_CLARO)
+    worker.procesar_imagen(ruta2)
+    en_segunda = [p for p in _guardadas(proc)
+                  if p.parent.name == "segunda"]
+    assert len(en_segunda) == 1
+    assert "_2da-pasada" not in en_segunda[0].name
+    # la MEJOR toma (area 2800/1800 = 1.56x) llega con match por texto:
+    # _reemplazar_si_mejor debe elegir el registro mas nuevo (la 2a)
+    # y reemplazar en viejo.parent = segunda/
+    monkeypatch.setattr(worker, "_buscar_misma",
+                        lambda *a, **k: ("hash", "ABC-123"))
+    ruta3 = proc.foto("p3.jpg", 65, 105, x0=25, x1=95, color=ROJO)
+    worker.procesar_imagen(ruta3)
+    guardadas = _guardadas(proc)
+    en_segunda = [p for p in guardadas if p.parent.name == "segunda"]
+    en_raiz = [p for p in guardadas if p.parent.name == "ABC-123"]
+    assert len(en_segunda) == 1   # reemplazo (1 archivo), no duplicado
+    assert "_2da-pasada" not in en_segunda[0].name
+    assert len(en_raiz) == 1      # la 1a pasada sigue intacta en la raiz
+
+
+def test_depurar_conserva_carpeta_con_fotos_solo_en_subcarpeta(proc):
+    # 2026-11-10 (FASE 2): la limpieza mira rglob y NO tira una
+    # carpeta cuyas fotos quedaron adentro de segunda/.
+    dia = proc.cfg["procesadas"] / "placa" / "2026-11-10" / "ABC-123"
+    (dia / "segunda").mkdir(parents=True)
+    (dia / "segunda" / "ABC-123_roi-evaluado.jpg").write_bytes(b"jpg")
+    assert worker._depurar_carpetas_vacias() == 0
+    assert dia.is_dir()
+
+
+def test_depurar_igual_tira_carpeta_sin_fotos(proc):
+    dia = proc.cfg["procesadas"] / "placa" / "2026-11-10" / "XYZ-777"
+    dia.mkdir(parents=True)
+    assert worker._depurar_carpetas_vacias() >= 1
+    assert not dia.exists()
 
 
 def test_lectura_lateral_archiva_sin_pasada(proc, monkeypatch):

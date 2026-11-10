@@ -133,8 +133,9 @@ Tres fuentes en cadena, con caída automática y cortacircuitos propios:
 - **Caché de confirmación** (`CONFIRMAR_SEG = 30`): si la API ya
   confirmó esa misma placa hace menos de 30 s, se reutiliza sin volver
   a llamar (ráfagas del mismo carro).
-- **Cooldown** (`[camara] cooldown_placa_seg = 5`): tras guardar una
-  placa, el worker espera 5 s antes de tomar la próxima foto.
+- **Cooldown** (`[camara] cooldown_placa_seg = 90`): tras guardar una
+  placa, el worker espera 90 s antes de tomar la próxima foto (solo si
+  la cola quedó vacía).
 - Cada guardado queda etiquetado con su fuente (ver «Colores de caja»).
 
 ### Roboflow — primera fuente (`app/roboflow.py`)
@@ -214,9 +215,11 @@ fuente que leyó (`worker.color_caja`):
 | **Ámbar** | `(0, 255, 255)` | `_api-PlateRecognizer` | PlateRecognizer |
 | **Azul** | `(255, 0, 0)` | *(sin sufijo)* | motor local |
 
-El color se deriva del sufijo de la fuente, así que sobrevive a los
-sufijos de pasada (`_api-Roboflow_2da-pasada` sigue verde). Azul en vez
-de rojo para no chocar con el semáforo de evidencia (rojo = mala
+El color se deriva del sufijo de la fuente. Desde 2026-11-10 el nombre
+del archivo ya no lleva sufijos de pasada (la pasada vive en su
+subcarpeta: `segunda/`, `tercera/`, `excedida/`), así que el sufijo de
+fuente queda limpio: `_api-Roboflow_roi-evaluado` sigue verde. Azul en
+vez de rojo para no chocar con el semáforo de evidencia (rojo = mala
 evidencia, no = fuente local).
 
 ---
@@ -260,14 +263,15 @@ Orden de protección en `worker.procesar_imagen`:
      texto cercano → `duplicado_placa`;
    - ventana de reinspección: misma placa registrada hace < 60 min →
      descartada;
-   - máximo **3 pasadas** por placa cada 30 días (sufijos
-     `_2da-pasada`, `_3ra-pasada`, `_EXCEDIDA`);
+   - máximo **3 pasadas** por placa cada 30 días: cada pasada vive en
+     su subcarpeta (`segunda/`, `tercera/`, `excedida/`) y el nombre del
+     archivo ya no lleva sufijo de pasada;
    - **mejor foto**: si la nueva tiene ≥ 1.2× el área y no menos
      evidencia, reemplaza el archivo guardado.
 
-5. **Cooldown tras guardar** (`[camara] cooldown_placa_seg = 5`):
-   5 s de pausa antes de tomar la próxima foto — la ráfaga que sigue
-   cae en los pasos 1–2 en vez de consumir cuota.
+5. **Cooldown tras guardar** (`[camara] cooldown_placa_seg = 90`):
+   90 s de pausa antes de tomar la próxima foto (solo con cola vacía) —
+   la ráfaga que sigue cae en los pasos 1–2 en vez de consumir cuota.
 
 6. **Caché server-side de Roboflow**: `use_cache=True` — la misma imagen
    no se re-evalúa del lado de Roboflow.
@@ -348,7 +352,7 @@ procesar_imagen():
   8. control de pasadas: ventana 60 min / 30 días / máx 3 pasadas
   9. guardar: imagenes_procesadas\<vista>\AAAA-MM-DD\<PLACA>\<PLACA>[sufijos].jpg
      + .txt (etiqueta YOLO) + _crop.jpg, caja coloreada por fuente
- 10. registrar() en SQLite + marcar JSON del día + cooldown 5 s
+ 10. registrar() en SQLite + marcar JSON del día + cooldown 90 s
  11. traza aoi-AAAA-MM-DD.jsonl (via_api / via_roboflow)
  12. si todo falla: descartar a descartadas\ (modo retener) + log_sin_lectura
 ```
