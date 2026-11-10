@@ -2041,6 +2041,30 @@ def procesar_imagen(ruta: Path) -> None:
 
     _actualizar_dia()
 
+    # Cooldown POR EVENTO/rafaga (2026-11-10, pedido FELIPE): SIEMPRE
+    # primero, ANTES de decodificar, detectar y consultar APIs. Si la
+    # foto viene de la misma ventana de tiempo de la camara
+    # (+/-cooldown_evento_seg = 90 s, estimado de permanencia del
+    # vehiculo en la escena) que la ultima placa guardada, se RECHAZA
+    # aunque el texto sea DISTINTO (un carro = una placa por pasada):
+    # lo que entre en la ventana se borra SIN gastar cuota ni CPU.
+    # 2026-11-09: filtro INTERNO — no crea subcarpeta en descartadas.
+    # Sin timestamp en el nombre (replay renombrado) no aplica.
+    global _ultima_placa_foto_ts
+    ventana_ev = float(_cfg.get("cooldown_evento_seg", 90.0))
+    if ventana_ev > 0 and _ultima_placa_foto_ts is not None:
+        ts_foto = _ts_de_foto(ruta.name)
+        if ts_foto is not None:
+            delta = abs((ts_foto - _ultima_placa_foto_ts).total_seconds())
+            if delta <= ventana_ev:
+                detalle_ev = (f"(misma rafaga que la placa guardada hace "
+                              f"{delta:.0f}s)")
+                _nombre_cool = ruta.name
+                ruta.unlink(missing_ok=True)
+                logger.debug("cooldown_evento: %s | %s", _nombre_cool,
+                             detalle_ev)
+                return
+
     img = cv2.imread(str(ruta), cv2.IMREAD_COLOR)
     if img is None:
         logger.warning("Imagen ilegible, se elimina: %s", ruta.name)
@@ -2551,28 +2575,6 @@ def procesar_imagen(ruta: Path) -> None:
         _anotar_rechazo("texto_invalido", detalle_conf)
         _descartar(ruta, "texto_invalido", detalle_conf)
         return
-
-    # Cooldown POR EVENTO (rafaga): si la foto viene de la misma
-    # ventana de tiempo de la camara que la ultima placa guardada, se
-    # rechaza aunque el texto sea DISTINTO (el mismo carro genera
-    # varios textos). Un carro = una placa por pasada.
-    # 2026-11-09: filtro INTERNO — no crea subcarpeta en descartadas.
-    global _ultima_placa_foto_ts
-    ventana_ev = float(_cfg.get("cooldown_evento_seg", 15.0))
-    if ventana_ev > 0 and _ultima_placa_foto_ts is not None:
-        ts_foto = _ts_de_foto(ruta.name)
-        if ts_foto is not None:
-            delta = abs((ts_foto - _ultima_placa_foto_ts).total_seconds())
-            if delta <= ventana_ev:
-                detalle_ev = (f"(misma rafaga que la placa guardada hace "
-                              f"{delta:.0f}s, texto {texto_placa})")
-                _anotar_rechazo("cooldown_evento", detalle_ev)
-                # Sin carpeta: solo registrar y borrar (filtro interno).
-                _nombre_cool = ruta.name
-                ruta.unlink(missing_ok=True)
-                logger.debug("cooldown_evento: %s | %s", _nombre_cool,
-                             detalle_ev)
-                return
 
     evidencia, color = (evidencia_y_color(texto_placa, conf_ocr, intentos_ocr)
                         if evidencia_y_color is not None and texto_placa

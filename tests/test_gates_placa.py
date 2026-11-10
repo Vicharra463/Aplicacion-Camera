@@ -245,6 +245,7 @@ def test_confianza_alta_si_se_guarda(proc):
 TS1 = "192.168.100.41_01_20261106140422407_MD_WITH_TARGET.jpg"
 TS2 = "192.168.100.41_01_20261106140426409_MD_WITH_TARGET.jpg"   # +4 s
 TS3 = "192.168.100.41_01_20261106140530000_MD_WITH_TARGET.jpg"   # +68 s
+TS4 = "192.168.100.41_01_20261106140622407_MD_WITH_TARGET.jpg"   # +120 s
 
 
 def test_ts_de_foto_parsea_nombre_de_camara():
@@ -283,12 +284,54 @@ def test_cooldown_evento_pasa_con_tiempo(proc):
     worker.procesar_imagen(ruta1)
     assert len(_guardadas(proc)) == 1
 
-    # Otro carro +68 s despues: pasa (ventana 15 s).
+    # +120 s (fuera de los 90 s): es OTRO paso del vehiculo, pasa.
     proc.leer["texto"] = "XYZ-999"
-    ruta2 = proc.foto(TS3, 100, 120)
+    ruta2 = proc.foto(TS4, 100, 120)
     worker.procesar_imagen(ruta2)
 
     assert len(_guardadas(proc)) == 2
+
+
+def test_cooldown_evento_borra_hasta_90_seg(proc):
+    # 2026-11-10 (pedido FELIPE): cooldown_evento_seg = 90 = estimado de
+    # permanencia del vehiculo en la escena. A +68 s el carro sigue ahii:
+    # NO es otra vuelta -> se borra. (Con la ventana vieja de 15 s esta
+    # foto se colaba como pasada 2 falsa.)
+    ruta1 = proc.foto(TS1, 90, 110)
+    worker.procesar_imagen(ruta1)
+    assert len(_guardadas(proc)) == 1
+
+    proc.leer["texto"] = "XYZ-999"
+    ruta2 = proc.foto(TS3, 100, 120)   # +68 s de camara
+    worker.procesar_imagen(ruta2)
+
+    assert not ruta2.exists()
+    assert len(_guardadas(proc)) == 1
+
+
+def test_cooldown_evento_corta_antes_de_leer(proc, monkeypatch):
+    # 2026-11-10 (pedido FELIPE): el filtro corre ANTES de decodificar,
+    # detectar y consultar APIs: lo que este dentro de la ventana se
+    # borra SIN llegar a la cadena de lectura (cero cuota, cero CPU).
+    llamadas: list = []
+    leer_real = worker.leer_placa_6
+
+    def _espiar(*a, **k):
+        llamadas.append(a)
+        return leer_real(*a, **k)
+
+    monkeypatch.setattr(worker, "leer_placa_6", _espiar)
+    ruta1 = proc.foto(TS1, 90, 110)
+    worker.procesar_imagen(ruta1)
+    assert len(_guardadas(proc)) == 1
+    llamadas.clear()
+
+    proc.leer["texto"] = "XYZ-999"
+    ruta2 = proc.foto(TS2, 100, 120)   # +4 s -> dentro de la ventana
+    worker.procesar_imagen(ruta2)
+
+    assert not ruta2.exists()
+    assert llamadas == []              # NUNCA llego a leer_placa_6
 
 
 def test_cooldown_evento_sin_timestamp_no_aplica(proc):
@@ -337,4 +380,4 @@ def test_cargar_config_carga_gates_nuevos(monkeypatch):
         cfg = ftp_server.cargar_config()
     assert cfg["validar_formato"] is True
     assert cfg["confianza_minima"] == pytest.approx(0.66)
-    assert cfg["cooldown_evento_seg"] == pytest.approx(15.0)
+    assert cfg["cooldown_evento_seg"] == pytest.approx(90.0)

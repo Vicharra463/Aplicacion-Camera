@@ -134,13 +134,13 @@ def cargar_config() -> dict:
         "revisar_carpetas_dia": ini.get("camara", "revisar_carpetas_dia",
                                         fallback="si").strip().lower() == "si",
         "cooldown_placa_seg": ini.getfloat("camara", "cooldown_placa_seg",
-                                           fallback=5.0),
+                                           fallback=90.0),
         # Cooldown POR EVENTO (rafaga): rechaza fotos de la misma
         # ventana de tiempo de la camara que la ultima placa guardada,
         # aunque el texto sea distinto (un carro = una placa por
-        # pasada). 0 = apagado.
+        # pasada). 2026-11-10: 90 s (FELIPE). 0 = apagado.
         "cooldown_evento_seg": ini.getfloat("camara", "cooldown_evento_seg",
-                                            fallback=15.0),
+                                            fallback=90.0),
         # GATES ANTI-FANTASMA (2026-11-06):
         #   validar_formato  = solo formatos peruanos (ABC-123, A1B-234,
         #                      AB1-234, AB-1234); mata carteles/stickers.
