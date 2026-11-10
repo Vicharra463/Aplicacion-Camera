@@ -137,9 +137,16 @@ def test_mejora_posicion_clara(roi):
     assert worker._mejora_por_posicion(0.70, 0.94) is True
 
 
-def test_mejora_posicion_marginal_no_cuenta(roi):
-    # dist 0.20 -> 0.16: solo 20% mas cerca, umbral es 25%
-    assert worker._mejora_por_posicion(0.76, 0.80) is False
+def test_mejora_posicion_marginal_gana_con_tolerancia(roi):
+    # dist 0.20 -> 0.16: mejora 0.04 > tolerancia 0.02 -> GANA.
+    # (El viejo umbral del 25% la dejaba fuera; pedido 2026-11-09:
+    # la mas cerca de la linea gana con "un poquito" de tolerancia.)
+    assert worker._mejora_por_posicion(0.76, 0.80) is True
+
+
+def test_mejora_posicion_casi_igual_no_voltea(roi):
+    # dist 0.20 -> 0.19: mejora 0.01 < 0.02 -> no voltea (anti-parpadeo)
+    assert worker._mejora_por_posicion(0.79, 0.80) is False
 
 
 def test_mejora_posicion_igual_no_cuenta(roi):

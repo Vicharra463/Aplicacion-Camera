@@ -33,6 +33,8 @@ def test_guardar_crea_subcarpeta_por_placa():
         assert destino.is_file()
         assert destino.with_suffix(".txt").is_file()
         assert destino.with_name(destino.stem + "_crop.jpg").is_file()
+        # el set completo incluye la IMAGEN ORIGINAL sin anotar
+        assert destino.with_name(destino.stem + "_original.jpg").is_file()
 
 
 def test_guardar_dudosa_va_a_la_misma_subcarpeta():

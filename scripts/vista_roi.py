@@ -7,6 +7,9 @@ Dibuja sobre la foto (coordenadas de config.ini [roi]):
                                            la placa TOTALMENTE visible
   * linea naranja en inf                -> lo que cruza la linea de abajo
                                            no cuenta (fuera_franja)
+  * franjas IZQ/DER [0, izq) y [der, 1) -> mism tinte rojo + linea blanca:
+                                           la placa debe estar TOTALMENTE
+                                           entre linea_verde_izq y der
 
 Si existe el .txt YOLO hermano (mismo nombre), dibuja la placa GT en
 amarillo e imprime el veredicto: CUMPLE / EN ROJO / FUERA.
@@ -33,16 +36,21 @@ RUTA_CONFIG = RUTA_RAIZ / "config.ini"
 EXT = (".jpg", ".jpeg", ".png")
 
 
-def leer_config() -> tuple[float, float, bool]:
+def leer_config() -> tuple[float, float, float, float, bool,
+                           float | None]:
     p = configparser.ConfigParser(inline_comment_prefixes=(";",))
     p.read(RUTA_CONFIG, encoding="utf-8-sig")
     sup = p.getfloat("roi", "linea_verde_sup", fallback=0.45)
     inf = p.getfloat("roi", "linea_verde_inf", fallback=0.75)
+    izq = p.getfloat("roi", "linea_verde_izq", fallback=0.0)
+    der = p.getfloat("roi", "linea_verde_der", fallback=1.0)
     # En español: "si"/"no" (getboolean de configparser solo entiende
     # yes/no/true/false en ingles y revienta con "si").
     hab = p.get("roi", "habilitado", fallback="no").strip().lower() in (
         "si", "true", "yes", "1")
-    return sup, inf, hab
+    lin = p.getfloat("roi", "linea_prioridad", fallback=0.0)
+    linea = lin if 0.0 < lin < 1.0 else None
+    return sup, inf, izq, der, hab, linea
 
 
 def leer_imagen(ruta: Path) -> np.ndarray | None:
@@ -68,7 +76,12 @@ def gt_bbox(ruta: Path, ancho: int, alto: int) -> tuple[float, ...] | None:
             (cx + w / 2) * ancho, (cy + h / 2) * alto)
 
 
-def veredicto(y0: float, y1: float, sup: float, inf: float) -> str:
+def veredicto(y0: float, y1: float, sup: float, inf: float,
+              x0: float | None = None, x1: float | None = None,
+              izq: float = 0.0, der: float = 1.0) -> str:
+    if x0 is not None and x1 is not None and (x0 < izq or x1 > der):
+        return (f"FUERA: placa x={x0:.3f}..{x1:.3f} fuera de "
+                f"izq={izq:.3f}..der={der:.3f} (fuera_franja vertical)")
     if y1 <= sup:
         return "EN ROJO: se corta, NO se detecta (auto por detras de la linea)"
     if y0 < sup:
@@ -80,7 +93,9 @@ def veredicto(y0: float, y1: float, sup: float, inf: float) -> str:
     return "FUERA: placa por debajo de la franja (demasiado cerca)"
 
 
-def pintar(img: np.ndarray, sup: float, inf: float) -> np.ndarray:
+def pintar(img: np.ndarray, sup: float, inf: float,
+           izq: float = 0.0, der: float = 1.0,
+           linea: float | None = None) -> np.ndarray:
     alto, ancho = img.shape[:2]
     y_sup = int(round(sup * alto))
     y_inf = int(round(inf * alto))
@@ -104,8 +119,41 @@ def pintar(img: np.ndarray, sup: float, inf: float) -> np.ndarray:
         vista[y_inf:] = (bajo * 0.6 + np.array([0, 140, 255]) * 0.4
                          ).astype(np.uint8)
 
+    # Cortes verticales: mismo tinte rojo "se corta" de ese lado.
+    x_izq = int(round(izq * ancho))
+    x_der = int(round(der * ancho))
+    if izq > 0.0 and x_izq > 0:
+        tinta = vista[:, 0:x_izq]
+        if tinta.size:
+            vista[:, 0:x_izq] = (tinta * 0.45
+                                 + np.array([0, 0, 180]) * 0.55
+                                 ).astype(np.uint8)
+    if der < 1.0 and x_der < ancho:
+        tinta = vista[:, x_der:]
+        if tinta.size:
+            vista[:, x_der:] = (tinta * 0.45
+                                + np.array([0, 0, 180]) * 0.55
+                                ).astype(np.uint8)
+
     cv2.line(vista, (0, y_sup), (ancho - 1, y_sup), (0, 255, 0), 3)
     cv2.line(vista, (0, y_inf), (ancho - 1, y_inf), (0, 200, 255), 3)
+    if izq > 0.0 and x_izq > 0:
+        cv2.line(vista, (x_izq, 0), (x_izq, alto - 1), (255, 255, 255), 3)
+    if der < 1.0 and x_der < ancho:
+        cv2.line(vista, (x_der, 0), (x_der, alto - 1), (255, 255, 255), 3)
+
+    # Linea de PRIORIDAD (azul): donde debe parar el carro.
+    if linea is not None:
+        y_lin = int(round(linea * alto))
+        if 0 <= y_lin < alto:
+            cv2.line(vista, (0, y_lin), (ancho - 1, y_lin),
+                     (255, 0, 0), 3)
+            cv2.putText(vista, "PRIORIDAD", (12, y_lin - 12),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 5,
+                        cv2.LINE_AA)
+            cv2.putText(vista, "PRIORIDAD", (12, y_lin - 12),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2,
+                        cv2.LINE_AA)
 
     cv2.putText(vista, "SE CORTA - no se detecta", (12, max(28, y_sup - 12)),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2,
@@ -156,14 +204,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[FATAL] Imagen ilegible: {ruta}", file=sys.stderr)
         return 1
 
-    sup, inf, hab = leer_config()
+    sup, inf, izq, der, hab, linea = leer_config()
     alto, ancho = img.shape[:2]
     print(f"Foto:   {ruta} ({ancho}x{alto})")
     print(f"ROI:    sup={sup:.4f}  inf={inf:.4f}  "
+          f"izq={izq:.4f}  der={der:.4f}  "
           f"(habilitado = {'si' if hab else 'NO - solo vista previa'})")
+    if linea is not None:
+        print(f"Linea prioridad: {linea:.4f} (azul)")
+    else:
+        print("Linea prioridad: apagada")
 
     g = gt_bbox(ruta, ancho, alto)
-    vista = pintar(img, sup, inf)
+    vista = pintar(img, sup, inf, izq=izq, der=der, linea=linea)
     if g is not None:
         x0, y0, x1, y1 = g
         cv2.rectangle(vista, (int(x0), int(y0)), (int(x1), int(y1)),
@@ -172,8 +225,10 @@ def main(argv: list[str] | None = None) -> int:
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2,
                     cv2.LINE_AA)
         ny0, ny1 = y0 / alto, y1 / alto
-        print(f"Placa:  y={ny0:.3f}..{ny1:.3f}")
-        print(f"Veredicto: {veredicto(ny0, ny1, sup, inf)}")
+        nx0, nx1 = x0 / ancho, x1 / ancho
+        print(f"Placa:  y={ny0:.3f}..{ny1:.3f}  x={nx0:.3f}..{nx1:.3f}")
+        print(f"Veredicto: {veredicto(ny0, ny1, sup, inf, x0=nx0, x1=nx1,
+                                     izq=izq, der=der)}")
 
     salida_dir = Path(args.out) if args.out else (
         RUTA_RAIZ / "reportes" / "vista_roi")

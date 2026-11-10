@@ -158,7 +158,23 @@ def clasificar_motivo(intentos: list, filtro: str | None = None) -> str:
 
     filtro: motivo de descarte del worker cuando ni siquiera hubo
     intento OCR (baja_nitidez, sobreexpuesta, ocluida...).
+
+    2026-11-09: mapea motivos viejos a los 3 motivos nuevos
+    (sin_placa, fuera_de_area/*, texto_invalido).
     """
+    motivos_map = {
+        "fuera_franja": "fuera_de_area",
+        "placa_cortada": "texto_invalido",
+        "formato_invalido": "texto_invalido",
+        "confianza_baja": "texto_invalido",
+        "duplicado": "texto_invalido",
+        "duplicado_placa": "texto_invalido",
+    }
+    if filtro:
+        filtro = motivos_map.get(filtro, filtro)
+        # fuera_franja sin variante -> fuera_de_area generico
+        if filtro == "fuera_franja":
+            filtro = "fuera_de_area"
     if not intentos:
         return filtro or "sin_intento_ocr"
     if any(_n == "calidad" for _n, _t, _c in intentos):

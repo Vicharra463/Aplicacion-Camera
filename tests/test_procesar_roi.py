@@ -105,7 +105,7 @@ def proc(monkeypatch):
         monkeypatch.setattr(worker, "_descartar", _descartar_espia)
         monkeypatch.setattr(worker, "leer_placa_6", _leer)
         monkeypatch.setattr(worker, "_pasada_de_placa",
-                            lambda p: (1, float("inf")))
+                            lambda *a, **k: (1, float("inf")))
         monkeypatch.setattr(worker, "_registrar_pasada", lambda *a: None)
         monkeypatch.setattr(worker, "_encolar_entrenamiento",
                             lambda *a: False)
@@ -147,10 +147,10 @@ def _guardadas(proc):
     raiz = proc.cfg["procesadas"]
     if not raiz.is_dir():
         return []
-    # _guardar escribe la foto completa y el _crop: la entrada de la
-    # placa es la completa.
+    # _guardar escribe la foto completa, el _crop y el _original: la
+    # entrada de la placa es la completa.
     return sorted(p for p in raiz.rglob("*.jpg")
-                  if not p.stem.endswith("_crop"))
+                  if not p.stem.endswith(("_crop", "_original")))
 
 
 # --------------------------------------------------------------- gates ---
@@ -196,22 +196,106 @@ def test_config_ini_expone_gates_fp():
     assert p.get("filtros", "gates_fp").strip().lower() in ("si", "no")
 
 
-# ------------------------------------------------------- fuera_franja ---
+# ------------------------------------------------------- fuera_de_area ---
 
 def test_placa_fuera_de_la_franja_es_motivo_propio(proc):
     # placa POR DEBAJO de la linea verde de inf (auto demasiado cerca)
+    # -> fuera_de_area/naranja (cruza la linea de abajo)
     ruta = proc.foto("fotofuera.jpg", 130, 150)
     worker.procesar_imagen(ruta)
 
-    assert proc.descartes and proc.descartes[0][0] == "fuera_franja"
+    assert proc.descartes and proc.descartes[0][0] == "fuera_de_area/naranja"
     assert proc.leer_llamadas == []   # sin reeval: la placa no se mueve
     assert _guardadas(proc) == []
 
 
-def test_fuera_franja_no_se_reevalua(proc):
-    # fuera_franja esta en FALLOS_SIN_REEVAL: ni siquiera se intenta
+def test_fuera_de_area_no_se_reevalua(proc):
+    # fuera_de_area esta en FALLOS_SIN_REEVAL: ni siquiera se intenta
     # leer de nuevo (el REEVALUACION llamaria a leer_placa_6)
-    assert "fuera_franja" in worker.FALLOS_SIN_REEVAL
+    assert "fuera_de_area" in worker.FALLOS_SIN_REEVAL
+
+
+def test_placa_contra_el_borde_izquierdo_es_fuera_de_area(proc):
+    # corte vertical: placa x 0..41 de 120 con izq = 0.15 (limite 18 + 4
+    # de tolerancia = 22); la y pasa la franja, la que manda es la x.
+    # Vertical = rojo.
+    proc.cfg["roi_linea_verde_izq"] = 0.15
+    proc.cfg["roi_linea_verde_der"] = 0.95
+    ruta = proc.foto("fverticalizq.jpg", 90, 110, x0=0, x1=40)
+    worker.procesar_imagen(ruta)
+
+    assert proc.descartes and proc.descartes[0][0] == "fuera_de_area/rojo"
+    assert "vertical" in proc.descartes[0][1]
+    assert proc.leer_llamadas == []   # se corta antes del OCR
+    assert _guardadas(proc) == []
+
+
+def test_placa_contra_el_borde_derecho_es_fuera_de_area(proc):
+    # x 95..120 de 120 con der = 0.95 (limite 114 + 4 = 118): 120 lo cruza.
+    proc.cfg["roi_linea_verde_izq"] = 0.15
+    proc.cfg["roi_linea_verde_der"] = 0.95
+    ruta = proc.foto("fverticalder.jpg", 90, 110, x0=95, x1=119)
+    worker.procesar_imagen(ruta)
+
+    assert proc.descartes and proc.descartes[0][0] == "fuera_de_area/rojo"
+    assert proc.leer_llamadas == []
+    assert _guardadas(proc) == []
+
+
+def test_sin_claves_verticales_no_corta_nada(proc):
+    # defaults 0.0/1.0: sin las claves en cfg el corte no existe y la
+    # placa contra el borde izquierdo pasa como siempre (rollback).
+    ruta = proc.foto("fsinvertical.jpg", 90, 110, x0=0, x1=40)
+    worker.procesar_imagen(ruta)
+
+    assert proc.descartes == []
+    assert len(_guardadas(proc)) == 1
+
+
+def test_foto_guardada_lleva_las_lineas_verticales(proc):
+    proc.cfg["roi_linea_verde_izq"] = 0.15
+    proc.cfg["roi_linea_verde_der"] = 0.95
+    ruta = proc.foto("fverticalbandas.jpg", 90, 110)
+    worker.procesar_imagen(ruta)
+
+    guardadas = _guardadas(proc)
+    assert len(guardadas) == 1
+    img = cv2.imread(str(guardadas[0]))
+    assert img is not None
+
+    # linea vertical blanca en x = 0.15*120 = 18 (sobre la franja verde)
+    assert int(img[100, 18, 0]) > 230
+    assert int(img[100, 18, 1]) > 230
+    assert int(img[100, 18, 2]) > 230
+
+    # tinte "se corta" a la izquierda de la linea (fila verde, x < 18)
+    assert int(img[100, 8, 2]) > int(img[100, 8, 1]) + 40
+
+
+def test_guarda_tambien_la_imagen_original(proc):
+    # El pedido de FELIPE: el set de una placa es placa (bandas+caja),
+    # recorte, txt y TAMBIEN la imagen original sin anotar.
+    ruta = proc.foto("foriginal.jpg", 90, 110)
+    worker.procesar_imagen(ruta)
+
+    guardadas = _guardadas(proc)
+    assert len(guardadas) == 1
+    destino = guardadas[0]
+    original = destino.with_name(destino.stem + "_original.jpg")
+    assert original.is_file()
+    # la etiqueta YOLO es de la foto principal; la original no la lleva
+    assert not original.with_suffix(".txt").exists()
+
+    img_o = cv2.imread(str(original))
+    img_a = cv2.imread(str(destino))
+    assert img_o is not None
+    # sin bandas ROI: la fila 10 (tintada de rojo en la anotada) queda
+    # blanco puro en la original
+    assert int(img_o[10, 5, 1]) > 200
+    assert int(img_a[10, 5, 2]) > int(img_a[10, 5, 1])
+    # foto COMPLETA, no el recorte
+    assert img_o.shape[0] == ALTO
+    assert img_o.shape[1] == ANCHO
 
 
 # ------------------------------------------- lo rojo no se detecta E2E ---

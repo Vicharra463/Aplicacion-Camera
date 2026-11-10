@@ -88,7 +88,9 @@ def main() -> int:
         auditar_imagen(objetivo, salida, detector)
     elif objetivo.is_dir():
         for foto in objetivo.rglob("*.jpg"):
-            if not foto.stem.endswith("_crop") and not foto.stem.endswith("_vista"):
+            if (not foto.stem.endswith("_crop")
+                    and not foto.stem.endswith("_original")
+                    and not foto.stem.endswith("_vista")):
                 auditar_imagen(foto, salida, detector)
     else:
         print(f"[ERROR] Ruta no encontrada: {objetivo}")

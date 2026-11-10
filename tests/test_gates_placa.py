@@ -101,7 +101,7 @@ def proc(monkeypatch):
         monkeypatch.setattr(worker, "_descartar", _descartar_espia)
         monkeypatch.setattr(worker, "leer_placa_6", _leer)
         monkeypatch.setattr(worker, "_pasada_de_placa",
-                            lambda p: (1, float("inf")))
+                            lambda *a, **k: (1, float("inf")))
         monkeypatch.setattr(worker, "_registrar_pasada", lambda *a: None)
         monkeypatch.setattr(worker, "_encolar_entrenamiento",
                             lambda *a: False)
@@ -142,7 +142,7 @@ def _guardadas(proc):
     if not raiz.is_dir():
         return []
     return sorted(p for p in raiz.rglob("*.jpg")
-                  if not p.stem.endswith("_crop"))
+                  if not p.stem.endswith(("_crop", "_original")))
 
 
 # ------------------------------------------------------- formato PE ---
@@ -178,11 +178,12 @@ def test_formato_invalido_peruano(texto):
 
 def test_formato_invalido_no_se_guarda(proc):
     # El caso real: 5TC-000 = cartel lateral de un micro.
+    # 2026-11-09: se archiva como texto_invalido (uno de los 3 motivos).
     proc.leer["texto"] = "5TC-000"
     ruta = proc.foto("fcarton.jpg", 90, 110)
     worker.procesar_imagen(ruta)
 
-    assert proc.descartes and proc.descartes[0][0] == "formato_invalido"
+    assert proc.descartes and proc.descartes[0][0] == "texto_invalido"
     assert _guardadas(proc) == []
 
 
@@ -209,11 +210,12 @@ def test_formato_apagado_guarda_basura(proc):
 
 def test_confianza_baja_no_se_guarda(proc):
     # UN1-910 (placard) 0.64 y WO3-330 (sticker) 0.65 < 0.66.
+    # 2026-11-09: se archiva como texto_invalido (uno de los 3 motivos).
     proc.detector.conf = 0.5
     ruta = proc.foto("fbaja.jpg", 90, 110)
     worker.procesar_imagen(ruta)
 
-    assert proc.descartes and proc.descartes[0][0] == "confianza_baja"
+    assert proc.descartes and proc.descartes[0][0] == "texto_invalido"
     assert _guardadas(proc) == []
 
 
@@ -263,12 +265,15 @@ def test_cooldown_evento_rechaza_misma_rafaga(proc):
 
     # Foto 2: +4 s de camara, OTRO texto inventado por el OCR (la misma
     # rafaga del mismo carro): se rechaza aunque el texto no se parezca.
+    # 2026-11-09: cooldown_evento es filtro INTERNO — no crea carpeta
+    # en descartadas; solo borra la foto.
     proc.leer["texto"] = "XYZ-999"
     ruta2 = proc.foto(TS2, 100, 120)
     worker.procesar_imagen(ruta2)
 
-    assert proc.descartes and proc.descartes[0][0] == "cooldown_evento"
-    assert len(_guardadas(proc)) == 1          # sigue siendo solo la 1
+    assert not ruta2.exists()          # borrada, sin carpeta
+    assert len(_guardadas(proc)) == 1  # sigue siendo solo la 1
+    assert not any("cooldown" in m for m, _ in proc.descartes)
 
 
 def test_cooldown_evento_pasa_con_tiempo(proc):

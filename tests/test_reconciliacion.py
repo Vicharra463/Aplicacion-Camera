@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 import tempfile
 from contextlib import contextmanager
@@ -267,7 +268,7 @@ def test_carpetas_vacias_se_eliminan():
     arrancar. Las carpetas sanas y los layout viejos se conservan."""
     with _entorno() as tmp:
         proc = tmp / "proc"
-        # Residuos rotos: vacia, solo .txt, solo _crop.
+        # Residuos rotos: vacia, solo .txt, solo _crop, solo _original.
         (proc / "placa" / HOY / "ABR-820").mkdir(parents=True)
         solo_txt = proc / "placa" / HOY / "XYZ-123"
         solo_txt.mkdir(parents=True)
@@ -276,6 +277,9 @@ def test_carpetas_vacias_se_eliminan():
         solo_crop = proc / "placa" / HOY / "DEF-789"
         solo_crop.mkdir(parents=True)
         (solo_crop / "DEF-789_crop.jpg").write_bytes(b"jpg")
+        solo_original = proc / "placa" / HOY / "GHI-321"
+        solo_original.mkdir(parents=True)
+        (solo_original / "GHI-321_original.jpg").write_bytes(b"jpg")
         # Sana: tiene foto principal.
         sana = proc / "placa" / HOY / "ABC-456"
         sana.mkdir(parents=True)
@@ -287,16 +291,78 @@ def test_carpetas_vacias_se_eliminan():
         layout_viejo.mkdir(parents=True)
         (layout_viejo / "placa_10-00-00_123456.jpg").write_bytes(b"jpg")
 
-        assert worker._depurar_carpetas_vacias() == 3
+        assert worker._depurar_carpetas_vacias() == 4
 
         assert not (proc / "placa" / HOY / "ABR-820").exists()
         assert not solo_txt.exists()
         assert not solo_crop.exists()
+        assert not solo_original.exists()
         assert (sana / "ABC-456.jpg").is_file()
         assert not (proc / "placa" / "2026-10-01").exists()
         assert (layout_viejo / "placa_10-00-00_123456.jpg").is_file()
         # La carpeta de vista jamas se toca (la verifica el FTP).
         assert (proc / "placa").is_dir()
+
+
+def test_reconciliar_toma_la_principal_no_la_original():
+    """La carpeta de placa tiene principal + _original; el reporte debe
+    anotar la principal aunque la original tenga mtime mayor."""
+    with _entorno() as tmp:
+        proc = tmp / "proc"
+        carpeta = proc / "placa" / HOY / "ABR-820"
+        carpeta.mkdir(parents=True)
+        principal = carpeta / "ABR-820.jpg"
+        principal.write_bytes(b"jpg")
+        original = carpeta / "ABR-820_original.jpg"
+        original.write_bytes(b"jpg")
+        base = datetime.now().timestamp() - 3600
+        os.utime(principal, (base, base))
+        os.utime(original, (base + 60, base + 60))   # la original, mas nueva
+        con = worker._conexion()
+        try:
+            assert worker._reconciliar_carpetas_dia(con, HOY) == 1
+            fila = con.execute("SELECT archivo FROM registros").fetchone()
+        finally:
+            con.close()
+        assert fila[0] == str(principal.relative_to(proc))
+
+
+def test_reemplazo_con_texto_nuevo_no_deja_carpetas_fantasma():
+    """_reemplazar_si_mejor desarma el set viejo COMPLETO (main, txt,
+    _crop y _original) antes del rmdir: si el _original queda suelto, la
+    carpeta vieja sobrevive aunque el texto cambio."""
+    with _entorno() as tmp:
+        proc = tmp / "proc"
+        carpeta = proc / "placa" / HOY / "ABR-820"
+        carpeta.mkdir(parents=True)
+        viejo = carpeta / "ABR-820.jpg"
+        viejo.write_bytes(b"vieja")
+        viejo.with_suffix(".txt").write_text("0 0.5 0.5 0.1 0.1\n",
+                                             encoding="utf-8")
+        (carpeta / "ABR-820_crop.jpg").write_bytes(b"crop")
+        (carpeta / "ABR-820_original.jpg").write_bytes(b"original")
+        con = worker._conexion()
+        try:
+            con.execute(
+                "INSERT INTO registros (fecha_hora, archivo, placa, estado, "
+                "evidencia) VALUES (?, ?, 'ABR-820', 'guardado', 1)",
+                (f"{HOY}T10:00:00",
+                 str(viejo.relative_to(proc))))
+            con.commit()
+        finally:
+            con.close()
+        img = np.zeros((100, 100, 3), dtype=np.uint8)
+        ok = worker._reemplazar_si_mejor(
+            "placa", 1111, "ABR-820", img, (10, 10, 50, 50), "QRS-999",
+            evidencia=5, color="verde", confianza=0.9, huella=999,
+            etiqueta="", fuente=None)
+        assert ok is True
+        # el texto cambio -> _guardar creo OTRA carpeta; la vieja quedo
+        # sin archivos y debe haberse eliminado (sin _original suelto)
+        assert not carpeta.exists()
+        nueva = proc / "placa" / HOY / "QRS-999"
+        assert (nueva / "QRS-999.jpg").is_file()
+        assert (nueva / "QRS-999_original.jpg").is_file()
 
 
 def test_guardar_falla_no_deja_carpeta_vacia(monkeypatch):

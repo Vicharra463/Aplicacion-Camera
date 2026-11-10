@@ -123,10 +123,16 @@ def cargar_config() -> dict:
         
         
         "ventana_reinspeccion_min": ini.getfloat("camara", "ventana_reinspeccion_min",
-                                                 fallback=60.0),
+                                                 fallback=0.0),
         "ventana_reinspeccion_dias": ini.getint("camara", "ventana_reinspeccion_dias",
                                                 fallback=30),
         "max_pasadas": ini.getint("camara", "max_pasadas", fallback=3),
+        # Matching de 2a pasada contra carpetas/JSON del dia: 1 error
+        # de OCR. 2 = "4 de 6" y genera falsos positivos entre placas.
+        "umbral_leven_pasada": ini.getint("camara", "umbral_leven_pasada",
+                                          fallback=1),
+        "revisar_carpetas_dia": ini.get("camara", "revisar_carpetas_dia",
+                                        fallback="si").strip().lower() == "si",
         "cooldown_placa_seg": ini.getfloat("camara", "cooldown_placa_seg",
                                            fallback=5.0),
         # Cooldown POR EVENTO (rafaga): rechaza fotos de la misma
@@ -154,6 +160,17 @@ def cargar_config() -> dict:
                                              fallback=0.0),
         "roi_linea_verde_inf": ini.getfloat("roi", "linea_verde_inf",
                                              fallback=1.0),
+        "roi_linea_verde_izq": ini.getfloat("roi", "linea_verde_izq",
+                                             fallback=0.0),
+        "roi_linea_verde_der": ini.getfloat("roi", "linea_verde_der",
+                                             fallback=1.0),
+        # Linea de PRIORIDAD (azul en la foto) y su tolerancia: son la
+        # referencia de MEJOR FOTO (la mas cerca de la linea gana).
+        "roi_linea_prioridad": ini.getfloat("roi", "linea_prioridad",
+                                             fallback=0.0),
+        "roi_tolerancia_prioridad": ini.getfloat("roi",
+                                                  "tolerancia_prioridad",
+                                                  fallback=0.02),
         "reposo_minutos": ini.getfloat("recursos", "reposo_minutos",
                                        fallback=10.0),
         "nivel_log": ini.get("log", "nivel"),
@@ -205,17 +222,35 @@ def bucle_heartbeat(ruta: Path) -> None:
         time.sleep(15)
 
 
+BARRIDO_SEG = 2.0         # cada cuantos segundos reintenta la entrada
+BARRIDO_MTIME_SEG = 30.0  # sin tocarse desde hace X: evita leer a medio subir
+
+
+def _barrido_una_vez(recibidos: Path) -> int:
+    """Re-encola lo que quedo en la cola de entrada sin procesar.
+
+    Devuelve cuantos archivo(s) recuperó. Los que ya estan en la cola
+    (o siendo subidos) se ignoran: el barrido es barato de repetir.
+    """
+    encolados = 0
+    try:
+        for p in recibidos.rglob("*"):
+            if (p.is_file()
+                    and (time.time() - p.stat().st_mtime)
+                    > BARRIDO_MTIME_SEG
+                    and worker.encolar(str(p))):
+                encolados += 1
+                logger.info("Barrido: archivo recuperado %s", p.name)
+    except OSError as exc:
+        logger.debug("Barrido interrumpido: %s", exc)
+    return encolados
+
+
 def bucle_barrido(recibidos: Path) -> None:
     """Reintenta archivos que quedaron en la cola de entrada sin procesar."""
     while True:
-        time.sleep(60)
-        try:
-            for p in recibidos.rglob("*"):
-                if p.is_file() and (time.time() - p.stat().st_mtime) > 30:
-                    if worker.encolar(str(p)):
-                        logger.info("Barrido: archivo recuperado %s", p.name)
-        except OSError as exc:
-            logger.debug("Barrido interrumpido: %s", exc)
+        time.sleep(BARRIDO_SEG)
+        _barrido_una_vez(recibidos)
 
 
 def _ip_local() -> str:
