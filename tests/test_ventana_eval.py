@@ -2,7 +2,8 @@
 
 1. Gate de posicion: con linea_prioridad calibrada, solo llega a
    evaluar la foto cuya placa cae dentro de linea_prioridad +/- tolerancia_ventana
-   (default 0.04). Fuera de la ventana se descarta como
+   (config 2026-11-11: 0.20; el fixture prueba el gate con 0.04).
+   Fuera de la ventana se descarta como
    fuera_de_area (naranja si quedo pegada, rojo si quedo lejos) SIN
    llamar a la API.
 2. Ventana best-of: de la RAFAGA se evalua UNA foto por
@@ -248,6 +249,23 @@ def test_sin_linea_calibrada_no_hay_gate(vent):
     assert len(_guardadas(vent)) == 1
 
 
+def test_foto_real_cy_041_pasa_con_tolerancia_del_config(vent):
+    # 2026-11-11 (pedido FELIPE): 7/9 fotos reales de un carro cayeron
+    # en fuera_de_area (cy 0.41-0.70 vs linea 0.60 +/- 0.04). Con la
+    # tolerancia DEL CONFIG (0.20 en verde) la foto de cy 0.410 tiene
+    # que pasar el gate de posicion.
+    import ftp_server
+    tol = ftp_server.cargar_config()["roi_tolerancia_ventana"]
+    vent.cfg["roi_tolerancia_ventana"] = tol
+    # y0=58 y1=74 en ALTO=160 -> cy = 66/160 = 0.4125 (dist 0.1875)
+    ruta = vent.foto("real_cy041.jpg", 58, 74)
+    worker.procesar_imagen(ruta)
+    motivos = [m for m, _ in vent.descartes]
+    assert not any(m.startswith("fuera_de_area") for m in motivos), motivos
+    assert not vent.rf_llamadas      # sin ventana abierta no hay API
+    assert ruta.is_file()            # quedo como candidata, no descartada
+
+
 # ------------------------------------------------- ventana best-of ---
 
 def test_rafaga_foto_peor_se_descarta_interna(vent):
@@ -362,7 +380,7 @@ def test_config_ini_expone_claves_de_ventana():
     p.read(RAIZ / "config.ini", encoding="utf-8-sig")
     tol = p.getfloat("roi", "tolerancia_ventana")
     seg = p.getfloat("roi", "eval_ventana_seg")
-    assert 0.0 < tol < 0.20
+    assert 0.0 < tol < 0.25
     assert seg > 0.0
 
 
@@ -373,5 +391,5 @@ def test_cargar_config_pasa_las_claves_de_ventana_al_worker():
     cfg = ftp_server.cargar_config()
     assert "roi_tolerancia_ventana" in cfg
     assert "roi_eval_ventana_seg" in cfg
-    assert 0.0 < cfg["roi_tolerancia_ventana"] < 0.20
+    assert 0.0 < cfg["roi_tolerancia_ventana"] < 0.25
     assert cfg["roi_eval_ventana_seg"] > 0.0

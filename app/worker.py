@@ -1171,12 +1171,13 @@ def _tolerancia_ventana() -> float:
     linea_prioridad +/- esto ("un poquito lejos, no tan lejos");
     afuera se descarta como fuera_de_area sin gastar API. Naranja si
     quedo pegada (<= 2x), rojo si quedo lejos. Config:
-    [roi] tolerancia_ventana. Default 0.04.
+    [roi] tolerancia_ventana. 2026-11-11: default = config (0.20;
+    con 0.04 se descartaban placas reales de cy 0.41-0.70).
     """
     try:
-        tol = float(_cfg.get("roi_tolerancia_ventana", 0.04) or 0.0)
+        tol = float(_cfg.get("roi_tolerancia_ventana", 0.20) or 0.0)
     except (TypeError, ValueError):
-        return 0.04
+        return 0.20
     return max(0.0, tol)
 
 

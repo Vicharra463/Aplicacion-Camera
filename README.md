@@ -238,7 +238,7 @@ Orden de protección en `worker.procesar_imagen`:
 
 2. **Gate de posición + ventana best-of — ANTES del OCR y de la API.**
    - **Posición**: con `linea_prioridad` calibrada, la placa debe caer
-     dentro de `linea_prioridad ± tolerancia_ventana` (0.04); afuera
+      dentro de `linea_prioridad ± tolerancia_ventana` (0.20); afuera
      se descarta como `fuera_de_area` (naranja si quedó pegada, rojo
      si quedó lejos) **sin gastar cuota**.
    - **Ventana**: de una ráfaga solo se evalúa **1 foto cada

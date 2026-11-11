@@ -173,9 +173,10 @@ def cargar_config() -> dict:
                                                   fallback=0.02),
         # Ventana de posicion (2026-11-10): gate +/- tolerancia sobre la
         # linea de prioridad y 1 foto evaluada por eval_ventana_seg.
+        # 2026-11-11: 0.04 -> 0.20 (placas reales de cy 0.41-0.70).
         "roi_tolerancia_ventana": ini.getfloat("roi",
-                                                "tolerancia_ventana",
-                                                fallback=0.04),
+                                               "tolerancia_ventana",
+                                               fallback=0.20),
         "roi_eval_ventana_seg": ini.getfloat("roi", "eval_ventana_seg",
                                               fallback=15.0),
         "reposo_minutos": ini.getfloat("recursos", "reposo_minutos",
