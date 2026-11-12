@@ -140,21 +140,93 @@ Restart-Service CamaraCytvAncon
 
 ## Puesta en marcha de la cámara (Hikvision)
 
-1. Abre `C:\CytvAncon\INFO_CAMARA.txt` (se regenera en cada arranque).
-2. En la web de la cámara (`http://192.168.18.42` o su IP):
-   - **Storage → Schedule Settings → Picture Capture** → activa FTP en **AMBOS canales**
-   - **Event → Motion Detection (MD_WITH_TARGET)** → linkage FTP en **AMBOS canales**
-3. Datos del servidor FTP:
-   ```
-   Server:     <IP de INFO_CAMARA.txt>
-   Port:       2121
-   User:       admin
-   Password:   <la de config.ini>
-   Protocol:   FTP
-   Remote Dir: /
-   Mode:       Passive
-   ```
-4. **Importante**: si solo sube el canal 01, la carpeta `placa\` no recibe fotos.
+Sigue estos 5 pasos EN ORDEN. El servidor FTP debe estar corriendo ANTES de configurar la cámara.
+
+### Paso 1 — Instalar y verificar el servidor FTP
+
+```cmd
+REM Copia la carpeta COMPLETA del proyecto a C:\CytvAncon
+cd C:\CytvAncon
+instalar_servicio.bat
+```
+
+```powershell
+# El servicio debe decir Running y el puerto 2121 debe ESCUCHAR
+cytv estado
+netstat -ano | findstr ":2121"
+```
+
+Esperado: `TCP 0.0.0.0:2121 ... LISTENING`. Si no escucha, revisa
+`Get-Content C:\CytvAncon\logs\stderr.log -Tail 20` antes de seguir.
+
+### Paso 2 — Tomar los datos de conexión
+
+```cmd
+notepad C:\CytvAncon\INFO_CAMARA.txt
+```
+
+Ese archivo se regenera solo en cada arranque y trae la IP real del
+servidor (si cambias de PC o de red, vuelve a mirarlo — no lo memorices).
+
+### Paso 3 — Configurar la cámara (web de la cámara)
+
+Abre la web de la cámara (`http://192.168.18.42` o la IP que tenga) y
+en **AMBOS canales** (01 panorámico y 02 PT/placa):
+
+1. **Storage → Schedule Settings → Picture Capture** → activar subida **FTP**
+2. **Event → Motion Detection (MD_WITH_TARGET)** → linkage **FTP**
+
+Datos FTP a completar (valores de `INFO_CAMARA.txt`):
+
+```
+Server:     <IP del servidor, p. ej. 192.168.1.26>
+Port:       2121
+User:       admin
+Password:   <la misma de config.ini — si la cambias aquí, cámbiala TAMBIÉN en la cámara>
+Protocol:   FTP
+Remote Dir: /
+Mode:       Passive
+```
+
+> **Si solo sube el canal 01, la carpeta `placa\` no recibe fotos** y no
+> habrá lectura de matrículas. Verifica los dos canales.
+
+### Paso 4 — Confirmar que la cámara está subiendo
+
+```powershell
+# Deja el log abierto y pasa un carro frente a la cámara:
+Get-Content C:\CytvAncon\logs\servidor.log -Wait -Tail 20
+```
+
+Esperado con cada foto que llega:
+
+```
+Imagen recibida: ...MD_WITH_TARGET.jpg
+Placa detectada: CBN-449 (confianza 91%)
+```
+
+Si no aparece nada:
+1. `netstat -ano | findstr ":2121"` → ¿sigue LISTENING?
+2. Firewall: `Get-NetFirewallRule | Where-Object DisplayName -like "*CYTV*"` (o revisa que la regla 2121 exista)
+3. IP cambió sin reserva DHCP → vuelve al Paso 2 y actualiza la cámara
+
+### Paso 5 — Prueba de humo con una foto de prueba
+
+```cmd
+cytv fotos C:\ruta\de\una\foto.jpg -Canal 02
+cytv placas
+```
+
+`cytv fotos` sube la foto por el MISMO FTP que usa la cámara (prueba el
+camino completo: red → firewall → FTP → worker → OCR). `cytv placas`
+muestra las placas detectadas HOY con hora y confianza.
+
+Para ver el reporte JSON del día:
+
+```powershell
+Get-Content C:\CytvAncon\reportes\placas-$(Get-Date -Format yyyy-MM-dd).json -Raw |
+  ConvertFrom-Json | ForEach-Object { $_.placas.placa }
+```
 
 ---
 
@@ -201,25 +273,13 @@ C:\CytvAncon\imagenes_procesadas\
     └── vehiculo_16-32-28_107.jpg
 ```
 
-**Reporte JSON diario** (`reportes/placas-YYYY-MM-DD.json`):
+**Reporte JSON diario** (`reportes/placas-YYYY-MM-DD.json`) — solo placas, sin rutas de imagen:
 ```json
 {
   "fecha": "2026-11-11",
-  "generado": "2026-11-11T17:20:45",
-  "total_placas": 3,
-  "total_detecciones": 5,
   "placas": [
-    {
-      "placa": "CBN-449",
-      "primera_vez": "2026-11-11T17:20:45",
-      "ultima_vez": "2026-11-11T17:20:47",
-      "detecciones": 2,
-      "confianza_max": 0.91,
-      "imagenes": {
-        "placa": ["C:\\CytvAncon\\imagenes_procesadas\\placa\\2026-11-11\\CBN-449.jpg"],
-        "panoramica": ["C:\\CytvAncon\\imagenes_procesadas\\vehiculo\\2026-11-11\\placa-panoramica_CBN-449.jpg"]
-      }
-    }
+    { "placa": "CBN-449",   "hora": "17:20:45", "confianza": 0.91 },
+    { "placa": "ABC-1234",  "hora": "18:03:12", "confianza": 0.87 }
   ]
 }
 ```
@@ -345,4 +405,4 @@ El instalador reutiliza venv y Python si ya están bien.
 
 ## Licencia
 
-Uso interno — CYTV Ancon. Código basado en Python estándar, OpenCV, ONNX Runtime, RapidOCR, pyftpdlib, NSSM, React/Vite/Express.
+Uso interno — CYTV Ancon. Código basado en Python estándar, OpenCV, ONNX Runtime, RapidOCR, pyftpdlib, NSSM.

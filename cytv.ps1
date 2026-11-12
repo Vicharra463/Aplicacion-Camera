@@ -15,7 +15,6 @@
   cytv servicios parar
   cytv servicios arrancar
   cytv config -Abrir
-  cytv web
   cytv ayuda
 #>
 [CmdletBinding()]
