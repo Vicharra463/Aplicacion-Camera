@@ -275,13 +275,15 @@ if ($build -lt 14393) {
         $os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
         $feat = if ($os -and $os.ProductType -eq 1) { 'MediaFoundation' } else { 'Server-Media-Foundation' }
         L ('       feature: ' + $feat)
-        $p = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\dism.exe') `
-            -ArgumentList '/Online','/Enable-Feature','/FeatureName:'+$feat,'/All','/NoRestart' `
-            -Wait -PassThru -NoNewWindow
-        L ('       DISM exit=' + $p.ExitCode + ' (0=OK, 3010=reinicio pendiente)')
+        # Call operator en UNA linea: Start-Process multi-linea con backtick
+        # se rompe en PowerShell 4 (2012 R2) al pasar por CRLF.
+        $dism = Join-Path $env:SystemRoot 'System32\dism.exe'
+        & $dism /Online /Enable-Feature ('/FeatureName:' + $feat) /All /NoRestart
+        $exitDism = $LASTEXITCODE
+        L ('       DISM exit=' + $exitDism + ' (0=OK, 3010=reinicio pendiente)')
         if (Test-Path -LiteralPath $mfplat) {
             L '       Media Foundation habilitado OK'
-        } elseif ($p.ExitCode -eq 3010) {
+        } elseif ($exitDism -eq 3010) {
             L '       Media Foundation quedo pendiente de REINICIO.'
             L '       Reinicie la Windows Server y vuelva a correr instalar_servicio.bat'
             L '       (el instalador es repebile - continuara donde quedo).'
