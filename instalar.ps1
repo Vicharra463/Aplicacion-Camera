@@ -263,7 +263,8 @@ if ($build -lt 14393) {
 # Verificado con parseo de PE: cv2.pyd (opencv-python normal o headless)
 # importa MFPlat.DLL, MF.dll y MFReadWrite.dll - Media Foundation es
 # OBLIGATORIO para el import de cv2. Server 2012 R2 no lo trae de fabrica:
-# hay que habilitar la feature "Server-Media-Foundation" con DISM.
+# habilitar la feature con DISM (en DISM el nombre es ServerMediaFoundation,
+# sin guiones; ver detalle en el paso).
 if ($build -lt 14393) {
     $mfplat = Join-Path $env:SystemRoot 'System32\mfplat.dll'
     if (Test-Path -LiteralPath $mfplat) {
@@ -356,10 +357,13 @@ $humo = & $vp -c "import pyftpdlib, cv2, numpy, onnxruntime; from rapidocr_onnxr
                         L '       ERROR: los imports no cargan - el venv o el sistema estan incompletos.'
                         L ('       detalle: ' + ($humo -replace '\s+', ' ').Trim())
                         if ($build -lt 14393) {
-                            if ($humo -match 'MFPlat|Media Foundation' -or
+                                if ($humo -match 'MFPlat|Media Foundation' -or
                                 -not (Test-Path -LiteralPath (Join-Path $env:SystemRoot 'System32\mfplat.dll'))) {
-                                L '       Parece faltar Media Foundation - habilite la feature y reintente:'
-                                L '       dism /Online /Enable-Feature /FeatureName:Server-Media-Foundation /All'
+                                L '       Parece faltar Media Foundation - en DISM el nombre de feature es'
+                                L '       ServerMediaFoundation (sin guiones):'
+                                L '       dism /Online /Enable-Feature /FeatureName:ServerMediaFoundation /All'
+                                L '       (si ese nombre no existe, liste los reales con'
+                                L '        dism /Online /Get-Features | findstr /i Media)'
                             }
                             if ($humo -match 'vcruntime|msvcp|DLL load failed' -and
                                 -not (Test-Path -LiteralPath (Join-Path $env:SystemRoot 'System32\vcruntime140_1.dll'))) {
