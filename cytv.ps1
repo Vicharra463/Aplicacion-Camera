@@ -12,6 +12,8 @@
   cytv log -Lineas 50
   cytv fotos C:\Users\felip\foto.jpg -Canal 02
   cytv servicios reiniciar
+  cytv servicios parar
+  cytv servicios arrancar
   cytv config -Abrir
   cytv web
   cytv ayuda
@@ -245,43 +247,63 @@ function Invoke-Servicios {
     $color = if ($estado -eq 'Running') { 'Green' } else { 'Yellow' }
     Write-Host $estado -ForegroundColor $color
 
-    switch ($accion) {
-        'reiniciar' {
-            if (-not $Fuerza) {
-                $resp = Read-Host '  ¿Reiniciar el servicio ahora? (s/N)'
-                if ($resp -notin @('s', 'si', 'sí')) {
-                    Write-Host '  Cancelado.'
-                    return
-                }
+    function Test-Admin {
+        ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
+        ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    }
+    function Confirmar([string]$Texto) {
+        if ($Fuerza) { return $true }
+        $resp = Read-Host ('  ' + $Texto + ' (s/N)')
+        return ($resp -in @('s', 'si', 'sí'))
+    }
+    function EsperarEstado([string]$Deseado) {
+        for ($i = 0; $i -lt 20; $i++) {
+            Start-Sleep -Seconds 1
+            $estado = Get-EstadoServicio
+            if ($estado -eq $Deseado) {
+                Write-Host ('  Servicio ' + $Deseado + '.') -ForegroundColor Green
+                return $true
             }
-            $admin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
-                     ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-            try {
-                if ($admin) {
-                    Restart-Service -Name $Servicio -Force
-                } else {
-                    Write-Host '  Requiere elevacion (UAC); abra PowerShell como administrador y ejecute:'
-                    Write-Host "    cytv servicios reiniciar" -ForegroundColor Cyan
-                    Write-Host '  o bien:'
-                    Write-Host "    Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile','-Command','Restart-Service $Servicio -Force'" -ForegroundColor Cyan
-                    return
-                }
-            } catch {
-                Write-Host "  Error al reiniciar: $($_.Exception.Message)" -ForegroundColor Red
+        }
+        Write-Host ('  Estado actual: ' + $estado + '. Si no cambio, revise el log.') -ForegroundColor Yellow
+        return $false
+    }
+
+    switch ($accion) {
+        'parar' {
+            if (-not (Confirmar 'Parar el servicio ahora?')) { Write-Host '  Cancelado.'; return }
+            if (-not (Test-Admin)) {
+                Write-Host '  Requiere elevacion (UAC); abra PowerShell como administrador y ejecute:'
+                Write-Host '    cytv servicios parar' -ForegroundColor Cyan
                 return
             }
-            for ($i = 0; $i -lt 20; $i++) {
-                Start-Sleep -Seconds 1
-                $estado = Get-EstadoServicio
-                if ($estado -eq 'Running') {
-                    Write-Host '  Servicio reiniciado: Running.' -ForegroundColor Green
-                    return
-                }
+            try { Stop-Service -Name $Servicio -Force }
+            catch { Write-Host ('  Error al parar: ' + $_.Exception.Message) -ForegroundColor Red; return }
+            [void](EsperarEstado 'Stopped')
+        }
+        'arrancar' {
+            if (-not (Test-Admin)) {
+                Write-Host '  Requiere elevacion (UAC); abra PowerShell como administrador y ejecute:'
+                Write-Host '    cytv servicios arrancar' -ForegroundColor Cyan
+                return
             }
-            Write-Host "  Estado actual: $estado. Si no arranco, revise el log." -ForegroundColor Yellow
+            try { Start-Service -Name $Servicio }
+            catch { Write-Host ('  Error al arrancar: ' + $_.Exception.Message) -ForegroundColor Red; return }
+            [void](EsperarEstado 'Running')
+        }
+        'reiniciar' {
+            if (-not (Confirmar 'Reiniciar el servicio ahora?')) { Write-Host '  Cancelado.'; return }
+            if (-not (Test-Admin)) {
+                Write-Host '  Requiere elevacion (UAC); abra PowerShell como administrador y ejecute:'
+                Write-Host '    cytv servicios reiniciar' -ForegroundColor Cyan
+                return
+            }
+            try { Restart-Service -Name $Servicio -Force }
+            catch { Write-Host ('  Error al reiniciar: ' + $_.Exception.Message) -ForegroundColor Red; return }
+            [void](EsperarEstado 'Running')
         }
         default {
-            Write-Host '  Acciones: cytv servicios reiniciar [-Fuerza]'
+            Write-Host '  Acciones: cytv servicios parar | arrancar | reiniciar [-Fuerza]'
         }
     }
 }
