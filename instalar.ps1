@@ -269,18 +269,31 @@ if ($build -lt 14393) {
     if (Test-Path -LiteralPath $mfplat) {
         L 'Paso 5.6: Media Foundation ya presente - se omite'
     } else {
-        L 'Paso 5.6: habilitando feature Media Foundation con DISM (varios minutos)...'
-        # ProductType: 1=Workstation -> feature "MediaFoundation";
-        # 2/3=Server/DC -> "Server-Media-Foundation"
-        $os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
-        $feat = if ($os -and $os.ProductType -eq 1) { 'MediaFoundation' } else { 'Server-Media-Foundation' }
-        L ('       feature: ' + $feat)
-        # Call operator en UNA linea: Start-Process multi-linea con backtick
-        # se rompe en PowerShell 4 (2012 R2) al pasar por CRLF.
+        L 'Paso 5.6: habilitando feature Media Foundation con DISM...'
+        # VERIFICADO en 2012 R2: el nombre de feature SEGUN LA HERRAMIENTA:
+        #  - dism.exe /Enable-Feature -> "ServerMediaFoundation" (sin guiones)
+        #  - Install-WindowsFeature   -> "Server-Media-Foundation" (con guiones)
+        #  - Windows client 8.1/10    -> "MediaFoundation"
+        # DISM con nombre desconocido falla con 0x800f080c (-2146498548):
+        # probamos la lista de candidatos y nos queda la verdad ultima
+        # en disco: mfplat.dll.
         $dism = Join-Path $env:SystemRoot 'System32\dism.exe'
-        & $dism /Online /Enable-Feature ('/FeatureName:' + $feat) /All /NoRestart
-        $exitDism = $LASTEXITCODE
-        L ('       DISM exit=' + $exitDism + ' (0=OK, 3010=reinicio pendiente)')
+        $candidatos = @('ServerMediaFoundation', 'Server-Media-Foundation', 'MediaFoundation')
+        $featOk = $null
+        foreach ($c in $candidatos) {
+            L ('       probando feature: ' + $c)
+            & $dism /Online /Enable-Feature ('/FeatureName:' + $c) /All /NoRestart
+            $exitDism = $LASTEXITCODE
+            if (($exitDism -eq 0) -or ($exitDism -eq 3010)) { $featOk = $c; break }
+            L ('       "' + $c + '" no existe aqui (exit ' + $exitDism + ') - se prueba el siguiente')
+        }
+        if (-not $featOk) {
+            L '       ERROR: ningun nombre de feature funciono.'
+            L '       Liste los nombres reales con:'
+            L '       dism /Online /Get-Features | findstr /i Media'
+            exit 1
+        }
+        L ('       feature habilitada: ' + $featOk + ' (exit ' + $exitDism + '; 3010 = reinicio pendiente)')
         if (Test-Path -LiteralPath $mfplat) {
             L '       Media Foundation habilitado OK'
         } elseif ($exitDism -eq 3010) {
