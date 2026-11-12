@@ -376,12 +376,45 @@ $humo = & $vp -c "import pyftpdlib, cv2, numpy, onnxruntime; from rapidocr_onnxr
                         }
                         exit 1
                     }
-L ('       ' + ($humo -replace '\s+', ' ').Trim())
-if (-not (Test-Path -LiteralPath (Join-Path $dest 'modelo\placas.onnx'))) {
-    L '       AVISO: falta modelo\placas.onnx - arrancara SIN detector de placas.'
-}
+                    L ('       ' + ($humo -replace '\s+', ' ').Trim())
+                    if (-not (Test-Path -LiteralPath (Join-Path $dest 'modelo\placas.onnx'))) {
+                        L '       AVISO: falta modelo\placas.onnx - arrancara SIN detector de placas.'
+                    }
 
-# --- [7] NSSM + servicio ---
+                    # --- [6.5] Comando cytv en el PATH del sistema ---
+                    # cytv.cmd usa %~dp0 (ruta relativa al wrapper), asi que basta
+                    # con que la CARPETA este en el PATH. Sin esto, "cytv estado"
+                    # no responde en consolas nuevas.
+                    $cytvCmd = Join-Path $dest 'cytv.cmd'
+                    if (-not (Test-Path -LiteralPath $cytvCmd)) {
+                        L '       AVISO: falta cytv.cmd - el comando cytv no estara disponible.'
+                    } else {
+                        L 'Paso 6.5: registrando comando cytv en el PATH del sistema'
+                        $mp = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+                        $parts = @()
+                        if ($mp) { $parts = @($mp -split ';') | Where-Object { $_ -ne '' } }
+                        $destNorm = $dest.TrimEnd('\')
+                        $presente = $false
+                        foreach ($p in $parts) {
+                            if ($p.TrimEnd('\') -ieq $destNorm) { $presente = $true }
+                        }
+                        if ($presente) {
+                            L '       la carpeta ya esta en el PATH - se omite'
+                        } else {
+                            $nuevo = ($parts -join ';') + ';' + $dest
+                            [Environment]::SetEnvironmentVariable('Path', $nuevo, 'Machine')
+                            $verif = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+                            if ($verif -match 'CytvAncon') {
+                                L '       OK: ' + $dest + ' agregado al PATH del sistema'
+                                L '       (abra una consola NUEVA para que cytv responda)'
+                            } else {
+                                L '       AVISO: no se pudo agregar al PATH - a mano, elevado:'
+                                L ('       setx /M PATH "%PATH%;' + $dest + '"')
+                            }
+                        }
+                    }
+
+                    # --- [7] NSSM + servicio ---
 $nssm = Join-Path $dest 'nssm.exe'
 if (-not (Test-Path -LiteralPath $nssm)) { L '       AVISO: falta nssm.exe en la carpeta - el servicio no se puede registrar.'; exit 1 }
 L ('Paso 7: registrando servicio ' + $serv)
