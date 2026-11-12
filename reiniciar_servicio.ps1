@@ -1,4 +1,4 @@
-# Reinicia el servicio NSSM de la camara CYTV Ancon.
+﻿# Reinicia el servicio NSSM de la camara CYTV Ancon.
 # Se lanza elevado (UAC) desde cytv.ps1 o manualmente.
 $svc = 'CamaraCYTVAncon'
 Write-Output "Reiniciando servicio $svc..."

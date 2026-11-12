@@ -1,4 +1,4 @@
-# Limpieza automatica de almacenamiento - Camara CYTV Ancon
+﻿# Limpieza automatica de almacenamiento - Camara CYTV Ancon
 # Borra imagenes procesadas y descartadas con mas de RETENCION_DIAS dias.
 # Programado con Task Scheduler para correr cada 2 semanas (ver README).
 #

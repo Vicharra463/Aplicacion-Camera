@@ -1,4 +1,4 @@
-# Registra la tarea programada de limpieza de almacenamiento.
+﻿# Registra la tarea programada de limpieza de almacenamiento.
 # Corre cada 2 semanas (domingo) a las 3:00 AM con privilegios elevados.
 # Se lanza elevado (UAC) una sola vez; despues Windows la ejecuta solo.
 

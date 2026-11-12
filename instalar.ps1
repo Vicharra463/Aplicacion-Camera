@@ -1,4 +1,4 @@
-#requires -Version 3.0
+﻿#requires -Version 3.0
 # ============================================================
 #  Instalador universal - Servidor FTP Camara CYTV Ancon
 #  Compatible con PowerShell 3.0+ (Windows Server 2012 R2 = PS4

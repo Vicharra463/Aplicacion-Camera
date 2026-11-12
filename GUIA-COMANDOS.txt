@@ -1,4 +1,4 @@
-============================================================
+﻿============================================================
  GUIA DE COMANDOS - Servidor FTP Camara CYTV Ancon
  Para PowerShell (tambien valen en CMD don diga lo contrario)
  Instalado en: C:\CytvAncon

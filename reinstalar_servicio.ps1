@@ -1,4 +1,4 @@
-# Reinstala el servicio NSSM CamaraCytvAncon apuntando a C:\CytvAncon.
+﻿# Reinstala el servicio NSSM CamaraCytvAncon apuntando a C:\CytvAncon.
 # Ejecutar en una PowerShell COMO ADMINISTRADOR.
 #   powershell -ExecutionPolicy Bypass -File C:\CytvAncon\reinstalar_servicio.ps1
 
