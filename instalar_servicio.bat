@@ -54,10 +54,19 @@ pause
 exit /b 1
 
 :instalar_elevado
+if exist "%~dp0instalar_gui.ps1" goto :instalar_gui
 if not exist "%~dp0instalar.ps1" goto :sin_ps1
 echo Instalando - el detalle queda en instalacion.log ...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0instalar.ps1"
 set "RC=%ERRORLEVEL%"
+goto :instalar_fin
+
+:instalar_gui
+echo Abriendo el instalador grafico ...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0instalar_gui.ps1"
+set "RC=%ERRORLEVEL%"
+
+:instalar_fin
 echo.
 if "%RC%"=="0" goto :fin_ok
 goto :fin_mal
