@@ -1,4 +1,4 @@
-# Servidor FTP de Placas CYTV Ancon
+﻿# Servidor FTP de Placas CYTV Ancon
 
 Sistema 24/7 que recibe imágenes de una cámara Hikvision TandemVu (2 canales), detecta y lee placas peruanas, y las organiza en carpetas diarias con reportes JSON listos para consumir.
 
@@ -23,13 +23,13 @@ Sistema 24/7 que recibe imágenes de una cámara Hikvision TandemVu (2 canales),
            │  placa/       │          │  YYYY-MM-DD   │          │   retener)    │
            │  vehiculo/    │          │  .json        │          └───────────────┘
            └───────────────┘          └───────────────┘
-                    ▲                          ▲
-                    │                          │
-           ┌────────┴────────┐         ┌───────┴────────┐
-           │  webapp/        │         │  consola.py /  │
-           │  (React + Node) │         │  cytv.ps1      │
-           │  localhost:3000 │         │  (operación)   │
-           └─────────────────┘         └────────────────┘
+                                 ▲
+                                 │
+                        ┌───────┴────────┐
+                        │  consola.py /  │
+                        │  cytv.ps1      │
+                        │  (operación)   │
+                        └────────────────┘
 ```
 
 **Hilos del servicio:**
@@ -44,7 +44,6 @@ Sistema 24/7 que recibe imágenes de una cámara Hikvision TandemVu (2 canales),
 
 - **Windows** 8.1 / Server 2012 R2 o superior (64 bits)
 - **Python** 3.9 (Win ≤ 10 build < 14393) o 3.13 (Win 10 1607+) — lo instala el script
-- **Node.js** 18+ (solo para la app web opcional)
 - **Firewall** puertos TCP **2121** (FTP) y **60000–60099** (pasivo)
 - **Reserva DHCP** en el router para la IP fija del servidor
 
@@ -172,7 +171,6 @@ cytv log -Lineas 50
 cytv fotos C:\fotos\auto.jpg -Canal 02
 cytv servicios reiniciar -Fuerza
 cytv config -Abrir
-cytv web
 cytv limpiar          # borra imagenes con mas de 14 dias (manual)
 cytv ayuda
 ```
@@ -186,23 +184,6 @@ Con ~20+ carros/día las fotos llenan el disco en semanas. Hay una **tarea de Wi
 - archivos sueltos viejos en `ftp_recibidos\`
 
 Log en `logs\limpieza.log`. Ejecución manual: `cytv limpiar`. El equipo debe estar encendido el domingo 3 AM (si está apagada, Windows la ejecuta al próximo encendido gracias a `StartWhenAvailable`).
-
-### App Web (localhost:3000)
-
-```cmd
-cd C:\CytvAncon\webapp
-npm install
-npm run build
-node server.js
-```
-Abre `http://localhost:3000`. La UI tiene dos filas:
-
-1. **Subir foto** — arrastre o clic; se muestra el preview.
-2. **Resultado** — al instante el servidor corre el **mismo modelo ONNX + OCR** que la cámara real:
-   - Si hay placa: bandera verde **PLACA DETECTADA**, texto OCR, confianza, **dónde está** (bbox `x / y` en px) y el recorte + foto anotada.
-   - Si no: **X grande** roja **SIN DETECTAR PLACA**.
-
-El endpoint es `POST /api/evaluar` (multer → `evaluar_web.py` → JSON con base64). No toca el pipeline del servicio: es solo evaluación sincrónica para feedback inmediato.
 
 ---
 

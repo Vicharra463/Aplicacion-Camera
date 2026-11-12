@@ -19,7 +19,6 @@ import sqlite3
 import subprocess
 import sys
 import time
-import webbrowser
 from datetime import datetime
 from pathlib import Path
 
@@ -144,13 +143,12 @@ def cmd_estado(_args: list[str] | None = None) -> None:
     cfg = leer_config()
     serv = estado_servicio()
     ftp_ok = tcp_abierto(cfg["puerto"])
-    web_ok = tcp_abierto(3000)
     onnx = RUTA / "modelo" / "placas.onnx"
     hoy = datetime.now().strftime("%Y-%m-%d")
     total = "?"
     try:
         rep = json.loads((Path(cfg["reportes"]) / f"placas-{hoy}.json").read_text("utf-8"))
-        total = rep.get("total_placas", "?")
+        total = len(rep.get("placas", []))
     except OSError:
         pass
 
@@ -159,7 +157,6 @@ def cmd_estado(_args: list[str] | None = None) -> None:
     print()
     print(f"  Servicio {SERVICIO:<18} {ok if serv == 'Running' else mal}  ({serv})")
     print(f"  FTP 127.0.0.1:{cfg['puerto']:<10} {ok if ftp_ok else mal}")
-    print(f"  App web :3000{'':<14} {ok if web_ok else mal}")
     if onnx.exists():
         mb = onnx.stat().st_size / 1024 / 1024
         print(f"  Modelo ONNX{'':<16} {ok}  ({mb:.1f} MB)")
@@ -177,22 +174,16 @@ def cmd_placas(_args: list[str] | None = None) -> None:
     except OSError:
         print(f"\n  No hay reporte de hoy todavia: {ruta}")
         return
-    print(f"\n  Placas del dia {rep.get('fecha', hoy)}"
-          f"  (total {rep.get('total_placas', 0)},"
-          f" detecciones {rep.get('total_detecciones', 0)})")
     placas = rep.get("placas", [])
+    print(f"\n  Placas del dia {rep.get('fecha', hoy)}  (total {len(placas)})")
     if not placas:
         print("  Todavia ninguna placa guardada hoy.")
         return
-    print(f"\n  {'PLACA':<12} {'PRIMERA VEZ':<20} {'CONFIANZA':>9}  FOTOS")
-    print("  " + "-" * 60)
+    print(f"\n  {'PLACA':<12} {'HORA':<10} {'CONFIANZA':>9}")
+    print("  " + "-" * 34)
     for p in placas:
-        pv = p.get("primera_vez", "")[11:19]
-        conf = p.get("confianza_max", 0)
-        npl = len(p.get("imagenes", {}).get("placa", []))
-        npan = len(p.get("imagenes", {}).get("panoramica", []))
-        print(f"  {p.get('placa', '?'):<12} {pv:<20} {conf:>8.0%}  "
-              f"{npl} placa / {npan} pano")
+        print(f"  {p.get('placa', '?'):<12} {p.get('hora', '?'):<10} "
+              f"{p.get('confianza', 0):>8.0%}")
 
 
 def cmd_historial(_args: list[str] | None = None) -> None:
@@ -284,29 +275,10 @@ def cmd_servicios(_args: list[str] | None = None) -> None:
 def cmd_config(_args: list[str] | None = None) -> None:
     print(f"\n  {RUTA_CONFIG}:\n")
     print("  " + "-" * 74)
-    for linea in RUTA_CONFIG.read_text("utf-8", errors="replace").splitlines():
+    for linea in RUTA_CONFIG.read_text("utf-8-sig", errors="replace").splitlines():
         print(f"  {linea}")
     if confirmar("\n  ¿Abrir en el bloc de notas? (s/N): "):
         os.startfile(str(RUTA_CONFIG))
-
-
-def cmd_web(_args: list[str] | None = None) -> None:
-    if tcp_abierto(3000):
-        webbrowser.open("http://localhost:3000")
-        print("\n  Abriendo http://localhost:3000 ...")
-        return
-    print("\n  La app web no esta corriendo en el puerto 3000.")
-    if confirmar("  ¿Iniciarla ahora? (s/N): "):
-        subprocess.Popen(["node", "server.js"], cwd=str(RUTA / "webapp"),
-                         creationflags=SIN_VENTANA | DESACOPLADO)
-        time.sleep(2)
-        if tcp_abierto(3000):
-            webbrowser.open("http://localhost:3000")
-            print("  App web iniciada; abriendo el navegador.")
-        else:
-            print("  No arranco; revise que exista webapp\\server.js y node.")
-    else:
-        print("  Iniciela despues con webapp\\abrir_app.bat")
 
 
 def cmd_ayuda(_args: list[str] | None = None) -> None:
@@ -330,14 +302,13 @@ def cmd_ayuda(_args: list[str] | None = None) -> None:
 
 
 OPCIONES = [
-    ("estado",     "Servicio, FTP, web y modelo",          cmd_estado),
+    ("estado",     "Servicio, FTP y modelo",              cmd_estado),
     ("placas",     "Placas detectadas hoy (JSON)",         cmd_placas),
     ("historial",  "Ultimos registros de la base SQLite",  cmd_historial),
     ("log",        "Ultimas lineas del log del servidor",  cmd_log),
     ("fotos",      "Subir una foto de prueba por el FTP",  cmd_fotos),
     ("servicios",  f"Reiniciar el servicio {SERVICIO}",    cmd_servicios),
     ("config",     "Ver o editar el config.ini",           cmd_config),
-    ("web",        "Abrir la app web (localhost:3000)",    cmd_web),
     ("ayuda",      "Ayuda de la consola",                  cmd_ayuda),
 ]
 

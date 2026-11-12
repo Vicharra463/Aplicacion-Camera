@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Comandos del servidor de placas CYTV Ancon (estilo artisan).
 
@@ -22,7 +22,7 @@
 param(
     [Parameter(Position = 0)]
     [ValidateSet('estado', 'placas', 'historial', 'log', 'fotos',
-                 'servicios', 'config', 'web', 'ayuda', 'reiniciar', 'limpiar')]
+                 'servicios', 'config', 'ayuda', 'reiniciar', 'limpiar')]
     [string]$Comando = 'ayuda',
 
     [Parameter(Position = 1)]
@@ -104,13 +104,12 @@ function Invoke-Estado {
     $puertoFtp   = [int](Get-IniValor 'ftp' 'puerto' '2121')
     $servicio    = Get-EstadoServicio
     $ftpOk       = Test-Tcp $puertoFtp
-    $webOk       = Test-Tcp 3000
     $onnx        = Join-Path $RutaBase 'modelo\placas.onnx'
     $hoy         = Get-Date -Format 'yyyy-MM-dd'
     $total       = '?'
     try {
         $rep = Get-Content (Get-RutaReporteHoy) -Raw -Encoding UTF8 | ConvertFrom-Json
-        $total = $rep.total_placas
+        $total = @($rep.placas).Count
     } catch { }
 
     Write-Titulo
@@ -122,9 +121,6 @@ function Invoke-Estado {
 
     Write-Host ('  FTP 127.0.0.1:{0,-10} ' -f $puertoFtp) -NoNewline
     if ($ftpOk) { Write-Host 'OK' -ForegroundColor Green } else { Write-Host 'FALLA' -ForegroundColor Red }
-
-    Write-Host '  App web :3000             ' -NoNewline
-    if ($webOk) { Write-Host 'OK' -ForegroundColor Green } else { Write-Host 'FALLA' -ForegroundColor Red }
 
     if (Test-Path $onnx) {
         $mb = [math]::Round((Get-Item $onnx).Length / 1MB, 1)
@@ -145,21 +141,17 @@ function Invoke-Placas {
         return
     }
     $rep = Get-Content $ruta -Raw -Encoding UTF8 | ConvertFrom-Json
-    Write-Host ('  Placas del dia {0}  (total {1}, detecciones {2})' -f
-        $rep.fecha, $rep.total_placas, $rep.total_detecciones)
-    if (-not $rep.placas -or $rep.placas.Count -eq 0) {
+    $placas = @($rep.placas)
+    Write-Host ('  Placas del dia {0}  (total {1})' -f $rep.fecha, $placas.Count)
+    if ($placas.Count -eq 0) {
         Write-Host '  Todavia ninguna placa guardada hoy.'
         return
     }
     Write-Host ''
-    Write-Host ('  {0,-12} {1,-20} {2,9}  {3}' -f 'PLACA', 'PRIMERA VEZ', 'CONFIANZA', 'FOTOS') -ForegroundColor Yellow
-    foreach ($p in $rep.placas) {
-        $pv = if ($p.primera_vez) { $p.primera_vez.Substring(11, 8) } else { '' }
-        $conf = if ($p.confianza_max) { '{0:P0}' -f $p.confianza_max } else { '-' }
-        $npl  = if ($p.imagenes -and $p.imagenes.placa)  { @($p.imagenes.placa).Count }  else { 0 }
-        $npan = if ($p.imagenes -and $p.imagenes.panoramica) { @($p.imagenes.panoramica).Count } else { 0 }
-        Write-Host ('  {0,-12} {1,-20} {2,9}  {3} placa / {4} pano' -f
-            $p.placa, $pv, $conf, $npl, $npan)
+    Write-Host ('  {0,-12} {1,-10} {2,9}' -f 'PLACA', 'HORA', 'CONFIANZA') -ForegroundColor Yellow
+    foreach ($p in $placas) {
+        $conf = if ($p.confianza) { '{0:P0}' -f $p.confianza } else { '-' }
+        Write-Host ('  {0,-12} {1,-10} {2,9}' -f $p.placa, $p.hora, $conf)
     }
 }
 
@@ -318,29 +310,6 @@ function Invoke-Config {
     }
 }
 
-function Invoke-Web {
-    Write-Titulo
-    if (Test-Tcp 3000) {
-        Start-Process 'http://localhost:3000'
-        Write-Host '  Abriendo http://localhost:3000 ...'
-        return
-    }
-    Write-Host '  La app web no esta corriendo en el puerto 3000.'
-    $resp = Read-Host '  ¿Iniciarla ahora? (s/N)'
-    if ($resp -in @('s', 'si', 'sí')) {
-        Start-Process node -ArgumentList 'server.js' -WorkingDirectory (Join-Path $RutaBase 'webapp') -WindowStyle Hidden
-        Start-Sleep -Seconds 2
-        if (Test-Tcp 3000) {
-            Start-Process 'http://localhost:3000'
-            Write-Host '  App web iniciada; abriendo el navegador.' -ForegroundColor Green
-        } else {
-            Write-Host '  No arranco; revise que exista webapp\server.js y node.' -ForegroundColor Red
-        }
-    } else {
-        Write-Host '  Iniciela despues con webapp\abrir_app.bat'
-    }
-}
-
 function Invoke-Limpiar {
     $script = Join-Path $RutaBase 'limpiar_almacenamiento.ps1'
     Write-Titulo
@@ -361,14 +330,13 @@ function Invoke-Ayuda {
     Write-Host @'
   Comandos del servidor de placas CYTV Ancon
   -------------------------------------------
-  cytv estado                 Servicio, FTP, web, modelo y placas de hoy
+  cytv estado                 Servicio, FTP, modelo y placas de hoy
   cytv placas                 Placas detectadas hoy (reporte JSON)
   cytv historial              Ultimos 15 registros de la base SQLite
   cytv log [-Lineas 50]       Ultimas lineas del log del servidor
   cytv fotos RUTA [-Canal]    Sube una foto de prueba (01 pano / 02 placa)
   cytv servicios [reiniciar]  Estado o reinicio del servicio (Fuerza = sin preguntar)
   cytv config [-Abrir]        Ver el config.ini (o abrirlo en el bloc)
-  cytv web                    Abrir/iniciar la app web (localhost:3000)
   cytv limpiar                Borrar imagenes con mas de 14 dias (manual)
   cytv ayuda                  Esta ayuda
 
@@ -392,7 +360,6 @@ switch ($Comando) {
     'servicios' { Invoke-Servicios }
     'reiniciar' { $Ruta = 'reiniciar'; Invoke-Servicios }
     'config'    { Invoke-Config }
-    'web'       { Invoke-Web }
     'limpiar'   { Invoke-Limpiar }
     'ayuda'     { Invoke-Ayuda }
 }

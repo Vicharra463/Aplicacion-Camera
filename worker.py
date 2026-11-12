@@ -291,10 +291,11 @@ def _carpeta_reportes() -> Path:
 def generar_json_dia(fecha: str) -> Path:
     """Volcado JSON de todas las placas GUARDADAS del dia ``fecha``.
 
-    Una entrada por placa unica (texto del OCR) con primera/ultima hora,
-    los archivos de la vista placa y de la panoramica, y la confianza
-    maxima del modelo. Se REESCRIBE completo (idempotente): sirve para
-    refrescar el dia en curso y para cerrar el dia al cruzar medianoche.
+    Una entrada por placa unica (texto del OCR) con la hora de la
+    primera aparicion y la confianza maxima del modelo. SOLO placas:
+    sin rutas de imagen ni metadatos extra. Se REESCRIBE completo
+    (idempotente): sirve para refrescar el dia en curso y para cerrar
+    el dia al cruzar medianoche.
 
     Salida: ``reportes\\placas-<fecha>.json`` (absoluta, lista para que
     cualquier otro sistema la consuma).
@@ -304,7 +305,7 @@ def generar_json_dia(fecha: str) -> Path:
     con = sqlite3.connect(_ruta_registro)
     try:
         filas = con.execute(
-            "SELECT fecha_hora, archivo, placa, confianza FROM registros "
+            "SELECT fecha_hora, placa, confianza FROM registros "
             "WHERE fecha_hora LIKE ? AND estado = 'guardado' "
             "AND placa IS NOT NULL AND placa != '' ORDER BY fecha_hora",
             (f"{fecha}%",),
@@ -313,42 +314,21 @@ def generar_json_dia(fecha: str) -> Path:
         con.close()
 
     por_placa: dict[str, dict] = {}
-    for fecha_hora, archivo, placa, confianza in filas:
+    for fecha_hora, placa, confianza in filas:
         entrada = por_placa.get(placa)
         if entrada is None:
             entrada = por_placa[placa] = {
                 "placa": placa,
-                "primera_vez": fecha_hora,
-                "ultima_vez": fecha_hora,
-                "detecciones": 0,
-                "confianza_max": 0.0,
-                "imagenes": {"placa": [], "panoramica": []},
+                "hora": fecha_hora[11:19],
+                "confianza": 0.0,
             }
-        entrada["ultima_vez"] = fecha_hora
-        entrada["detecciones"] += 1
         if confianza is not None:
-            entrada["confianza_max"] = max(entrada["confianza_max"], confianza)
-        vista = _carpeta_de_ruta(archivo)
-        clave = "placa" if vista == "placa" else "panoramica"
-        entrada["imagenes"][clave].append(str(_cfg["procesadas"] / archivo))
+            entrada["confianza"] = max(entrada["confianza"], confianza)
 
     datos = {
         "fecha": fecha,
-        "generado": datetime.now().isoformat(timespec="seconds"),
-        "total_placas": len(por_placa),
-        "total_detecciones": sum(e["detecciones"] for e in por_placa.values()),
-        "placas": sorted(por_placa.values(), key=lambda e: e["primera_vez"]),
+        "placas": sorted(por_placa.values(), key=lambda e: e["hora"]),
     }
-
-    carpeta = _carpeta_reportes()
-    carpeta.mkdir(parents=True, exist_ok=True)
-    destino = carpeta / f"placas-{fecha}.json"
-    # Escritura atomica: un lector del JSON nunca ve el archivo a medias.
-    temporal = carpeta / f"placas-{fecha}.json.tmp"
-    temporal.write_text(json.dumps(datos, ensure_ascii=False, indent=2),
-                        encoding="utf-8")
-    temporal.replace(destino)
-    return destino
 
 
 def calcular_diferencia(img1: np.ndarray, img2: np.ndarray) -> float:
