@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Backups manuales
+*.bak-*
+*.bak
+
+# Logs y runtime (no van al repo)
+logs/
+heartbeat.txt
+registro.db
+ftp_recibidos/
+descartadas/
+imagenes_procesadas/
+reportes/
+
+# Webapp
+webapp/node_modules/
+webapp/dist/assets/*.map
+
+# Windows
+Thumbs.db
+Desktop.ini

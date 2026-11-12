@@ -161,20 +161,6 @@ Restart-Service CamaraCytvAncon
 
 ## Operación diaria
 
-### Consola interactiva (Python, estilo artisan)
-
-```cmd
-cd C:\CytvAncon
-python consola.py
-```
-Navega con ↑/↓, Enter ejecuta, `:wq` sale. También acepta comando directo:
-```cmd
-python consola.py estado
-python consola.py placas
-python consola.py log
-python consola.py fotos C:\ruta\foto.jpg -Canal 02
-```
-
 ### PowerShell (`cytv.ps1`)
 
 ```powershell
@@ -187,10 +173,21 @@ cytv fotos C:\fotos\auto.jpg -Canal 02
 cytv servicios reiniciar -Fuerza
 cytv config -Abrir
 cytv web
+cytv limpiar          # borra imagenes con mas de 14 dias (manual)
 cytv ayuda
 ```
 
-### App Web (opcional, para pruebas manuales)
+### Limpieza automática de almacenamiento
+
+Con ~20+ carros/día las fotos llenan el disco en semanas. Hay una **tarea de Windows** (`\felip\CYTV_LimpiezaAlmacenamiento`) que corre **cada 2 semanas (domingo 3:00 AM)** y borra:
+
+- `imagenes_procesadas\placa\YYYY-MM-DD\` y `vehiculo\YYYY-MM-DD\` con más de **14 días**
+- `descartadas\` (si existe `modo_descarte = retener`)
+- archivos sueltos viejos en `ftp_recibidos\`
+
+Log en `logs\limpieza.log`. Ejecución manual: `cytv limpiar`. El equipo debe estar encendido el domingo 3 AM (si está apagada, Windows la ejecuta al próximo encendido gracias a `StartWhenAvailable`).
+
+### App Web (localhost:3000)
 
 ```cmd
 cd C:\CytvAncon\webapp
@@ -198,7 +195,14 @@ npm install
 npm run build
 node server.js
 ```
-Abre `http://localhost:3000` — sube fotos por el **mismo FTP** que usa la cámara (canal 01/02), ve el reporte del día y el log en vivo.
+Abre `http://localhost:3000`. La UI tiene dos filas:
+
+1. **Subir foto** — arrastre o clic; se muestra el preview.
+2. **Resultado** — al instante el servidor corre el **mismo modelo ONNX + OCR** que la cámara real:
+   - Si hay placa: bandera verde **PLACA DETECTADA**, texto OCR, confianza, **dónde está** (bbox `x / y` en px) y el recorte + foto anotada.
+   - Si no: **X grande** roja **SIN DETECTAR PLACA**.
+
+El endpoint es `POST /api/evaluar` (multer → `evaluar_web.py` → JSON con base64). No toca el pipeline del servicio: es solo evaluación sincrónica para feedback inmediato.
 
 ---
 

@@ -20,7 +20,7 @@
 param(
     [Parameter(Position = 0)]
     [ValidateSet('estado', 'placas', 'historial', 'log', 'fotos',
-                 'servicios', 'config', 'web', 'ayuda', 'reiniciar')]
+                 'servicios', 'config', 'web', 'ayuda', 'reiniciar', 'limpiar')]
     [string]$Comando = 'ayuda',
 
     [Parameter(Position = 1)]
@@ -319,6 +319,21 @@ function Invoke-Web {
     }
 }
 
+function Invoke-Limpiar {
+    $script = Join-Path $RutaBase 'limpiar_almacenamiento.ps1'
+    Write-Titulo
+    if (-not (Test-Path $script)) {
+        Write-Host "  No existe el script de limpieza: $script" -ForegroundColor Red
+        return
+    }
+    Write-Host '  Ejecutando limpieza manual (retencion 14 dias)...'
+    Write-Host ''
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $script
+    Write-Host ''
+    Write-Host '  Listo. Revise el detalle en C:\CytvAncon\logs\limpieza.log'
+    Write-Host '  La tarea automatica corre cada 2 semanas (domingo 3:00 AM).'
+}
+
 function Invoke-Ayuda {
     Write-Titulo
     Write-Host @'
@@ -332,7 +347,11 @@ function Invoke-Ayuda {
   cytv servicios [reiniciar]  Estado o reinicio del servicio (Fuerza = sin preguntar)
   cytv config [-Abrir]        Ver el config.ini (o abrirlo en el bloc)
   cytv web                    Abrir/iniciar la app web (localhost:3000)
+  cytv limpiar                Borrar imagenes con mas de 14 dias (manual)
   cytv ayuda                  Esta ayuda
+
+  La limpieza automatica corre cada 2 semanas (domingo 3:00 AM) via
+  Task Scheduler; "cytv limpiar" la ejecuta a mano cuando quiera.
 
   Las fotos rechazadas por el worker se borran; para revisar por que una
   placa no guardo, busque su nombre en "cytv log" o "cytv historial".
@@ -352,6 +371,7 @@ switch ($Comando) {
     'reiniciar' { $Ruta = 'reiniciar'; Invoke-Servicios }
     'config'    { Invoke-Config }
     'web'       { Invoke-Web }
+    'limpiar'   { Invoke-Limpiar }
     'ayuda'     { Invoke-Ayuda }
 }
 Write-Host ''

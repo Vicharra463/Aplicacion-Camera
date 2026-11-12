@@ -16,10 +16,13 @@ import ftp from "basic-ftp";
 import fs from "fs";
 import net from "net";
 import path from "path";
+import { execFile } from "child_process";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RAIZ = path.resolve(__dirname, ".."); // C:\CytvAncon
+const PYTHON = path.join(RAIZ, "venv", "Scripts", "python.exe");
+const EVALUAR = path.join(RAIZ, "evaluar_web.py");
 
 // --- Config del servidor Python (fuente unica: config.ini) ----------------
 function leerConfig() {
@@ -116,6 +119,55 @@ app.post("/api/subir", subir.array("fotos", 8), async (req, res) => {
   } finally {
     cliente.close();
   }
+});
+
+// --- POST /api/evaluar: corre el modelo + OCR y devuelve el resultado ya ---
+// El MISMO pipeline que el worker (modelo ONNX, OSD enmascarado, RapidOCR),
+// pero sincrono para que el front muestre al instante si hay placa y donde.
+const subirEval = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (/^image\/(jpeg|png|webp|bmp|tiff)$/.test(file.mimetype)) return cb(null, true);
+    cb(new Error("Solo se aceptan imagenes (JPG, PNG, WEBP, BMP, TIFF)"));
+  },
+});
+
+app.post("/api/evaluar", subirEval.single("foto"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ ok: false, error: "No llego ninguna foto" });
+  }
+  const tmp = path.join(
+    RAIZ, "ftp_recibidos",
+    `web_eval_${Date.now()}_${req.file.originalname.replace(/[^\w.-]/g, "_")}`
+  );
+  try {
+    fs.mkdirSync(path.dirname(tmp), { recursive: true });
+    fs.writeFileSync(tmp, req.file.buffer);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: "No se pudo guardar temporal: " + e.message });
+  }
+
+  execFile(PYTHON, [EVALUAR, tmp], { timeout: 30000, windowsHide: true }, (err, stdout) => {
+    // Borrar el temporal siempre (el modelo no lo necesita despues)
+    try { fs.unlinkSync(tmp); } catch { /* ya no existe */ }
+
+    if (err) {
+      const detalle = String((err && err.message) || err);
+      return res.status(500).json({
+        ok: false,
+        error: /ENOENT|not recognized|No se pudo/i.test(detalle)
+          ? "Fallo el evaluador Python: " + detalle
+          : "Error al evaluar: " + detalle,
+      });
+    }
+    try {
+      const linea = stdout.trim().split(/\r?\n/).pop();
+      res.json(JSON.parse(linea));
+    } catch {
+      res.status(500).json({ ok: false, error: "Salida del evaluador ilegible: " + stdout.slice(0, 200) });
+    }
+  });
 });
 
 // --- GET /api/estado: para que el front muestre que paso ------------------
