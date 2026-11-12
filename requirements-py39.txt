@@ -1,0 +1,9 @@
+# Dependencias para Windows viejo (8.1 / Server 2012 R2) con Python 3.9.
+# PINNEADAS a la ultima version con ruedas cp39 comprobadas: sin pins,
+# pip resuelve a paquetes que ya no publican ruedas para 3.9 y la
+# instalacion cae en una compilacion desde fuente que falla.
+pyftpdlib==2.2.0
+numpy==1.26.4
+opencv-python==4.10.0.84
+onnxruntime==1.18.1
+rapidocr-onnxruntime==1.2.3

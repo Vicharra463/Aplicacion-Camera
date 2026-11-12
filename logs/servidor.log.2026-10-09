@@ -1,0 +1,578 @@
+2026-10-09 10:23:16,580 [INFO] cytv.worker: Worker listo: registro en registro.db
+2026-10-09 10:23:16,581 [INFO] cytv.worker: Bucle del worker iniciado
+2026-10-09 10:23:16,591 [INFO] cytv.ftp: ========================================================
+2026-10-09 10:23:16,591 [INFO] cytv.ftp: Servidor FTP CYTV Ancon - puerto 2121
+2026-10-09 10:23:16,592 [INFO] cytv.ftp: Entrada : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos
+2026-10-09 10:23:16,593 [INFO] cytv.ftp: Salida  : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\imagenes_procesadas
+2026-10-09 10:23:16,593 [INFO] cytv.ftp: Registro : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\registro.db
+2026-10-09 10:23:16,593 [INFO] cytv.ftp: ========================================================
+2026-10-09 10:23:16,594 [INFO] pyftpdlib: >>> starting FTP server on 0.0.0.0:2121, pid=18144 <<<
+2026-10-09 10:23:38,526 [INFO] pyftpdlib: 192.168.18.42:65329-[] FTP session opened (connect)
+2026-10-09 10:23:38,537 [INFO] pyftpdlib: 192.168.18.42:65329-[admin] USER 'admin' logged in.
+2026-10-09 10:23:39,694 [INFO] pyftpdlib: 192.168.18.42:65329-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009102342948_MD_WITH_TARGET.jpg completed=1 bytes=350065 seconds=0.06
+2026-10-09 10:23:39,694 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009102342948_MD_WITH_TARGET.jpg
+2026-10-09 10:23:39,767 [INFO] cytv.worker: Imagen unica guardada: 2026-10-09\vehiculo_10-23-39_726560.jpg (0.00% de cambio)
+2026-10-09 10:23:40,793 [INFO] pyftpdlib: 192.168.18.42:65329-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009102344049_MD_WITH_TARGET.jpg completed=1 bytes=336483 seconds=0.062
+2026-10-09 10:23:40,794 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009102344049_MD_WITH_TARGET.jpg
+2026-10-09 10:24:11,014 [INFO] pyftpdlib: 192.168.18.42:65329-[admin] Control connection timed out.
+2026-10-09 10:24:11,014 [INFO] pyftpdlib: 192.168.18.42:65329-[admin] FTP session closed (disconnect).
+2026-10-09 10:24:16,585 [INFO] cytv.ftp: Barrido: archivo recuperado test
+2026-10-09 10:24:16,587 [WARNING] cytv.worker: Imagen ilegible, se elimina: test
+2026-10-09 11:00:06,865 [INFO] pyftpdlib: 192.168.18.42:65359-[] FTP session opened (connect)
+2026-10-09 11:00:06,871 [INFO] pyftpdlib: 192.168.18.42:65359-[admin] USER 'admin' logged in.
+2026-10-09 11:00:06,944 [INFO] pyftpdlib: 192.168.18.42:65359-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009110010161_MD_WITH_TARGET.jpg completed=1 bytes=321049 seconds=0.047
+2026-10-09 11:00:06,944 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009110010161_MD_WITH_TARGET.jpg
+2026-10-09 11:00:06,997 [INFO] cytv.worker: Imagen unica guardada: 2026-10-09\vehiculo_11-00-06_971512.jpg (17.27% de cambio)
+2026-10-09 11:00:37,078 [INFO] pyftpdlib: 192.168.18.42:65359-[admin] Control connection timed out.
+2026-10-09 11:00:37,078 [INFO] pyftpdlib: 192.168.18.42:65359-[admin] FTP session closed (disconnect).
+2026-10-09 11:04:16,172 [INFO] pyftpdlib: 192.168.18.42:64299-[] FTP session opened (connect)
+2026-10-09 11:04:16,176 [INFO] pyftpdlib: 192.168.18.42:64299-[admin] USER 'admin' logged in.
+2026-10-09 11:04:47,347 [INFO] pyftpdlib: 192.168.18.42:64299-[admin] Control connection timed out.
+2026-10-09 11:04:47,347 [INFO] pyftpdlib: 192.168.18.42:64299-[admin] FTP session closed (disconnect).
+2026-10-09 11:28:54,556 [INFO] pyftpdlib: 192.168.18.42:51207-[] FTP session opened (connect)
+2026-10-09 11:28:54,573 [INFO] pyftpdlib: 192.168.18.42:51207-[admin] USER 'admin' logged in.
+2026-10-09 11:29:25,840 [INFO] pyftpdlib: 192.168.18.42:51207-[admin] Control connection timed out.
+2026-10-09 11:29:25,841 [INFO] pyftpdlib: 192.168.18.42:51207-[admin] FTP session closed (disconnect).
+2026-10-09 11:43:52,569 [INFO] cytv.worker: Worker listo: registro en registro.db, 0 huellas cargadas
+2026-10-09 11:43:52,570 [INFO] cytv.worker: Bucle del worker iniciado
+2026-10-09 11:43:52,574 [INFO] cytv.ftp: ========================================================
+2026-10-09 11:43:52,575 [INFO] cytv.ftp: Servidor FTP CYTV Ancon - puerto 2121
+2026-10-09 11:43:52,575 [INFO] cytv.ftp: Entrada : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos
+2026-10-09 11:43:52,575 [INFO] cytv.ftp: Salida  : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\imagenes_procesadas
+2026-10-09 11:43:52,575 [INFO] cytv.ftp: Registro : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\registro.db
+2026-10-09 11:43:52,575 [INFO] cytv.ftp: ========================================================
+2026-10-09 11:43:52,575 [INFO] pyftpdlib: >>> starting FTP server on 0.0.0.0:2121, pid=21468 <<<
+2026-10-09 11:47:44,705 [INFO] pyftpdlib: 192.168.18.42:52405-[] FTP session opened (connect)
+2026-10-09 11:47:44,710 [INFO] pyftpdlib: 192.168.18.42:52405-[admin] USER 'admin' logged in.
+2026-10-09 11:47:48,673 [INFO] pyftpdlib: 192.168.18.42:52405-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009114751783_MD_WITH_TARGET.jpg completed=1 bytes=388415 seconds=0.065
+2026-10-09 11:47:48,673 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009114751783_MD_WITH_TARGET.jpg
+2026-10-09 11:47:48,913 [INFO] cytv.worker: Candidato guardado: 2026-10-09\pendientes\vehiculo_11-47-48_768917.jpg (nitidez 356.7, conf_geom 0.99, 0.00% de cambio)
+2026-10-09 11:48:18,974 [INFO] pyftpdlib: 192.168.18.42:52405-[admin] Control connection timed out.
+2026-10-09 11:48:18,975 [INFO] pyftpdlib: 192.168.18.42:52405-[admin] FTP session closed (disconnect).
+2026-10-09 12:12:43,486 [INFO] pyftpdlib: 192.168.18.42:60177-[] FTP session opened (connect)
+2026-10-09 12:12:43,491 [INFO] pyftpdlib: 192.168.18.42:60177-[admin] USER 'admin' logged in.
+2026-10-09 12:12:43,562 [INFO] pyftpdlib: 192.168.18.42:60177-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009121246663_MD_WITH_TARGET.jpg completed=1 bytes=389420 seconds=0.056
+2026-10-09 12:12:43,563 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009121246663_MD_WITH_TARGET.jpg
+2026-10-09 12:13:13,827 [INFO] pyftpdlib: 192.168.18.42:60177-[admin] Control connection timed out.
+2026-10-09 12:13:13,830 [INFO] pyftpdlib: 192.168.18.42:60177-[admin] FTP session closed (disconnect).
+2026-10-09 12:19:18,498 [INFO] pyftpdlib: 192.168.18.42:55099-[] FTP session opened (connect)
+2026-10-09 12:19:18,503 [INFO] pyftpdlib: 192.168.18.42:55099-[admin] USER 'admin' logged in.
+2026-10-09 12:19:49,827 [INFO] pyftpdlib: 192.168.18.42:55099-[admin] Control connection timed out.
+2026-10-09 12:19:49,844 [INFO] pyftpdlib: 192.168.18.42:55099-[admin] FTP session closed (disconnect).
+2026-10-09 12:31:09,738 [INFO] pyftpdlib: 192.168.18.42:51463-[] FTP session opened (connect)
+2026-10-09 12:31:09,744 [INFO] pyftpdlib: 192.168.18.42:51463-[admin] USER 'admin' logged in.
+2026-10-09 12:31:41,056 [INFO] pyftpdlib: 192.168.18.42:51463-[admin] Control connection timed out.
+2026-10-09 12:31:41,056 [INFO] pyftpdlib: 192.168.18.42:51463-[admin] FTP session closed (disconnect).
+2026-10-09 12:37:58,756 [INFO] pyftpdlib: 192.168.18.42:62345-[] FTP session opened (connect)
+2026-10-09 12:37:58,761 [INFO] pyftpdlib: 192.168.18.42:62345-[admin] USER 'admin' logged in.
+2026-10-09 12:38:30,080 [INFO] pyftpdlib: 192.168.18.42:62345-[admin] Control connection timed out.
+2026-10-09 12:38:30,080 [INFO] pyftpdlib: 192.168.18.42:62345-[admin] FTP session closed (disconnect).
+2026-10-09 13:00:14,470 [INFO] pyftpdlib: 192.168.18.42:57233-[] FTP session opened (connect)
+2026-10-09 13:00:14,475 [INFO] pyftpdlib: 192.168.18.42:57233-[admin] USER 'admin' logged in.
+2026-10-09 13:00:14,562 [INFO] pyftpdlib: 192.168.18.42:57233-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009130017570_MD_WITH_TARGET.jpg completed=1 bytes=388893 seconds=0.064
+2026-10-09 13:00:14,564 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009130017570_MD_WITH_TARGET.jpg
+2026-10-09 13:00:14,792 [INFO] cytv.worker: Candidato guardado: 2026-10-09\pendientes\vehiculo_13-00-14_734296.jpg (nitidez 376.3, conf_geom 0.76, 17.25% de cambio)
+2026-10-09 13:00:44,782 [INFO] pyftpdlib: 192.168.18.42:57233-[admin] Control connection timed out.
+2026-10-09 13:00:44,786 [INFO] pyftpdlib: 192.168.18.42:57233-[admin] FTP session closed (disconnect).
+2026-10-09 13:01:09,467 [INFO] pyftpdlib: 192.168.18.42:54789-[] FTP session opened (connect)
+2026-10-09 13:01:09,472 [INFO] pyftpdlib: 192.168.18.42:54789-[admin] USER 'admin' logged in.
+2026-10-09 13:01:09,567 [INFO] pyftpdlib: 192.168.18.42:54789-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009130112567_MD_WITH_TARGET.jpg completed=1 bytes=381004 seconds=0.067
+2026-10-09 13:01:09,567 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009130112567_MD_WITH_TARGET.jpg
+2026-10-09 13:01:13,978 [INFO] pyftpdlib: 192.168.18.42:54789-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009130116981_MD_WITH_TARGET.jpg completed=1 bytes=395662 seconds=0.071
+2026-10-09 13:01:13,979 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009130116981_MD_WITH_TARGET.jpg
+2026-10-09 13:01:44,209 [INFO] pyftpdlib: 192.168.18.42:54789-[admin] Control connection timed out.
+2026-10-09 13:01:44,210 [INFO] pyftpdlib: 192.168.18.42:54789-[admin] FTP session closed (disconnect).
+2026-10-09 13:29:05,724 [INFO] pyftpdlib: 192.168.18.42:55399-[] FTP session opened (connect)
+2026-10-09 13:29:05,733 [INFO] pyftpdlib: 192.168.18.42:55399-[admin] USER 'admin' logged in.
+2026-10-09 13:29:05,807 [INFO] pyftpdlib: 192.168.18.42:55399-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009132908778_MD_WITH_TARGET.jpg completed=1 bytes=379480 seconds=0.053
+2026-10-09 13:29:05,808 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009132908778_MD_WITH_TARGET.jpg
+2026-10-09 13:29:06,003 [INFO] cytv.worker: Candidato guardado: 2026-10-09\pendientes\vehiculo_13-29-05_943736.jpg (nitidez 462.4, conf_geom 0.91, 14.41% de cambio)
+2026-10-09 13:29:36,005 [INFO] pyftpdlib: 192.168.18.42:55399-[admin] Control connection timed out.
+2026-10-09 13:29:36,006 [INFO] pyftpdlib: 192.168.18.42:55399-[admin] FTP session closed (disconnect).
+2026-10-09 13:30:21,564 [INFO] pyftpdlib: 192.168.18.42:51431-[] FTP session opened (connect)
+2026-10-09 13:30:21,577 [INFO] pyftpdlib: 192.168.18.42:51431-[admin] USER 'admin' logged in.
+2026-10-09 13:30:52,801 [INFO] pyftpdlib: 192.168.18.42:51431-[admin] Control connection timed out.
+2026-10-09 13:30:52,802 [INFO] pyftpdlib: 192.168.18.42:51431-[admin] FTP session closed (disconnect).
+2026-10-09 13:32:19,635 [INFO] pyftpdlib: 192.168.18.42:59059-[] FTP session opened (connect)
+2026-10-09 13:32:19,645 [INFO] pyftpdlib: 192.168.18.42:59059-[admin] USER 'admin' logged in.
+2026-10-09 13:32:32,366 [INFO] pyftpdlib: 192.168.18.42:59059-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009133235287_MD_WITH_TARGET.jpg completed=1 bytes=386254 seconds=0.083
+2026-10-09 13:32:32,375 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009133235287_MD_WITH_TARGET.jpg
+2026-10-09 13:32:33,775 [INFO] pyftpdlib: 192.168.18.42:59059-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009133236688_MD_WITH_TARGET.jpg completed=1 bytes=372105 seconds=0.07
+2026-10-09 13:32:33,775 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009133236688_MD_WITH_TARGET.jpg
+2026-10-09 13:33:04,005 [INFO] pyftpdlib: 192.168.18.42:59059-[admin] Control connection timed out.
+2026-10-09 13:33:04,006 [INFO] pyftpdlib: 192.168.18.42:59059-[admin] FTP session closed (disconnect).
+2026-10-09 13:36:18,365 [INFO] pyftpdlib: 192.168.18.42:65053-[] FTP session opened (connect)
+2026-10-09 13:36:18,370 [INFO] pyftpdlib: 192.168.18.42:65053-[admin] USER 'admin' logged in.
+2026-10-09 13:36:49,575 [INFO] pyftpdlib: 192.168.18.42:65053-[admin] Control connection timed out.
+2026-10-09 13:36:49,577 [INFO] pyftpdlib: 192.168.18.42:65053-[admin] FTP session closed (disconnect).
+2026-10-09 13:49:17,982 [INFO] pyftpdlib: 192.168.18.42:49891-[] FTP session opened (connect)
+2026-10-09 13:49:17,989 [INFO] pyftpdlib: 192.168.18.42:49891-[admin] USER 'admin' logged in.
+2026-10-09 13:49:18,085 [INFO] pyftpdlib: 192.168.18.42:49891-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009134920990_MD_WITH_TARGET.jpg completed=1 bytes=371718 seconds=0.067
+2026-10-09 13:49:18,086 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009134920990_MD_WITH_TARGET.jpg
+2026-10-09 13:49:18,277 [INFO] cytv.worker: Candidato guardado: 2026-10-09\pendientes\vehiculo_13-49-18_231413.jpg (nitidez 583.3, conf_geom 1.00, 8.92% de cambio)
+2026-10-09 13:49:23,447 [INFO] pyftpdlib: 192.168.18.42:49891-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009134926371_MD_WITH_TARGET.jpg completed=1 bytes=371723 seconds=0.057
+2026-10-09 13:49:23,450 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009134926371_MD_WITH_TARGET.jpg
+2026-10-09 13:49:25,073 [INFO] pyftpdlib: 192.168.18.42:49891-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009134927770_MD_WITH_TARGET.jpg completed=1 bytes=366420 seconds=0.283
+2026-10-09 13:49:25,078 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009134927770_MD_WITH_TARGET.jpg
+2026-10-09 13:49:55,305 [INFO] pyftpdlib: 192.168.18.42:49891-[admin] Control connection timed out.
+2026-10-09 13:49:55,306 [INFO] pyftpdlib: 192.168.18.42:49891-[admin] FTP session closed (disconnect).
+2026-10-09 13:54:19,923 [INFO] pyftpdlib: 192.168.18.42:57173-[] FTP session opened (connect)
+2026-10-09 13:54:19,927 [INFO] pyftpdlib: 192.168.18.42:57173-[admin] USER 'admin' logged in.
+2026-10-09 13:54:51,134 [INFO] pyftpdlib: 192.168.18.42:57173-[admin] Control connection timed out.
+2026-10-09 13:54:51,137 [INFO] pyftpdlib: 192.168.18.42:57173-[admin] FTP session closed (disconnect).
+2026-10-09 13:55:17,289 [INFO] pyftpdlib: 192.168.18.42:50867-[] FTP session opened (connect)
+2026-10-09 13:55:17,296 [INFO] pyftpdlib: 192.168.18.42:50867-[admin] USER 'admin' logged in.
+2026-10-09 13:55:19,479 [INFO] pyftpdlib: 192.168.18.42:50867-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009135522368_MD_WITH_TARGET.jpg completed=1 bytes=373876 seconds=0.08
+2026-10-09 13:55:19,483 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009135522368_MD_WITH_TARGET.jpg
+2026-10-09 13:55:19,709 [INFO] cytv.worker: Candidato guardado: 2026-10-09\pendientes\vehiculo_13-55-19_645855.jpg (nitidez 1088.4, conf_geom 0.86, 39.40% de cambio)
+2026-10-09 13:55:20,790 [INFO] pyftpdlib: 192.168.18.42:50867-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009135523604_MD_WITH_TARGET.jpg completed=1 bytes=539002 seconds=0.109
+2026-10-09 13:55:20,795 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009135523604_MD_WITH_TARGET.jpg
+2026-10-09 13:55:51,008 [INFO] pyftpdlib: 192.168.18.42:50867-[admin] Control connection timed out.
+2026-10-09 13:55:51,009 [INFO] pyftpdlib: 192.168.18.42:50867-[admin] FTP session closed (disconnect).
+2026-10-09 14:50:03,692 [INFO] cytv.worker: Worker listo: registro en registro.db, 5 huellas cargadas
+2026-10-09 14:50:03,861 [INFO] cytv.modelo: Modelo ONNX cargado: placas.onnx (entrada 640x640, umbral 0.25)
+2026-10-09 14:50:03,861 [INFO] cytv.worker: Deteccion: MODELO ONNX activo (placas.onnx)
+2026-10-09 14:50:03,862 [INFO] cytv.worker: Bucle del worker iniciado
+2026-10-09 14:50:03,866 [INFO] cytv.ftp: ========================================================
+2026-10-09 14:50:03,866 [INFO] cytv.ftp: Servidor FTP CYTV Ancon - puerto 2121
+2026-10-09 14:50:03,867 [INFO] cytv.ftp: Entrada : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos
+2026-10-09 14:50:03,867 [INFO] cytv.ftp: Salida  : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\imagenes_procesadas
+2026-10-09 14:50:03,867 [INFO] cytv.ftp: Registro : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\registro.db
+2026-10-09 14:50:03,867 [INFO] cytv.ftp: ========================================================
+2026-10-09 14:50:03,867 [INFO] pyftpdlib: >>> starting FTP server on 0.0.0.0:2121, pid=14312 <<<
+2026-10-09 14:53:55,238 [INFO] pyftpdlib: 192.168.18.42:57213-[] FTP session opened (connect)
+2026-10-09 14:53:55,242 [INFO] pyftpdlib: 192.168.18.42:57213-[admin] USER 'admin' logged in.
+2026-10-09 14:53:57,721 [INFO] pyftpdlib: 192.168.18.42:57213-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009145400317_MD_WITH_TARGET.jpg completed=1 bytes=405316 seconds=0.279
+2026-10-09 14:53:57,722 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009145400317_MD_WITH_TARGET.jpg
+2026-10-09 14:54:02,935 [INFO] pyftpdlib: 192.168.18.42:57213-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009145405752_MD_WITH_TARGET.jpg completed=1 bytes=397470 seconds=0.06
+2026-10-09 14:54:02,935 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009145405752_MD_WITH_TARGET.jpg
+2026-10-09 14:54:04,302 [INFO] pyftpdlib: 192.168.18.42:57213-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009145407118_MD_WITH_TARGET.jpg completed=1 bytes=388337 seconds=0.061
+2026-10-09 14:54:04,303 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009145407118_MD_WITH_TARGET.jpg
+2026-10-09 14:54:05,721 [INFO] pyftpdlib: 192.168.18.42:57213-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009145408518_MD_WITH_TARGET.jpg completed=1 bytes=474570 seconds=0.082
+2026-10-09 14:54:05,722 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009145408518_MD_WITH_TARGET.jpg
+2026-10-09 14:54:07,099 [INFO] pyftpdlib: 192.168.18.42:57213-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009145409919_MD_WITH_TARGET.jpg completed=1 bytes=386800 seconds=0.056
+2026-10-09 14:54:07,099 [INFO] cytv.ftp: Imagen recibida y encolada: 192.168.18.42_01_20261009145409919_MD_WITH_TARGET.jpg
+2026-10-09 14:54:37,351 [INFO] pyftpdlib: 192.168.18.42:57213-[admin] Control connection timed out.
+2026-10-09 14:54:37,352 [INFO] pyftpdlib: 192.168.18.42:57213-[admin] FTP session closed (disconnect).
+2026-10-09 14:55:44,239 [INFO] pyftpdlib: 192.168.18.42:49273-[] FTP session opened (connect)
+2026-10-09 14:55:44,243 [INFO] pyftpdlib: 192.168.18.42:49273-[admin] USER 'admin' logged in.
+2026-10-09 14:56:15,566 [INFO] pyftpdlib: 192.168.18.42:49273-[admin] Control connection timed out.
+2026-10-09 14:56:15,566 [INFO] pyftpdlib: 192.168.18.42:49273-[admin] FTP session closed (disconnect).
+2026-10-09 14:56:35,379 [INFO] cytv.worker: Worker listo: registro en registro.db, 5 huellas cargadas
+2026-10-09 14:56:35,524 [INFO] cytv.modelo: Modelo ONNX cargado: placas.onnx (entrada 640x640, umbral 0.25)
+2026-10-09 14:56:35,525 [INFO] cytv.worker: Deteccion: MODELO ONNX activo (placas.onnx)
+2026-10-09 14:56:35,525 [INFO] cytv.worker: Bucle del worker iniciado
+2026-10-09 14:56:35,531 [INFO] cytv.ftp: ========================================================
+2026-10-09 14:56:35,531 [INFO] cytv.ftp: Servidor FTP CYTV Ancon - puerto 2121
+2026-10-09 14:56:35,531 [INFO] cytv.ftp: Entrada : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos
+2026-10-09 14:56:35,531 [INFO] cytv.ftp: Salida  : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\imagenes_procesadas
+2026-10-09 14:56:35,532 [INFO] cytv.ftp: Registro : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\registro.db
+2026-10-09 14:56:35,532 [INFO] cytv.ftp: ========================================================
+2026-10-09 14:56:35,532 [INFO] pyftpdlib: >>> starting FTP server on 0.0.0.0:2121, pid=17808 <<<
+2026-10-09 15:04:12,488 [INFO] cytv.worker: Worker listo: registro en registro.db, 5 huellas cargadas
+2026-10-09 15:04:12,633 [INFO] cytv.modelo: Modelo ONNX cargado: placas.onnx (entrada 640x640, umbral 0.25)
+2026-10-09 15:04:12,634 [INFO] cytv.worker: Deteccion: MODELO ONNX activo (placas.onnx)
+2026-10-09 15:04:12,634 [INFO] cytv.worker: Bucle del worker iniciado
+2026-10-09 15:04:12,640 [INFO] cytv.ftp: ========================================================
+2026-10-09 15:04:12,641 [INFO] cytv.ftp: Servidor FTP CYTV Ancon - puerto 2121
+2026-10-09 15:04:12,641 [INFO] cytv.ftp: Entrada : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos
+2026-10-09 15:04:12,641 [INFO] cytv.ftp: Salida  : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\imagenes_procesadas
+2026-10-09 15:04:12,641 [INFO] cytv.ftp: Registro : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\registro.db
+2026-10-09 15:04:12,641 [INFO] cytv.ftp: ========================================================
+2026-10-09 15:04:12,641 [INFO] pyftpdlib: >>> starting FTP server on 0.0.0.0:2121, pid=3484 <<<
+2026-10-09 15:08:23,194 [INFO] cytv.worker: Worker listo: registro en registro.db, 5 huellas cargadas
+2026-10-09 15:08:23,345 [INFO] cytv.modelo: Modelo ONNX cargado: placas.onnx (entrada 640x640, umbral 0.25)
+2026-10-09 15:08:23,345 [INFO] cytv.worker: Deteccion: MODELO ONNX activo (placas.onnx)
+2026-10-09 15:08:23,345 [INFO] cytv.worker: Bucle del worker iniciado
+2026-10-09 15:08:23,352 [INFO] cytv.ftp: ========================================================
+2026-10-09 15:08:23,352 [INFO] cytv.ftp: Servidor FTP CYTV Ancon - puerto 2121
+2026-10-09 15:08:23,352 [INFO] cytv.ftp: Entrada : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos
+2026-10-09 15:08:23,353 [INFO] cytv.ftp: Salida  : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\imagenes_procesadas
+2026-10-09 15:08:23,353 [INFO] cytv.ftp: Registro : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\registro.db
+2026-10-09 15:08:23,353 [INFO] cytv.ftp: ========================================================
+2026-10-09 15:08:23,353 [INFO] pyftpdlib: >>> starting FTP server on 0.0.0.0:2121, pid=22116 <<<
+2026-10-09 15:09:21,260 [INFO] pyftpdlib: 127.0.0.1:56049-[] FTP session opened (connect)
+2026-10-09 15:09:21,267 [INFO] pyftpdlib: 127.0.0.1:56049-[] FTP session closed (disconnect).
+2026-10-09 15:09:23,980 [INFO] pyftpdlib: 192.168.18.42:53613-[] FTP session opened (connect)
+2026-10-09 15:09:23,985 [INFO] pyftpdlib: 192.168.18.42:53613-[admin] USER 'admin' logged in.
+2026-10-09 15:09:24,076 [INFO] pyftpdlib: 192.168.18.42:53613-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009150926856_MD_WITH_TARGET.jpg completed=1 bytes=390636 seconds=0.065
+2026-10-09 15:09:24,077 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009150926856_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:09:24,171 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009150926856_MD_WITH_TARGET.jpg
+2026-10-09 15:09:24,172 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009150926856_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:09:25,337 [INFO] pyftpdlib: 192.168.18.42:53613-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009150928106_MD_WITH_TARGET.jpg completed=1 bytes=413174 seconds=0.08
+2026-10-09 15:09:25,338 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009150928106_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:09:25,430 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009150928106_MD_WITH_TARGET.jpg
+2026-10-09 15:09:25,430 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009150928106_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:09:26,693 [INFO] pyftpdlib: 192.168.18.42:53613-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009150929471_MD_WITH_TARGET.jpg completed=1 bytes=406052 seconds=0.069
+2026-10-09 15:09:26,693 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009150929471_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:09:26,775 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009150929471_MD_WITH_TARGET.jpg
+2026-10-09 15:09:26,775 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009150929471_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:09:28,788 [INFO] pyftpdlib: 192.168.18.42:53613-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009150931571_MD_WITH_TARGET.jpg completed=1 bytes=391304 seconds=0.066
+2026-10-09 15:09:28,788 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009150931571_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:09:28,879 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009150931571_MD_WITH_TARGET.jpg
+2026-10-09 15:09:28,879 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009150931571_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:09:40,361 [INFO] pyftpdlib: 192.168.18.34:56321-[] FTP session opened (connect)
+2026-10-09 15:09:40,361 [INFO] pyftpdlib: 192.168.18.34:56321-[] FTP session closed (disconnect).
+2026-10-09 15:09:59,575 [INFO] pyftpdlib: 192.168.18.42:53613-[admin] Control connection timed out.
+2026-10-09 15:09:59,575 [INFO] pyftpdlib: 192.168.18.42:53613-[admin] FTP session closed (disconnect).
+2026-10-09 15:10:00,651 [INFO] pyftpdlib: 192.168.18.42:59207-[] FTP session opened (connect)
+2026-10-09 15:10:00,655 [INFO] pyftpdlib: 192.168.18.42:59207-[admin] USER 'admin' logged in.
+2026-10-09 15:10:12,943 [INFO] pyftpdlib: 127.0.0.1:64687-[] FTP session opened (connect)
+2026-10-09 15:10:12,965 [INFO] pyftpdlib: 127.0.0.1:64687-[] FTP session closed (disconnect).
+2026-10-09 15:10:15,005 [INFO] pyftpdlib: 192.168.18.34:64689-[] FTP session opened (connect)
+2026-10-09 15:10:15,020 [INFO] pyftpdlib: 192.168.18.34:64689-[] FTP session closed (disconnect).
+2026-10-09 15:10:32,179 [INFO] pyftpdlib: 192.168.18.42:59207-[admin] Control connection timed out.
+2026-10-09 15:10:32,180 [INFO] pyftpdlib: 192.168.18.42:59207-[admin] FTP session closed (disconnect).
+2026-10-09 15:10:40,652 [INFO] pyftpdlib: 192.168.18.42:63013-[] FTP session opened (connect)
+2026-10-09 15:10:40,656 [INFO] pyftpdlib: 192.168.18.42:63013-[admin] USER 'admin' logged in.
+2026-10-09 15:10:46,424 [INFO] pyftpdlib: 127.0.0.1:54254-[] FTP session opened (connect)
+2026-10-09 15:10:46,424 [INFO] pyftpdlib: 127.0.0.1:54254-[admin] USER 'admin' logged in.
+2026-10-09 15:10:46,433 [INFO] pyftpdlib: 127.0.0.1:54254-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\prueba_sin_placa.jpg completed=1 bytes=31777 seconds=0.001
+2026-10-09 15:10:46,434 [INFO] cytv.ftp: Imagen recibida: prueba_sin_placa.jpg (encolada)
+2026-10-09 15:10:46,528 [INFO] cytv.worker: Placa detectada: 2026-10-09\vehiculo_15-10-46_510695.jpg (nitidez 537.4, conf 0.51, 0.00% de cambio)
+2026-10-09 15:11:00,462 [INFO] pyftpdlib: 127.0.0.1:54254-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\prueba_con_placa.jpg completed=1 bytes=182706 seconds=0.022
+2026-10-09 15:11:00,462 [INFO] cytv.ftp: Imagen recibida: prueba_con_placa.jpg (encolada)
+2026-10-09 15:11:00,554 [INFO] cytv.worker: Placa detectada: 2026-10-09\vehiculo_15-11-00_533596.jpg (nitidez 10928.3, conf 0.78, 71.30% de cambio)
+2026-10-09 15:11:06,463 [INFO] pyftpdlib: 127.0.0.1:54254-[admin] FTP session closed (disconnect).
+2026-10-09 15:11:12,542 [INFO] pyftpdlib: 192.168.18.42:63013-[admin] Control connection timed out.
+2026-10-09 15:11:12,543 [INFO] pyftpdlib: 192.168.18.42:63013-[admin] FTP session closed (disconnect).
+2026-10-09 15:11:21,353 [INFO] pyftpdlib: 192.168.18.42:53079-[] FTP session opened (connect)
+2026-10-09 15:11:21,360 [INFO] pyftpdlib: 192.168.18.42:53079-[admin] USER 'admin' logged in.
+2026-10-09 15:11:23,927 [INFO] pyftpdlib: 192.168.18.42:53079-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151126707_MD_WITH_TARGET.jpg completed=1 bytes=395945 seconds=0.068
+2026-10-09 15:11:23,928 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151126707_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:11:24,011 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009151126707_MD_WITH_TARGET.jpg
+2026-10-09 15:11:24,011 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009151126707_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:11:25,157 [INFO] pyftpdlib: 192.168.18.42:53079-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151127936_MD_WITH_TARGET.jpg completed=1 bytes=395998 seconds=0.064
+2026-10-09 15:11:25,157 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151127936_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:11:25,244 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009151127936_MD_WITH_TARGET.jpg
+2026-10-09 15:11:25,245 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009151127936_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:11:35,466 [INFO] pyftpdlib: 192.168.18.42:53079-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151138238_MD_WITH_TARGET.jpg completed=1 bytes=396470 seconds=0.074
+2026-10-09 15:11:35,466 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151138238_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:11:35,567 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009151138238_MD_WITH_TARGET.jpg
+2026-10-09 15:11:35,568 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009151138238_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:11:37,319 [INFO] pyftpdlib: 192.168.18.42:53079-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151140100_MD_WITH_TARGET.jpg completed=1 bytes=373465 seconds=0.062
+2026-10-09 15:11:37,319 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151140100_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:11:37,411 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009151140100_MD_WITH_TARGET.jpg
+2026-10-09 15:11:37,411 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009151140100_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:11:39,324 [INFO] pyftpdlib: 192.168.18.42:53079-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151142104_MD_WITH_TARGET.jpg completed=1 bytes=385209 seconds=0.066
+2026-10-09 15:11:39,324 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151142104_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:11:39,423 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009151142104_MD_WITH_TARGET.jpg
+2026-10-09 15:11:39,423 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009151142104_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:12:01,366 [INFO] pyftpdlib: 127.0.0.1:62564-[] FTP session opened (connect)
+2026-10-09 15:12:01,366 [INFO] pyftpdlib: 127.0.0.1:62564-[admin] USER 'admin' logged in.
+2026-10-09 15:12:01,375 [INFO] pyftpdlib: 127.0.0.1:62564-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\prueba_muro.jpg completed=1 bytes=120149 seconds=0.001
+2026-10-09 15:12:01,375 [INFO] cytv.ftp: Imagen recibida: prueba_muro.jpg (encolada)
+2026-10-09 15:12:01,375 [INFO] pyftpdlib: 127.0.0.1:62564-[admin] FTP session closed (disconnect).
+2026-10-09 15:12:01,465 [INFO] cytv.worker: No se detecta placa: prueba_muro.jpg
+2026-10-09 15:12:01,466 [INFO] cytv.worker: Imagen eliminada: prueba_muro.jpg | motivo: sin_placa
+2026-10-09 15:12:09,460 [INFO] pyftpdlib: 192.168.18.42:53079-[admin] Control connection timed out.
+2026-10-09 15:12:09,460 [INFO] pyftpdlib: 192.168.18.42:53079-[admin] FTP session closed (disconnect).
+2026-10-09 15:12:15,651 [INFO] pyftpdlib: 192.168.18.42:54271-[] FTP session opened (connect)
+2026-10-09 15:12:15,655 [INFO] pyftpdlib: 192.168.18.42:54271-[admin] USER 'admin' logged in.
+2026-10-09 15:12:16,823 [INFO] pyftpdlib: 192.168.18.42:54271-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151219600_MD_WITH_TARGET.jpg completed=1 bytes=384457 seconds=0.064
+2026-10-09 15:12:16,824 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151219600_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:12:16,915 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009151219600_MD_WITH_TARGET.jpg
+2026-10-09 15:12:16,916 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009151219600_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:12:17,973 [INFO] pyftpdlib: 192.168.18.42:54271-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151220735_MD_WITH_TARGET.jpg completed=1 bytes=426724 seconds=0.073
+2026-10-09 15:12:17,974 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151220735_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:12:18,068 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009151220735_MD_WITH_TARGET.jpg
+2026-10-09 15:12:18,069 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009151220735_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:12:19,113 [INFO] pyftpdlib: 192.168.18.42:54271-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151221831_MD_WITH_TARGET.jpg completed=1 bytes=465052 seconds=0.113
+2026-10-09 15:12:19,113 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151221831_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:12:19,234 [INFO] cytv.worker: Placa detectada: 2026-10-09\vehiculo_15-12-19_198111.jpg (nitidez 9879.9, conf 0.37, 75.70% de cambio)
+2026-10-09 15:12:20,170 [INFO] pyftpdlib: 192.168.18.42:54271-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151222933_MD_WITH_TARGET.jpg completed=1 bytes=456596 seconds=0.075
+2026-10-09 15:12:20,170 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151222933_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:12:21,317 [INFO] pyftpdlib: 192.168.18.42:54271-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151224065_MD_WITH_TARGET.jpg completed=1 bytes=505700 seconds=0.091
+2026-10-09 15:12:21,317 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151224065_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:12:22,424 [INFO] pyftpdlib: 192.168.18.42:54271-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151225168_MD_WITH_TARGET.jpg completed=1 bytes=544746 seconds=0.088
+2026-10-09 15:12:22,424 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151225168_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:12:23,531 [INFO] pyftpdlib: 192.168.18.42:54271-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151226269_MD_WITH_TARGET.jpg completed=1 bytes=563437 seconds=0.089
+2026-10-09 15:12:23,531 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151226269_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:12:24,656 [INFO] pyftpdlib: 192.168.18.42:54271-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151227400_MD_WITH_TARGET.jpg completed=1 bytes=557785 seconds=0.095
+2026-10-09 15:12:24,656 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151227400_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:12:25,762 [INFO] pyftpdlib: 192.168.18.42:54271-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151228501_MD_WITH_TARGET.jpg completed=1 bytes=570955 seconds=0.098
+2026-10-09 15:12:25,763 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151228501_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:12:26,860 [INFO] pyftpdlib: 192.168.18.42:54271-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151229603_MD_WITH_TARGET.jpg completed=1 bytes=562456 seconds=0.09
+2026-10-09 15:12:26,861 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151229603_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:12:28,033 [INFO] pyftpdlib: 192.168.18.42:54271-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151230741_MD_WITH_TARGET.jpg completed=1 bytes=564029 seconds=0.121
+2026-10-09 15:12:28,033 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151230741_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:12:58,400 [INFO] pyftpdlib: 192.168.18.42:54271-[admin] Control connection timed out.
+2026-10-09 15:12:58,400 [INFO] pyftpdlib: 192.168.18.42:54271-[admin] FTP session closed (disconnect).
+2026-10-09 15:13:58,418 [INFO] pyftpdlib: 192.168.18.42:55813-[] FTP session opened (connect)
+2026-10-09 15:13:58,423 [INFO] pyftpdlib: 192.168.18.42:55813-[admin] USER 'admin' logged in.
+2026-10-09 15:13:58,520 [INFO] pyftpdlib: 192.168.18.42:55813-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151401283_MD_WITH_TARGET.jpg completed=1 bytes=561912 seconds=0.074
+2026-10-09 15:13:58,520 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151401283_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:13:58,654 [INFO] cytv.worker: Placa detectada: 2026-10-09\vehiculo_15-13-58_616974.jpg (nitidez 985.6, conf 0.88, 49.89% de cambio)
+2026-10-09 15:13:59,644 [INFO] pyftpdlib: 192.168.18.42:55813-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151402398_MD_WITH_TARGET.jpg completed=1 bytes=449606 seconds=0.085
+2026-10-09 15:13:59,644 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151402398_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:14:01,996 [INFO] pyftpdlib: 192.168.18.42:55813-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151404767_MD_WITH_TARGET.jpg completed=1 bytes=457202 seconds=0.065
+2026-10-09 15:14:01,996 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151404767_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:14:03,125 [INFO] pyftpdlib: 192.168.18.42:55813-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151405864_MD_WITH_TARGET.jpg completed=1 bytes=532866 seconds=0.099
+2026-10-09 15:14:03,125 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151405864_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:14:07,332 [INFO] pyftpdlib: 192.168.18.42:55813-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151410096_MD_WITH_TARGET.jpg completed=1 bytes=550550 seconds=0.068
+2026-10-09 15:14:07,332 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151410096_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:14:08,404 [INFO] pyftpdlib: 192.168.18.42:55813-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151411134_MD_WITH_TARGET.jpg completed=1 bytes=539703 seconds=0.105
+2026-10-09 15:14:08,405 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151411134_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:14:16,190 [INFO] pyftpdlib: 192.168.18.42:55813-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151418933_MD_WITH_TARGET.jpg completed=1 bytes=537222 seconds=0.096
+2026-10-09 15:14:16,190 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151418933_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:14:16,329 [INFO] cytv.worker: Placa detectada: 2026-10-09\vehiculo_15-14-16_288677.jpg (nitidez 960.6, conf 0.81, 35.86% de cambio)
+2026-10-09 15:14:19,077 [INFO] pyftpdlib: 192.168.18.42:55813-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151421831_MD_WITH_TARGET.jpg completed=1 bytes=532288 seconds=0.085
+2026-10-09 15:14:19,078 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151421831_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:14:20,725 [INFO] pyftpdlib: 192.168.18.42:55813-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151423498_MD_WITH_TARGET.jpg completed=1 bytes=533193 seconds=0.065
+2026-10-09 15:14:20,725 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151423498_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:14:51,035 [INFO] pyftpdlib: 192.168.18.42:55813-[admin] Control connection timed out.
+2026-10-09 15:14:51,035 [INFO] pyftpdlib: 192.168.18.42:55813-[admin] FTP session closed (disconnect).
+2026-10-09 15:15:56,627 [INFO] pyftpdlib: 192.168.18.42:56069-[] FTP session opened (connect)
+2026-10-09 15:15:56,633 [INFO] pyftpdlib: 192.168.18.42:56069-[admin] USER 'admin' logged in.
+2026-10-09 15:15:57,852 [INFO] pyftpdlib: 192.168.18.42:56069-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151600600_MD_WITH_TARGET.jpg completed=1 bytes=531748 seconds=0.086
+2026-10-09 15:15:57,852 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151600600_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:15:57,960 [INFO] cytv.worker: Placa detectada: 2026-10-09\vehiculo_15-15-57_928696.jpg (nitidez 743.7, conf 0.82, 13.71% de cambio)
+2026-10-09 15:16:00,877 [INFO] pyftpdlib: 192.168.18.42:56069-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151603635_MD_WITH_TARGET.jpg completed=1 bytes=526969 seconds=0.07
+2026-10-09 15:16:00,878 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151603635_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:16:04,367 [INFO] pyftpdlib: 192.168.18.42:56069-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151607101_MD_WITH_TARGET.jpg completed=1 bytes=539336 seconds=0.102
+2026-10-09 15:16:04,368 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151607101_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:16:06,323 [INFO] pyftpdlib: 192.168.18.42:56069-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151609067_MD_WITH_TARGET.jpg completed=1 bytes=523149 seconds=0.09
+2026-10-09 15:16:06,323 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151609067_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:16:17,856 [INFO] pyftpdlib: 192.168.18.42:56069-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151620603_MD_WITH_TARGET.jpg completed=1 bytes=552625 seconds=0.083
+2026-10-09 15:16:17,857 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151620603_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:16:17,949 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009151620603_MD_WITH_TARGET.jpg | motivo: duplicado_placa (misma placa ya guardada)
+2026-10-09 15:16:18,941 [INFO] pyftpdlib: 192.168.18.42:56069-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151621698_MD_WITH_TARGET.jpg completed=1 bytes=510499 seconds=0.08
+2026-10-09 15:16:18,942 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151621698_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:16:19,059 [INFO] cytv.worker: Placa detectada: 2026-10-09\vehiculo_15-16-19_25753.jpg (nitidez 958.5, conf 0.45, 46.55% de cambio)
+2026-10-09 15:16:20,041 [INFO] pyftpdlib: 192.168.18.42:56069-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151622797_MD_WITH_TARGET.jpg completed=1 bytes=429112 seconds=0.08
+2026-10-09 15:16:20,041 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151622797_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:16:29,784 [INFO] pyftpdlib: 192.168.18.42:56069-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151632531_MD_WITH_TARGET.jpg completed=1 bytes=408349 seconds=0.085
+2026-10-09 15:16:29,784 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151632531_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:16:29,871 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009151632531_MD_WITH_TARGET.jpg
+2026-10-09 15:16:29,871 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009151632531_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:16:31,297 [INFO] pyftpdlib: 192.168.18.42:56069-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151634064_MD_WITH_TARGET.jpg completed=1 bytes=405420 seconds=0.068
+2026-10-09 15:16:31,297 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151634064_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:16:31,399 [INFO] cytv.worker: Placa detectada: 2026-10-09\vehiculo_15-16-31_366367.jpg (nitidez 6983.7, conf 0.34, 45.98% de cambio)
+2026-10-09 15:17:01,579 [INFO] pyftpdlib: 192.168.18.42:56069-[admin] Control connection timed out.
+2026-10-09 15:17:01,580 [INFO] pyftpdlib: 192.168.18.42:56069-[admin] FTP session closed (disconnect).
+2026-10-09 15:17:02,326 [INFO] pyftpdlib: 192.168.18.42:50231-[] FTP session opened (connect)
+2026-10-09 15:17:02,332 [INFO] pyftpdlib: 192.168.18.42:50231-[admin] USER 'admin' logged in.
+2026-10-09 15:17:05,318 [INFO] pyftpdlib: 192.168.18.42:50231-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151708094_MD_WITH_TARGET.jpg completed=1 bytes=407996 seconds=0.059
+2026-10-09 15:17:05,319 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151708094_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:17:05,411 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009151708094_MD_WITH_TARGET.jpg
+2026-10-09 15:17:05,411 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009151708094_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:17:14,095 [INFO] pyftpdlib: 192.168.18.42:50231-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151716864_MD_WITH_TARGET.jpg completed=1 bytes=410969 seconds=0.063
+2026-10-09 15:17:14,095 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151716864_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:17:14,185 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009151716864_MD_WITH_TARGET.jpg
+2026-10-09 15:17:14,186 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009151716864_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:17:16,997 [INFO] pyftpdlib: 192.168.18.42:50231-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151719764_MD_WITH_TARGET.jpg completed=1 bytes=419931 seconds=0.067
+2026-10-09 15:17:16,998 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151719764_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:17:19,281 [INFO] pyftpdlib: 192.168.18.42:50231-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151722063_MD_WITH_TARGET.jpg completed=1 bytes=410285 seconds=0.051
+2026-10-09 15:17:19,282 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151722063_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:17:49,558 [INFO] pyftpdlib: 192.168.18.42:50231-[admin] Control connection timed out.
+2026-10-09 15:17:49,559 [INFO] pyftpdlib: 192.168.18.42:50231-[admin] FTP session closed (disconnect).
+2026-10-09 15:17:51,355 [INFO] pyftpdlib: 192.168.18.42:64241-[] FTP session opened (connect)
+2026-10-09 15:17:51,359 [INFO] pyftpdlib: 192.168.18.42:64241-[admin] USER 'admin' logged in.
+2026-10-09 15:17:58,935 [INFO] pyftpdlib: 192.168.18.42:64241-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151801698_MD_WITH_TARGET.jpg completed=1 bytes=393730 seconds=0.07
+2026-10-09 15:17:58,936 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151801698_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:17:59,028 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009151801698_MD_WITH_TARGET.jpg
+2026-10-09 15:17:59,028 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009151801698_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:18:00,755 [INFO] pyftpdlib: 192.168.18.42:64241-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009151803502_MD_WITH_TARGET.jpg completed=1 bytes=404252 seconds=0.076
+2026-10-09 15:18:00,755 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009151803502_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:18:00,864 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009151803502_MD_WITH_TARGET.jpg
+2026-10-09 15:18:00,865 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009151803502_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:18:30,963 [INFO] pyftpdlib: 192.168.18.42:64241-[admin] Control connection timed out.
+2026-10-09 15:18:30,963 [INFO] pyftpdlib: 192.168.18.42:64241-[admin] FTP session closed (disconnect).
+2026-10-09 15:24:57,598 [INFO] cytv.worker: Worker listo: registro en registro.db, 6 huellas cargadas
+2026-10-09 15:24:57,736 [INFO] cytv.modelo: Modelo ONNX cargado: placas.onnx (entrada 640x640, umbral 0.25)
+2026-10-09 15:24:57,736 [INFO] cytv.worker: Deteccion: MODELO ONNX activo (placas.onnx)
+2026-10-09 15:24:57,737 [INFO] cytv.worker: Bucle del worker iniciado
+2026-10-09 15:24:57,741 [INFO] cytv.ftp: ========================================================
+2026-10-09 15:24:57,742 [INFO] cytv.ftp: Servidor FTP CYTV Ancon - puerto 2121
+2026-10-09 15:24:57,742 [INFO] cytv.ftp: Entrada : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos
+2026-10-09 15:24:57,742 [INFO] cytv.ftp: Salida  : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\imagenes_procesadas
+2026-10-09 15:24:57,742 [INFO] cytv.ftp: Registro : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\registro.db
+2026-10-09 15:24:57,742 [INFO] cytv.ftp: ========================================================
+2026-10-09 15:24:57,742 [INFO] pyftpdlib: >>> starting FTP server on 0.0.0.0:2121, pid=12544 <<<
+2026-10-09 15:31:40,940 [INFO] pyftpdlib: 192.168.18.42:55275-[] FTP session opened (connect)
+2026-10-09 15:31:40,944 [INFO] pyftpdlib: 192.168.18.42:55275-[admin] USER 'admin' logged in.
+2026-10-09 15:31:43,387 [INFO] pyftpdlib: 192.168.18.42:55275-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153146120_MD_WITH_TARGET.jpg completed=1 bytes=465313 seconds=0.073
+2026-10-09 15:31:43,387 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153146120_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:31:43,498 [INFO] cytv.worker: Placa detectada: 2026-10-09\vehiculo_15-31-43_468938.jpg (nitidez 525.7, conf 0.89, 0.00% de cambio)
+2026-10-09 15:31:59,529 [INFO] pyftpdlib: 192.168.18.42:55275-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153202251_MD_WITH_TARGET.jpg completed=1 bytes=462237 seconds=0.082
+2026-10-09 15:31:59,529 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153202251_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:31:59,571 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009153202251_MD_WITH_TARGET.jpg | motivo: duplicado (2.35% de cambio)
+2026-10-09 15:32:29,848 [INFO] pyftpdlib: 192.168.18.42:55275-[admin] Control connection timed out.
+2026-10-09 15:32:29,851 [INFO] pyftpdlib: 192.168.18.42:55275-[admin] FTP session closed (disconnect).
+2026-10-09 15:32:51,066 [INFO] pyftpdlib: 192.168.18.42:62631-[] FTP session opened (connect)
+2026-10-09 15:32:51,074 [INFO] pyftpdlib: 192.168.18.42:62631-[admin] USER 'admin' logged in.
+2026-10-09 15:32:51,165 [INFO] pyftpdlib: 192.168.18.42:62631-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153253891_MD_WITH_TARGET.jpg completed=1 bytes=341488 seconds=0.064
+2026-10-09 15:32:51,165 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153253891_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:32:51,270 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009153253891_MD_WITH_TARGET.jpg
+2026-10-09 15:32:51,270 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009153253891_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:32:52,278 [INFO] pyftpdlib: 192.168.18.42:62631-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153255013_MD_WITH_TARGET.jpg completed=1 bytes=357651 seconds=0.065
+2026-10-09 15:32:52,278 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153255013_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:32:52,373 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009153255013_MD_WITH_TARGET.jpg
+2026-10-09 15:32:52,373 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009153255013_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:33:02,874 [INFO] pyftpdlib: 192.168.18.42:62631-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153305578_MD_WITH_TARGET.jpg completed=1 bytes=398981 seconds=0.094
+2026-10-09 15:33:02,875 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153305578_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:33:02,980 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009153305578_MD_WITH_TARGET.jpg
+2026-10-09 15:33:02,980 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009153305578_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:33:04,236 [INFO] pyftpdlib: 192.168.18.42:62631-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153306955_MD_WITH_TARGET.jpg completed=1 bytes=361459 seconds=0.076
+2026-10-09 15:33:04,237 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153306955_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:33:04,345 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009153306955_MD_WITH_TARGET.jpg
+2026-10-09 15:33:04,346 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009153306955_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 15:33:06,045 [INFO] pyftpdlib: 192.168.18.42:62631-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153308756_MD_WITH_TARGET.jpg completed=1 bytes=437260 seconds=0.086
+2026-10-09 15:33:06,046 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153308756_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:33:06,170 [INFO] cytv.worker: Placa detectada: 2026-10-09\vehiculo_15-33-06_136281.jpg (nitidez 803.0, conf 0.82, 59.59% de cambio)
+2026-10-09 15:33:07,024 [INFO] pyftpdlib: 192.168.18.42:62631-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153309748_MD_WITH_TARGET.jpg completed=1 bytes=461867 seconds=0.075
+2026-10-09 15:33:07,024 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153309748_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:33:07,052 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009153309748_MD_WITH_TARGET.jpg | motivo: cooldown (1 s desde la ultima guardada)
+2026-10-09 15:33:10,200 [INFO] pyftpdlib: 192.168.18.42:62631-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153312919_MD_WITH_TARGET.jpg completed=1 bytes=457478 seconds=0.078
+2026-10-09 15:33:10,201 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153312919_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:33:10,228 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009153312919_MD_WITH_TARGET.jpg | motivo: cooldown (4 s desde la ultima guardada)
+2026-10-09 15:33:40,475 [INFO] pyftpdlib: 192.168.18.42:62631-[admin] Control connection timed out.
+2026-10-09 15:33:40,475 [INFO] pyftpdlib: 192.168.18.42:62631-[admin] FTP session closed (disconnect).
+2026-10-09 15:34:14,710 [INFO] pyftpdlib: 192.168.18.42:61031-[] FTP session opened (connect)
+2026-10-09 15:34:14,721 [INFO] pyftpdlib: 192.168.18.42:61031-[admin] USER 'admin' logged in.
+2026-10-09 15:34:16,612 [INFO] pyftpdlib: 192.168.18.42:61031-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153419315_MD_WITH_TARGET.jpg completed=1 bytes=527408 seconds=0.095
+2026-10-09 15:34:16,612 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153419315_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:34:16,769 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009153419315_MD_WITH_TARGET.jpg | motivo: duplicado_placa (misma placa ya guardada)
+2026-10-09 15:34:18,258 [INFO] pyftpdlib: 192.168.18.42:61031-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153420978_MD_WITH_TARGET.jpg completed=1 bytes=461984 seconds=0.079
+2026-10-09 15:34:18,259 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153420978_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:34:18,376 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009153420978_MD_WITH_TARGET.jpg | motivo: duplicado_placa (misma placa ya guardada)
+2026-10-09 15:34:19,667 [INFO] pyftpdlib: 192.168.18.42:61031-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153422377_MD_WITH_TARGET.jpg completed=1 bytes=493274 seconds=0.089
+2026-10-09 15:34:19,668 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153422377_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:34:19,772 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009153422377_MD_WITH_TARGET.jpg | motivo: duplicado_placa (misma placa ya guardada)
+2026-10-09 15:34:20,923 [INFO] pyftpdlib: 192.168.18.42:61031-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153423612_MD_WITH_TARGET.jpg completed=1 bytes=565774 seconds=0.109
+2026-10-09 15:34:20,923 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153423612_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:34:21,053 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009153423612_MD_WITH_TARGET.jpg | motivo: duplicado_placa (misma placa ya guardada)
+2026-10-09 15:34:22,191 [INFO] pyftpdlib: 192.168.18.42:61031-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153424878_MD_WITH_TARGET.jpg completed=1 bytes=562182 seconds=0.111
+2026-10-09 15:34:22,191 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153424878_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:34:22,296 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009153424878_MD_WITH_TARGET.jpg | motivo: duplicado_placa (misma placa ya guardada)
+2026-10-09 15:34:23,400 [INFO] pyftpdlib: 192.168.18.42:61031-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153426116_MD_WITH_TARGET.jpg completed=1 bytes=450837 seconds=0.077
+2026-10-09 15:34:23,401 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153426116_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:34:23,499 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009153426116_MD_WITH_TARGET.jpg | motivo: duplicado_placa (misma placa ya guardada)
+2026-10-09 15:34:25,208 [INFO] pyftpdlib: 192.168.18.42:61031-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153427911_MD_WITH_TARGET.jpg completed=1 bytes=464918 seconds=0.094
+2026-10-09 15:34:25,209 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153427911_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:34:25,315 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009153427911_MD_WITH_TARGET.jpg | motivo: duplicado_placa (misma placa ya guardada)
+2026-10-09 15:34:29,655 [INFO] pyftpdlib: 192.168.18.42:61031-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153432379_MD_WITH_TARGET.jpg completed=1 bytes=454642 seconds=0.075
+2026-10-09 15:34:29,656 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153432379_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:34:29,772 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009153432379_MD_WITH_TARGET.jpg | motivo: duplicado_placa (misma placa ya guardada)
+2026-10-09 15:34:37,995 [INFO] pyftpdlib: 192.168.18.42:61031-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153440714_MD_WITH_TARGET.jpg completed=1 bytes=435127 seconds=0.078
+2026-10-09 15:34:37,995 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153440714_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:34:38,110 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009153440714_MD_WITH_TARGET.jpg | motivo: duplicado_placa (misma placa ya guardada)
+2026-10-09 15:34:39,808 [INFO] pyftpdlib: 192.168.18.42:61031-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153442511_MD_WITH_TARGET.jpg completed=1 bytes=432779 seconds=0.095
+2026-10-09 15:34:39,808 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153442511_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:34:39,950 [INFO] cytv.worker: Placa detectada: 2026-10-09\vehiculo_15-34-39_913220.jpg (nitidez 653.3, conf 0.92, 60.08% de cambio)
+2026-10-09 15:34:41,232 [INFO] pyftpdlib: 192.168.18.42:61031-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009153443918_MD_WITH_TARGET.jpg completed=1 bytes=418989 seconds=0.108
+2026-10-09 15:34:41,233 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009153443918_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 15:34:41,258 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009153443918_MD_WITH_TARGET.jpg | motivo: cooldown (1 s desde la ultima guardada)
+2026-10-09 15:35:11,452 [INFO] pyftpdlib: 192.168.18.42:61031-[admin] Control connection timed out.
+2026-10-09 15:35:11,453 [INFO] pyftpdlib: 192.168.18.42:61031-[admin] FTP session closed (disconnect).
+2026-10-09 15:43:46,789 [INFO] pyftpdlib: 192.168.18.42:51579-[] FTP session opened (connect)
+2026-10-09 15:43:46,797 [INFO] pyftpdlib: 192.168.18.42:51579-[admin] USER 'admin' logged in.
+2026-10-09 15:44:18,123 [INFO] pyftpdlib: 192.168.18.42:51579-[admin] Control connection timed out.
+2026-10-09 15:44:18,123 [INFO] pyftpdlib: 192.168.18.42:51579-[admin] FTP session closed (disconnect).
+2026-10-09 16:01:07,276 [INFO] cytv.worker: Worker listo: registro en registro.db, 9 huellas y 0 placas cargadas
+2026-10-09 16:01:07,424 [INFO] cytv.modelo: Modelo ONNX cargado: placas.onnx (entrada 640x640, umbral 0.50)
+2026-10-09 16:01:07,424 [INFO] cytv.worker: Deteccion: MODELO ONNX activo (placas.onnx)
+2026-10-09 16:01:07,923 [INFO] cytv.ocr: OCR cargado (RapidOCR ONNX, CPU)
+2026-10-09 16:01:08,557 [INFO] cytv.worker: OCR: RapidOCR listo (dedup exacto por texto de placa)
+2026-10-09 16:01:08,558 [INFO] cytv.worker: Bucle del worker iniciado
+2026-10-09 16:01:08,564 [INFO] cytv.ftp: ========================================================
+2026-10-09 16:01:08,564 [INFO] cytv.ftp: Servidor FTP CYTV Ancon - puerto 2121
+2026-10-09 16:01:08,565 [INFO] cytv.ftp: Entrada : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos
+2026-10-09 16:01:08,565 [INFO] cytv.ftp: Salida  : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\imagenes_procesadas
+2026-10-09 16:01:08,565 [INFO] cytv.ftp: Registro : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\registro.db
+2026-10-09 16:01:08,565 [INFO] cytv.ftp: ========================================================
+2026-10-09 16:01:08,566 [INFO] pyftpdlib: >>> starting FTP server on 0.0.0.0:2121, pid=9000 <<<
+2026-10-09 16:05:30,845 [INFO] pyftpdlib: 192.168.18.42:54533-[] FTP session opened (connect)
+2026-10-09 16:05:30,850 [INFO] pyftpdlib: 192.168.18.42:54533-[admin] USER 'admin' logged in.
+2026-10-09 16:05:32,039 [INFO] pyftpdlib: 192.168.18.42:54533-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009160534708_MD_WITH_TARGET.jpg completed=1 bytes=427867 seconds=0.061
+2026-10-09 16:05:32,040 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009160534708_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 16:05:32,115 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009160534708_MD_WITH_TARGET.jpg | motivo: placa_cortada (toca el borde: x 222..988 de 2560, y 1173..1440 de 1440)
+2026-10-09 16:05:35,630 [INFO] pyftpdlib: 192.168.18.42:54533-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009160538303_MD_WITH_TARGET.jpg completed=1 bytes=394769 seconds=0.058
+2026-10-09 16:05:35,631 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009160538303_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 16:05:35,716 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009160538303_MD_WITH_TARGET.jpg | motivo: placa_cortada (toca el borde: x 270..991 de 2560, y 1160..1440 de 1440)
+2026-10-09 16:05:36,729 [INFO] pyftpdlib: 192.168.18.42:54533-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009160539403_MD_WITH_TARGET.jpg completed=1 bytes=410498 seconds=0.058
+2026-10-09 16:05:36,729 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009160539403_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 16:05:36,812 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009160539403_MD_WITH_TARGET.jpg | motivo: placa_cortada (toca el borde: x 274..976 de 2560, y 1155..1440 de 1440)
+2026-10-09 16:06:01,339 [INFO] pyftpdlib: 192.168.18.42:54533-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009160603003_MD_WITH_TARGET.jpg completed=1 bytes=396896 seconds=0.068
+2026-10-09 16:06:01,340 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009160603003_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 16:06:01,899 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009160603003_MD_WITH_TARGET.jpg | motivo: duplicado_placa (placa CBN-449 ya guardada)
+2026-10-09 16:06:03,296 [INFO] pyftpdlib: 192.168.18.42:54533-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009160605945_MD_WITH_TARGET.jpg completed=1 bytes=401986 seconds=0.077
+2026-10-09 16:06:03,296 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009160605945_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 16:06:03,833 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009160605945_MD_WITH_TARGET.jpg | motivo: duplicado_placa (placa CBN-449 ya guardada)
+2026-10-09 16:06:33,621 [INFO] pyftpdlib: 192.168.18.42:54533-[admin] Control connection timed out.
+2026-10-09 16:06:33,621 [INFO] pyftpdlib: 192.168.18.42:54533-[admin] FTP session closed (disconnect).
+2026-10-09 16:07:06,675 [INFO] pyftpdlib: 192.168.18.42:63333-[] FTP session opened (connect)
+2026-10-09 16:07:06,679 [INFO] pyftpdlib: 192.168.18.42:63333-[admin] USER 'admin' logged in.
+2026-10-09 16:07:26,627 [INFO] pyftpdlib: 192.168.18.42:63333-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009160729273_MD_WITH_TARGET.jpg completed=1 bytes=391172 seconds=0.078
+2026-10-09 16:07:26,628 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009160729273_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 16:07:26,706 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009160729273_MD_WITH_TARGET.jpg | motivo: placa_cortada (toca el borde: x 296..977 de 2560, y 1138..1436 de 1440)
+2026-10-09 16:07:56,900 [INFO] pyftpdlib: 192.168.18.42:63333-[admin] Control connection timed out.
+2026-10-09 16:07:56,901 [INFO] pyftpdlib: 192.168.18.42:63333-[admin] FTP session closed (disconnect).
+2026-10-09 16:08:02,941 [INFO] pyftpdlib: 192.168.18.42:49627-[] FTP session opened (connect)
+2026-10-09 16:08:02,948 [INFO] pyftpdlib: 192.168.18.42:49627-[admin] USER 'admin' logged in.
+2026-10-09 16:08:04,112 [INFO] pyftpdlib: 192.168.18.42:49627-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009160806762_MD_WITH_TARGET.jpg completed=1 bytes=400343 seconds=0.071
+2026-10-09 16:08:04,112 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009160806762_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 16:08:04,189 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009160806762_MD_WITH_TARGET.jpg | motivo: placa_cortada (toca el borde: x 267..988 de 2560, y 1161..1440 de 1440)
+2026-10-09 16:08:05,780 [INFO] pyftpdlib: 192.168.18.42:49627-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009160808432_MD_WITH_TARGET.jpg completed=1 bytes=391905 seconds=0.067
+2026-10-09 16:08:05,781 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009160808432_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 16:08:05,853 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009160808432_MD_WITH_TARGET.jpg | motivo: placa_cortada (toca el borde: x 236..986 de 2560, y 1167..1440 de 1440)
+2026-10-09 16:08:19,444 [INFO] pyftpdlib: 192.168.18.42:49627-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009160822094_MD_WITH_TARGET.jpg completed=1 bytes=403226 seconds=0.071
+2026-10-09 16:08:19,445 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009160822094_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 16:08:19,524 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009160822094_MD_WITH_TARGET.jpg | motivo: placa_cortada (toca el borde: x 270..987 de 2560, y 1167..1440 de 1440)
+2026-10-09 16:08:20,924 [INFO] pyftpdlib: 192.168.18.42:49627-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009160823567_MD_WITH_TARGET.jpg completed=1 bytes=408562 seconds=0.076
+2026-10-09 16:08:20,924 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009160823567_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 16:08:20,997 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009160823567_MD_WITH_TARGET.jpg | motivo: placa_cortada (toca el borde: x 239..980 de 2560, y 1170..1440 de 1440)
+2026-10-09 16:08:22,331 [INFO] pyftpdlib: 192.168.18.42:49627-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009160824966_MD_WITH_TARGET.jpg completed=1 bytes=390979 seconds=0.084
+2026-10-09 16:08:22,332 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009160824966_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 16:08:22,411 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009160824966_MD_WITH_TARGET.jpg | motivo: placa_cortada (toca el borde: x 295..957 de 2560, y 1207..1440 de 1440)
+2026-10-09 16:08:23,569 [INFO] pyftpdlib: 192.168.18.42:49627-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009160826199_MD_WITH_TARGET.jpg completed=1 bytes=396665 seconds=0.088
+2026-10-09 16:08:23,570 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009160826199_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 16:08:23,645 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009160826199_MD_WITH_TARGET.jpg | motivo: placa_cortada (toca el borde: x 306..953 de 2560, y 1202..1440 de 1440)
+2026-10-09 16:08:53,886 [INFO] pyftpdlib: 192.168.18.42:49627-[admin] Control connection timed out.
+2026-10-09 16:08:53,887 [INFO] pyftpdlib: 192.168.18.42:49627-[admin] FTP session closed (disconnect).
+2026-10-09 16:09:05,706 [INFO] pyftpdlib: 192.168.18.42:54631-[] FTP session opened (connect)
+2026-10-09 16:09:05,713 [INFO] pyftpdlib: 192.168.18.42:54631-[admin] USER 'admin' logged in.
+2026-10-09 16:09:19,162 [INFO] pyftpdlib: 192.168.18.42:54631-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009160921767_MD_WITH_TARGET.jpg completed=1 bytes=456572 seconds=0.112
+2026-10-09 16:09:19,162 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009160921767_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 16:09:19,568 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009160921767_MD_WITH_TARGET.jpg | motivo: duplicado_placa (placa CBN-449 ya guardada)
+2026-10-09 16:09:30,920 [INFO] pyftpdlib: 192.168.18.42:54631-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009160933565_MD_WITH_TARGET.jpg completed=1 bytes=402766 seconds=0.076
+2026-10-09 16:09:30,920 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009160933565_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 16:09:31,001 [INFO] cytv.worker: No se detecta placa: 192.168.18.42_01_20261009160933565_MD_WITH_TARGET.jpg
+2026-10-09 16:09:31,001 [INFO] cytv.worker: Imagen eliminada: 192.168.18.42_01_20261009160933565_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-10-09 16:10:01,232 [INFO] pyftpdlib: 192.168.18.42:54631-[admin] Control connection timed out.
+2026-10-09 16:10:01,233 [INFO] pyftpdlib: 192.168.18.42:54631-[admin] FTP session closed (disconnect).
+2026-10-09 16:19:18,082 [INFO] cytv.worker: Worker listo: registro en registro.db, 0 huellas y 0 placas cargadas
+2026-10-09 16:19:18,232 [INFO] cytv.modelo: Modelo ONNX cargado: placas.onnx (entrada 640x640, umbral 0.50)
+2026-10-09 16:19:18,233 [INFO] cytv.worker: Deteccion: MODELO ONNX activo (placas.onnx)
+2026-10-09 16:19:18,747 [INFO] cytv.ocr: OCR cargado (RapidOCR ONNX, CPU)
+2026-10-09 16:19:19,410 [INFO] cytv.worker: OCR: RapidOCR listo (dedup exacto por texto de placa)
+2026-10-09 16:19:19,411 [INFO] cytv.worker: Bucle del worker iniciado
+2026-10-09 16:19:19,417 [INFO] cytv.ftp: ========================================================
+2026-10-09 16:19:19,417 [INFO] cytv.ftp: Servidor FTP CYTV Ancon - puerto 2121
+2026-10-09 16:19:19,417 [INFO] cytv.ftp: Entrada : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos
+2026-10-09 16:19:19,417 [INFO] cytv.ftp: Salida  : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\imagenes_procesadas
+2026-10-09 16:19:19,417 [INFO] cytv.ftp: Registro : C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\registro.db
+2026-10-09 16:19:19,417 [INFO] cytv.ftp: ========================================================
+2026-10-09 16:19:19,418 [INFO] pyftpdlib: >>> starting FTP server on 0.0.0.0:2121, pid=15744 <<<
+2026-10-09 16:29:36,296 [INFO] pyftpdlib: 127.0.0.1:53045-[] FTP session opened (connect)
+2026-10-09 16:29:36,297 [INFO] pyftpdlib: 127.0.0.1:53045-[admin] USER 'admin' logged in.
+2026-10-09 16:29:36,306 [INFO] pyftpdlib: 127.0.0.1:53045-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\prueba_manual.jpg completed=1 bytes=202 seconds=0.001
+2026-10-09 16:29:36,306 [INFO] cytv.ftp: Imagen recibida: prueba_manual.jpg (encolada)
+2026-10-09 16:29:36,306 [INFO] pyftpdlib: 127.0.0.1:53045-[admin] FTP session closed (disconnect).
+2026-10-09 16:29:36,314 [WARNING] cytv.worker: Imagen ilegible, se elimina: prueba_manual.jpg
+2026-10-09 16:32:27,803 [INFO] pyftpdlib: 192.168.18.42:55167-[] FTP session opened (connect)
+2026-10-09 16:32:27,808 [INFO] pyftpdlib: 192.168.18.42:55167-[admin] USER 'admin' logged in.
+2026-10-09 16:32:27,929 [INFO] pyftpdlib: 192.168.18.42:55167-[admin] STOR C:\Users\felip\OneDrive\Desktop\Motorgas\Camara CYTV ANCON\ftp_recibidos\192.168.18.42_01_20261009163230498_MD_WITH_TARGET.jpg completed=1 bytes=543240 seconds=0.093
+2026-10-09 16:32:27,929 [INFO] cytv.ftp: Imagen recibida: 192.168.18.42_01_20261009163230498_MD_WITH_TARGET.jpg (encolada)
+2026-10-09 16:32:28,651 [INFO] cytv.worker: Placa detectada (placa CBN-449): 2026-10-09\vehiculo_16-32-28_600442.jpg (nitidez 724.5, conf 0.89, 0.00% de cambio)
+2026-10-09 16:32:58,187 [INFO] pyftpdlib: 192.168.18.42:55167-[admin] Control connection timed out.
+2026-10-09 16:32:58,187 [INFO] pyftpdlib: 192.168.18.42:55167-[admin] FTP session closed (disconnect).
+2026-10-09 16:35:22,809 [INFO] pyftpdlib: 192.168.18.42:60417-[] FTP session opened (connect)
+2026-10-09 16:35:22,814 [INFO] pyftpdlib: 192.168.18.42:60417-[admin] USER 'admin' logged in.
+2026-10-09 16:35:54,123 [INFO] pyftpdlib: 192.168.18.42:60417-[admin] Control connection timed out.
+2026-10-09 16:35:54,124 [INFO] pyftpdlib: 192.168.18.42:60417-[admin] FTP session closed (disconnect).
+2026-10-09 16:36:10,707 [INFO] pyftpdlib: 192.168.18.42:58889-[] FTP session opened (connect)
+2026-10-09 16:36:10,712 [INFO] pyftpdlib: 192.168.18.42:58889-[admin] USER 'admin' logged in.
+2026-10-09 16:36:41,952 [INFO] pyftpdlib: 192.168.18.42:58889-[admin] Control connection timed out.
+2026-10-09 16:36:41,952 [INFO] pyftpdlib: 192.168.18.42:58889-[admin] FTP session closed (disconnect).
+2026-10-09 16:37:40,578 [INFO] pyftpdlib: 192.168.18.42:58495-[] FTP session opened (connect)

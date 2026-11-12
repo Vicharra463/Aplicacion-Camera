@@ -1,0 +1,699 @@
+2026-11-11 10:04:46,219 [INFO] cytv.ftp: Carpeta verificada (recibidos): C:\CytvAncon\ftp_recibidos
+2026-11-11 10:04:46,223 [INFO] cytv.ftp: Carpeta verificada (procesadas): C:\CytvAncon\imagenes_procesadas
+2026-11-11 10:04:46,223 [INFO] cytv.ftp: Carpeta verificada (logs): C:\CytvAncon\logs
+2026-11-11 10:04:46,223 [INFO] cytv.ftp: Carpeta verificada (heartbeat): C:\CytvAncon
+2026-11-11 10:04:46,224 [INFO] cytv.ftp: Carpeta verificada (vista placa): C:\CytvAncon\imagenes_procesadas\placa
+2026-11-11 10:04:46,224 [INFO] cytv.ftp: Carpeta verificada (vista vehiculo): C:\CytvAncon\imagenes_procesadas\vehiculo
+2026-11-11 10:04:46,224 [INFO] cytv.ftp: Registro verificado: C:\CytvAncon\registro.db
+2026-11-11 10:04:46,224 [INFO] cytv.ftp: Modelo verificado: C:\CytvAncon\modelo\placas.onnx (12265740 bytes)
+2026-11-11 10:04:46,227 [INFO] cytv.worker: Worker listo: registro en registro.db, 0 huellas y 0 placas cargadas (dedup del dia 2026-11-11, vistas: ninguna)
+2026-11-11 10:04:46,424 [INFO] cytv.modelo: Modelo ONNX cargado: placas.onnx (entrada 640x640, umbral 0.50)
+2026-11-11 10:04:46,425 [INFO] cytv.worker: Deteccion: MODELO ONNX activo (placas.onnx)
+2026-11-11 10:04:47,194 [INFO] cytv.ocr: OCR cargado (RapidOCR ONNX, CPU)
+2026-11-11 10:04:47,994 [INFO] cytv.worker: OCR: RapidOCR listo (dedup exacto por texto de placa)
+2026-11-11 10:04:47,995 [INFO] cytv.worker: Bucle del worker iniciado
+2026-11-11 10:04:48,000 [INFO] cytv.ftp: ========================================================
+2026-11-11 10:04:48,000 [INFO] cytv.ftp: Servidor FTP CYTV Ancon - IP 192.168.1.26, puerto 2121
+2026-11-11 10:04:48,000 [INFO] cytv.ftp: Entrada : C:\CytvAncon\ftp_recibidos
+2026-11-11 10:04:48,000 [INFO] cytv.ftp: Salida  : C:\CytvAncon\imagenes_procesadas  (vehiculo\ = canal 01, placa\ = canal 02)
+2026-11-11 10:04:48,001 [INFO] cytv.ftp: Registro : C:\CytvAncon\registro.db
+2026-11-11 10:04:48,001 [INFO] cytv.ftp: Info de conexion para la camara: C:\CytvAncon\INFO_CAMARA.txt (IP 192.168.1.26, puerto 2121, usuario admin)
+2026-11-11 10:04:48,002 [INFO] cytv.ftp: ========================================================
+2026-11-11 10:04:48,002 [INFO] pyftpdlib: >>> starting FTP server on 0.0.0.0:2121, pid=19576 <<<
+2026-11-11 10:05:07,969 [INFO] cytv.ftp: Carpeta verificada (recibidos): C:\CytvAncon\ftp_recibidos
+2026-11-11 10:05:07,970 [INFO] cytv.ftp: Carpeta verificada (procesadas): C:\CytvAncon\imagenes_procesadas
+2026-11-11 10:05:07,970 [INFO] cytv.ftp: Carpeta verificada (logs): C:\CytvAncon\logs
+2026-11-11 10:05:07,970 [INFO] cytv.ftp: Carpeta verificada (heartbeat): C:\CytvAncon
+2026-11-11 10:05:07,970 [INFO] cytv.ftp: Carpeta verificada (vista placa): C:\CytvAncon\imagenes_procesadas\placa
+2026-11-11 10:05:07,971 [INFO] cytv.ftp: Carpeta verificada (vista vehiculo): C:\CytvAncon\imagenes_procesadas\vehiculo
+2026-11-11 10:05:07,971 [INFO] cytv.ftp: Registro verificado: C:\CytvAncon\registro.db
+2026-11-11 10:05:07,971 [INFO] cytv.ftp: Modelo verificado: C:\CytvAncon\modelo\placas.onnx (12265740 bytes)
+2026-11-11 10:05:07,972 [INFO] cytv.worker: Worker listo: registro en registro.db, 0 huellas y 0 placas cargadas (dedup del dia 2026-11-11, vistas: ninguna)
+2026-11-11 10:05:08,135 [INFO] cytv.modelo: Modelo ONNX cargado: placas.onnx (entrada 640x640, umbral 0.50)
+2026-11-11 10:05:08,135 [INFO] cytv.worker: Deteccion: MODELO ONNX activo (placas.onnx)
+2026-11-11 10:05:08,665 [INFO] cytv.ocr: OCR cargado (RapidOCR ONNX, CPU)
+2026-11-11 10:05:09,450 [INFO] cytv.worker: OCR: RapidOCR listo (dedup exacto por texto de placa)
+2026-11-11 10:05:09,451 [INFO] cytv.worker: Bucle del worker iniciado
+2026-11-11 14:20:06,124 [INFO] cytv.ftp: Senal 2: cerrando servidor...
+2026-11-11 14:20:06,127 [INFO] cytv.ftp: Servidor FTP detenido correctamente.
+2026-11-11 14:20:06,537 [INFO] cytv.ftp: Carpeta verificada (recibidos): C:\CytvAncon\ftp_recibidos
+2026-11-11 14:20:06,538 [INFO] cytv.ftp: Carpeta verificada (procesadas): C:\CytvAncon\imagenes_procesadas
+2026-11-11 14:20:06,538 [INFO] cytv.ftp: Carpeta verificada (logs): C:\CytvAncon\logs
+2026-11-11 14:20:06,538 [INFO] cytv.ftp: Carpeta verificada (heartbeat): C:\CytvAncon
+2026-11-11 14:20:06,538 [INFO] cytv.ftp: Carpeta verificada (vista placa): C:\CytvAncon\imagenes_procesadas\placa
+2026-11-11 14:20:06,538 [INFO] cytv.ftp: Carpeta verificada (vista vehiculo): C:\CytvAncon\imagenes_procesadas\vehiculo
+2026-11-11 14:20:06,538 [INFO] cytv.ftp: Registro verificado: C:\CytvAncon\registro.db
+2026-11-11 14:20:06,538 [INFO] cytv.ftp: Modelo verificado: C:\CytvAncon\modelo\placas.onnx (12265740 bytes)
+2026-11-11 14:20:06,541 [INFO] cytv.worker: Worker listo: registro en registro.db, 0 huellas y 0 placas cargadas (dedup del dia 2026-11-11, vistas: ninguna)
+2026-11-11 14:20:06,695 [INFO] cytv.modelo: Modelo ONNX cargado: placas.onnx (entrada 640x640, umbral 0.50)
+2026-11-11 14:20:06,695 [INFO] cytv.worker: Deteccion: MODELO ONNX activo (placas.onnx)
+2026-11-11 14:20:07,196 [INFO] cytv.ocr: OCR cargado (RapidOCR ONNX, CPU)
+2026-11-11 14:20:07,950 [INFO] cytv.worker: OCR: RapidOCR listo (dedup exacto por texto de placa)
+2026-11-11 14:20:07,952 [INFO] cytv.worker: Reporte JSON del dia 2026-11-11 actualizado: C:\CytvAncon\reportes\placas-2026-11-11.json
+2026-11-11 14:20:07,953 [INFO] cytv.worker: Bucle del worker iniciado
+2026-11-11 14:20:07,957 [INFO] cytv.ftp: ========================================================
+2026-11-11 14:20:07,958 [INFO] cytv.ftp: Servidor FTP CYTV Ancon - IP 192.168.1.26, puerto 2121
+2026-11-11 14:20:07,958 [INFO] cytv.ftp: Entrada : C:\CytvAncon\ftp_recibidos
+2026-11-11 14:20:07,958 [INFO] cytv.ftp: Salida  : C:\CytvAncon\imagenes_procesadas  (vehiculo\ = canal 01, placa\ = canal 02)
+2026-11-11 14:20:07,958 [INFO] cytv.ftp: Registro : C:\CytvAncon\registro.db
+2026-11-11 14:20:07,959 [INFO] cytv.ftp: Info de conexion para la camara: C:\CytvAncon\INFO_CAMARA.txt (IP 192.168.1.26, puerto 2121, usuario admin)
+2026-11-11 14:20:07,959 [INFO] cytv.ftp: ========================================================
+2026-11-11 14:20:07,959 [INFO] pyftpdlib: >>> starting FTP server on 0.0.0.0:2121, pid=22212 <<<
+2026-11-11 14:36:41,274 [INFO] pyftpdlib: 127.0.0.1:65204-[] FTP session opened (connect)
+2026-11-11 14:36:41,275 [INFO] pyftpdlib: 127.0.0.1:65204-[] FTP session closed (disconnect).
+2026-11-11 14:37:28,246 [INFO] pyftpdlib: 127.0.0.1:61157-[] FTP session opened (connect)
+2026-11-11 14:37:28,246 [INFO] pyftpdlib: 127.0.0.1:61157-[] FTP session closed (disconnect).
+2026-11-11 14:37:38,989 [INFO] pyftpdlib: 127.0.0.1:61160-[] FTP session opened (connect)
+2026-11-11 14:37:38,991 [INFO] pyftpdlib: 127.0.0.1:61160-[admin] USER 'admin' logged in.
+2026-11-11 14:37:38,999 [INFO] pyftpdlib: 127.0.0.1:61160-[admin] STOR C:\CytvAncon\ftp_recibidos\web_01_20261111143738992_MD_WITH_TARGET.jpg completed=1 bytes=214032 seconds=0.004
+2026-11-11 14:37:38,999 [INFO] cytv.ftp: Imagen recibida: web_01_20261111143738992_MD_WITH_TARGET.jpg (encolada)
+2026-11-11 14:37:39,000 [INFO] pyftpdlib: 127.0.0.1:61160-[admin] FTP session closed (disconnect).
+2026-11-11 14:37:39,088 [INFO] cytv.worker: No se detecta placa: web_01_20261111143738992_MD_WITH_TARGET.jpg
+2026-11-11 14:37:39,088 [INFO] cytv.worker: Imagen eliminada: web_01_20261111143738992_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-11-11 14:37:44,351 [INFO] pyftpdlib: 127.0.0.1:61165-[] FTP session opened (connect)
+2026-11-11 14:37:44,353 [INFO] pyftpdlib: 127.0.0.1:61165-[admin] USER 'admin' logged in.
+2026-11-11 14:37:44,359 [INFO] pyftpdlib: 127.0.0.1:61165-[admin] STOR C:\CytvAncon\ftp_recibidos\web_02_20261111143744354_MD_WITH_TARGET.jpg completed=1 bytes=214032 seconds=0.003
+2026-11-11 14:37:44,360 [INFO] cytv.ftp: Imagen recibida: web_02_20261111143744354_MD_WITH_TARGET.jpg (encolada)
+2026-11-11 14:37:44,360 [INFO] pyftpdlib: 127.0.0.1:61165-[admin] FTP session closed (disconnect).
+2026-11-11 14:37:44,595 [INFO] cytv.worker: No se detecta placa: web_02_20261111143744354_MD_WITH_TARGET.jpg
+2026-11-11 14:37:44,595 [INFO] cytv.worker: Imagen eliminada: web_02_20261111143744354_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-11-11 14:37:51,414 [INFO] pyftpdlib: 127.0.0.1:61181-[] FTP session opened (connect)
+2026-11-11 14:37:51,414 [INFO] pyftpdlib: 127.0.0.1:61181-[] FTP session closed (disconnect).
+2026-11-11 14:39:14,693 [INFO] pyftpdlib: 127.0.0.1:59490-[] FTP session opened (connect)
+2026-11-11 14:39:14,694 [INFO] pyftpdlib: 127.0.0.1:59490-[] FTP session closed (disconnect).
+2026-11-11 14:39:19,689 [INFO] pyftpdlib: 127.0.0.1:59786-[] FTP session opened (connect)
+2026-11-11 14:39:19,690 [INFO] pyftpdlib: 127.0.0.1:59786-[] FTP session closed (disconnect).
+2026-11-11 14:39:24,704 [INFO] pyftpdlib: 127.0.0.1:59788-[] FTP session opened (connect)
+2026-11-11 14:39:24,704 [INFO] pyftpdlib: 127.0.0.1:59788-[] FTP session closed (disconnect).
+2026-11-11 14:39:29,920 [INFO] pyftpdlib: 127.0.0.1:59789-[] FTP session opened (connect)
+2026-11-11 14:39:29,921 [INFO] pyftpdlib: 127.0.0.1:59789-[] FTP session closed (disconnect).
+2026-11-11 14:39:34,913 [INFO] pyftpdlib: 127.0.0.1:59790-[] FTP session opened (connect)
+2026-11-11 14:39:34,914 [INFO] pyftpdlib: 127.0.0.1:59790-[] FTP session closed (disconnect).
+2026-11-11 14:39:39,911 [INFO] pyftpdlib: 127.0.0.1:59791-[] FTP session opened (connect)
+2026-11-11 14:39:39,911 [INFO] pyftpdlib: 127.0.0.1:59791-[] FTP session closed (disconnect).
+2026-11-11 14:39:44,918 [INFO] pyftpdlib: 127.0.0.1:59792-[] FTP session opened (connect)
+2026-11-11 14:39:44,919 [INFO] pyftpdlib: 127.0.0.1:59792-[] FTP session closed (disconnect).
+2026-11-11 14:39:49,912 [INFO] pyftpdlib: 127.0.0.1:59793-[] FTP session opened (connect)
+2026-11-11 14:39:49,912 [INFO] pyftpdlib: 127.0.0.1:59793-[] FTP session closed (disconnect).
+2026-11-11 14:39:54,917 [INFO] pyftpdlib: 127.0.0.1:59794-[] FTP session opened (connect)
+2026-11-11 14:39:54,917 [INFO] pyftpdlib: 127.0.0.1:59794-[] FTP session closed (disconnect).
+2026-11-11 14:39:59,913 [INFO] pyftpdlib: 127.0.0.1:59795-[] FTP session opened (connect)
+2026-11-11 14:39:59,913 [INFO] pyftpdlib: 127.0.0.1:59795-[] FTP session closed (disconnect).
+2026-11-11 14:40:04,912 [INFO] pyftpdlib: 127.0.0.1:59796-[] FTP session opened (connect)
+2026-11-11 14:40:04,912 [INFO] pyftpdlib: 127.0.0.1:59796-[] FTP session closed (disconnect).
+2026-11-11 14:40:09,915 [INFO] pyftpdlib: 127.0.0.1:52435-[] FTP session opened (connect)
+2026-11-11 14:40:09,915 [INFO] pyftpdlib: 127.0.0.1:52435-[] FTP session closed (disconnect).
+2026-11-11 14:40:14,914 [INFO] pyftpdlib: 127.0.0.1:52436-[] FTP session opened (connect)
+2026-11-11 14:40:14,914 [INFO] pyftpdlib: 127.0.0.1:52436-[] FTP session closed (disconnect).
+2026-11-11 14:40:19,912 [INFO] pyftpdlib: 127.0.0.1:52437-[] FTP session opened (connect)
+2026-11-11 14:40:19,912 [INFO] pyftpdlib: 127.0.0.1:52437-[] FTP session closed (disconnect).
+2026-11-11 14:40:24,690 [INFO] pyftpdlib: 127.0.0.1:52438-[] FTP session opened (connect)
+2026-11-11 14:40:24,690 [INFO] pyftpdlib: 127.0.0.1:52438-[] FTP session closed (disconnect).
+2026-11-11 14:40:29,702 [INFO] pyftpdlib: 127.0.0.1:52440-[] FTP session opened (connect)
+2026-11-11 14:40:29,703 [INFO] pyftpdlib: 127.0.0.1:52440-[] FTP session closed (disconnect).
+2026-11-11 14:40:31,225 [INFO] pyftpdlib: 127.0.0.1:52441-[] FTP session opened (connect)
+2026-11-11 14:40:31,226 [INFO] pyftpdlib: 127.0.0.1:52441-[admin] USER 'admin' logged in.
+2026-11-11 14:40:31,230 [INFO] pyftpdlib: 127.0.0.1:52441-[admin] STOR C:\CytvAncon\ftp_recibidos\web_02_20261111144031226_MD_WITH_TARGET.jpg completed=1 bytes=160812 seconds=0.001
+2026-11-11 14:40:31,230 [INFO] cytv.ftp: Imagen recibida: web_02_20261111144031226_MD_WITH_TARGET.jpg (encolada)
+2026-11-11 14:40:31,230 [INFO] pyftpdlib: 127.0.0.1:52441-[admin] FTP session closed (disconnect).
+2026-11-11 14:40:31,233 [INFO] pyftpdlib: 127.0.0.1:52443-[] FTP session opened (connect)
+2026-11-11 14:40:31,233 [INFO] pyftpdlib: 127.0.0.1:52443-[] FTP session closed (disconnect).
+2026-11-11 14:40:31,316 [INFO] cytv.worker: No se detecta placa: web_02_20261111144031226_MD_WITH_TARGET.jpg
+2026-11-11 14:40:31,316 [INFO] cytv.worker: Imagen eliminada: web_02_20261111144031226_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-11-11 14:40:33,735 [INFO] pyftpdlib: 127.0.0.1:52444-[] FTP session opened (connect)
+2026-11-11 14:40:33,736 [INFO] pyftpdlib: 127.0.0.1:52444-[] FTP session closed (disconnect).
+2026-11-11 14:40:34,702 [INFO] pyftpdlib: 127.0.0.1:52445-[] FTP session opened (connect)
+2026-11-11 14:40:34,703 [INFO] pyftpdlib: 127.0.0.1:52445-[] FTP session closed (disconnect).
+2026-11-11 14:40:37,244 [INFO] pyftpdlib: 127.0.0.1:52446-[] FTP session opened (connect)
+2026-11-11 14:40:37,244 [INFO] pyftpdlib: 127.0.0.1:52446-[] FTP session closed (disconnect).
+2026-11-11 14:40:39,690 [INFO] pyftpdlib: 127.0.0.1:52447-[] FTP session opened (connect)
+2026-11-11 14:40:39,691 [INFO] pyftpdlib: 127.0.0.1:52447-[] FTP session closed (disconnect).
+2026-11-11 14:40:44,696 [INFO] pyftpdlib: 127.0.0.1:52449-[] FTP session opened (connect)
+2026-11-11 14:40:44,696 [INFO] pyftpdlib: 127.0.0.1:52449-[] FTP session closed (disconnect).
+2026-11-11 14:40:46,689 [INFO] pyftpdlib: 127.0.0.1:52450-[] FTP session opened (connect)
+2026-11-11 14:40:46,689 [INFO] pyftpdlib: 127.0.0.1:52450-[admin] USER 'admin' logged in.
+2026-11-11 14:40:46,693 [INFO] pyftpdlib: 127.0.0.1:52450-[admin] STOR C:\CytvAncon\ftp_recibidos\web_02_20261111144046690_MD_WITH_TARGET.jpg completed=1 bytes=170343 seconds=0.001
+2026-11-11 14:40:46,693 [INFO] cytv.ftp: Imagen recibida: web_02_20261111144046690_MD_WITH_TARGET.jpg (encolada)
+2026-11-11 14:40:46,693 [INFO] pyftpdlib: 127.0.0.1:52450-[admin] FTP session closed (disconnect).
+2026-11-11 14:40:46,696 [INFO] pyftpdlib: 127.0.0.1:52452-[] FTP session opened (connect)
+2026-11-11 14:40:46,696 [INFO] pyftpdlib: 127.0.0.1:52452-[] FTP session closed (disconnect).
+2026-11-11 14:40:47,196 [INFO] cytv.worker: Imagen eliminada: web_02_20261111144046690_MD_WITH_TARGET.jpg | motivo: texto_invalido (el recorte no se lee como placa)
+2026-11-11 14:40:49,197 [INFO] pyftpdlib: 127.0.0.1:52453-[] FTP session opened (connect)
+2026-11-11 14:40:49,197 [INFO] pyftpdlib: 127.0.0.1:52453-[] FTP session closed (disconnect).
+2026-11-11 14:40:49,689 [INFO] pyftpdlib: 127.0.0.1:52454-[] FTP session opened (connect)
+2026-11-11 14:40:49,689 [INFO] pyftpdlib: 127.0.0.1:52454-[] FTP session closed (disconnect).
+2026-11-11 14:40:52,708 [INFO] pyftpdlib: 127.0.0.1:52455-[] FTP session opened (connect)
+2026-11-11 14:40:52,708 [INFO] pyftpdlib: 127.0.0.1:52455-[] FTP session closed (disconnect).
+2026-11-11 14:40:54,689 [INFO] pyftpdlib: 127.0.0.1:52456-[] FTP session opened (connect)
+2026-11-11 14:40:54,689 [INFO] pyftpdlib: 127.0.0.1:52456-[] FTP session closed (disconnect).
+2026-11-11 14:40:59,694 [INFO] pyftpdlib: 127.0.0.1:52457-[] FTP session opened (connect)
+2026-11-11 14:40:59,694 [INFO] pyftpdlib: 127.0.0.1:52457-[] FTP session closed (disconnect).
+2026-11-11 14:41:04,918 [INFO] pyftpdlib: 127.0.0.1:52458-[] FTP session opened (connect)
+2026-11-11 14:41:04,918 [INFO] pyftpdlib: 127.0.0.1:52458-[] FTP session closed (disconnect).
+2026-11-11 14:41:09,916 [INFO] pyftpdlib: 127.0.0.1:52459-[] FTP session opened (connect)
+2026-11-11 14:41:09,916 [INFO] pyftpdlib: 127.0.0.1:52459-[] FTP session closed (disconnect).
+2026-11-11 14:41:14,919 [INFO] pyftpdlib: 127.0.0.1:52460-[] FTP session opened (connect)
+2026-11-11 14:41:14,920 [INFO] pyftpdlib: 127.0.0.1:52460-[] FTP session closed (disconnect).
+2026-11-11 14:41:19,921 [INFO] pyftpdlib: 127.0.0.1:52461-[] FTP session opened (connect)
+2026-11-11 14:41:19,921 [INFO] pyftpdlib: 127.0.0.1:52461-[] FTP session closed (disconnect).
+2026-11-11 14:41:24,911 [INFO] pyftpdlib: 127.0.0.1:52462-[] FTP session opened (connect)
+2026-11-11 14:41:24,911 [INFO] pyftpdlib: 127.0.0.1:52462-[] FTP session closed (disconnect).
+2026-11-11 14:41:28,123 [INFO] pyftpdlib: 127.0.0.1:52465-[] FTP session opened (connect)
+2026-11-11 14:41:28,123 [INFO] pyftpdlib: 127.0.0.1:52465-[] FTP session closed (disconnect).
+2026-11-11 14:41:29,921 [INFO] pyftpdlib: 127.0.0.1:52466-[] FTP session opened (connect)
+2026-11-11 14:41:29,922 [INFO] pyftpdlib: 127.0.0.1:52466-[] FTP session closed (disconnect).
+2026-11-11 14:41:34,921 [INFO] pyftpdlib: 127.0.0.1:52467-[] FTP session opened (connect)
+2026-11-11 14:41:34,922 [INFO] pyftpdlib: 127.0.0.1:52467-[] FTP session closed (disconnect).
+2026-11-11 14:41:39,921 [INFO] pyftpdlib: 127.0.0.1:52468-[] FTP session opened (connect)
+2026-11-11 14:41:39,921 [INFO] pyftpdlib: 127.0.0.1:52468-[] FTP session closed (disconnect).
+2026-11-11 14:41:44,912 [INFO] pyftpdlib: 127.0.0.1:52469-[] FTP session opened (connect)
+2026-11-11 14:41:44,912 [INFO] pyftpdlib: 127.0.0.1:52469-[] FTP session closed (disconnect).
+2026-11-11 14:41:49,913 [INFO] pyftpdlib: 127.0.0.1:52470-[] FTP session opened (connect)
+2026-11-11 14:41:49,913 [INFO] pyftpdlib: 127.0.0.1:52470-[] FTP session closed (disconnect).
+2026-11-11 14:41:54,912 [INFO] pyftpdlib: 127.0.0.1:52471-[] FTP session opened (connect)
+2026-11-11 14:41:54,912 [INFO] pyftpdlib: 127.0.0.1:52471-[] FTP session closed (disconnect).
+2026-11-11 14:41:59,920 [INFO] pyftpdlib: 127.0.0.1:52472-[] FTP session opened (connect)
+2026-11-11 14:41:59,920 [INFO] pyftpdlib: 127.0.0.1:52472-[] FTP session closed (disconnect).
+2026-11-11 14:42:14,924 [INFO] pyftpdlib: 127.0.0.1:55120-[] FTP session opened (connect)
+2026-11-11 14:42:14,925 [INFO] pyftpdlib: 127.0.0.1:55120-[] FTP session closed (disconnect).
+2026-11-11 14:42:39,467 [INFO] pyftpdlib: 127.0.0.1:52443-[] FTP session opened (connect)
+2026-11-11 14:42:39,467 [INFO] pyftpdlib: 127.0.0.1:52443-[] FTP session closed (disconnect).
+2026-11-11 14:42:44,689 [INFO] pyftpdlib: 127.0.0.1:52444-[] FTP session opened (connect)
+2026-11-11 14:42:44,689 [INFO] pyftpdlib: 127.0.0.1:52444-[] FTP session closed (disconnect).
+2026-11-11 14:42:49,698 [INFO] pyftpdlib: 127.0.0.1:52445-[] FTP session opened (connect)
+2026-11-11 14:42:49,698 [INFO] pyftpdlib: 127.0.0.1:52445-[] FTP session closed (disconnect).
+2026-11-11 14:42:54,697 [INFO] pyftpdlib: 127.0.0.1:52446-[] FTP session opened (connect)
+2026-11-11 14:42:54,697 [INFO] pyftpdlib: 127.0.0.1:52446-[] FTP session closed (disconnect).
+2026-11-11 14:42:59,923 [INFO] pyftpdlib: 127.0.0.1:52447-[] FTP session opened (connect)
+2026-11-11 14:42:59,923 [INFO] pyftpdlib: 127.0.0.1:52447-[] FTP session closed (disconnect).
+2026-11-11 14:43:04,878 [INFO] pyftpdlib: 127.0.0.1:52448-[] FTP session opened (connect)
+2026-11-11 14:43:04,878 [INFO] pyftpdlib: 127.0.0.1:52448-[] FTP session closed (disconnect).
+2026-11-11 14:43:09,703 [INFO] pyftpdlib: 127.0.0.1:52449-[] FTP session opened (connect)
+2026-11-11 14:43:09,703 [INFO] pyftpdlib: 127.0.0.1:52449-[] FTP session closed (disconnect).
+2026-11-11 14:43:14,919 [INFO] pyftpdlib: 127.0.0.1:52450-[] FTP session opened (connect)
+2026-11-11 14:43:14,919 [INFO] pyftpdlib: 127.0.0.1:52450-[] FTP session closed (disconnect).
+2026-11-11 14:43:19,911 [INFO] pyftpdlib: 127.0.0.1:64540-[] FTP session opened (connect)
+2026-11-11 14:43:19,911 [INFO] pyftpdlib: 127.0.0.1:64540-[] FTP session closed (disconnect).
+2026-11-11 14:43:24,914 [INFO] pyftpdlib: 127.0.0.1:64541-[] FTP session opened (connect)
+2026-11-11 14:43:24,914 [INFO] pyftpdlib: 127.0.0.1:64541-[] FTP session closed (disconnect).
+2026-11-11 14:43:29,911 [INFO] pyftpdlib: 127.0.0.1:64542-[] FTP session opened (connect)
+2026-11-11 14:43:29,911 [INFO] pyftpdlib: 127.0.0.1:64542-[] FTP session closed (disconnect).
+2026-11-11 14:43:34,912 [INFO] pyftpdlib: 127.0.0.1:64543-[] FTP session opened (connect)
+2026-11-11 14:43:34,912 [INFO] pyftpdlib: 127.0.0.1:64543-[] FTP session closed (disconnect).
+2026-11-11 14:43:39,922 [INFO] pyftpdlib: 127.0.0.1:50404-[] FTP session opened (connect)
+2026-11-11 14:43:39,922 [INFO] pyftpdlib: 127.0.0.1:50404-[] FTP session closed (disconnect).
+2026-11-11 14:43:44,922 [INFO] pyftpdlib: 127.0.0.1:50405-[] FTP session opened (connect)
+2026-11-11 14:43:44,923 [INFO] pyftpdlib: 127.0.0.1:50405-[] FTP session closed (disconnect).
+2026-11-11 14:43:49,923 [INFO] pyftpdlib: 127.0.0.1:50406-[] FTP session opened (connect)
+2026-11-11 14:43:49,924 [INFO] pyftpdlib: 127.0.0.1:50406-[] FTP session closed (disconnect).
+2026-11-11 14:43:54,922 [INFO] pyftpdlib: 127.0.0.1:59539-[] FTP session opened (connect)
+2026-11-11 14:43:54,922 [INFO] pyftpdlib: 127.0.0.1:59539-[] FTP session closed (disconnect).
+2026-11-11 14:43:59,922 [INFO] pyftpdlib: 127.0.0.1:59540-[] FTP session opened (connect)
+2026-11-11 14:43:59,923 [INFO] pyftpdlib: 127.0.0.1:59540-[] FTP session closed (disconnect).
+2026-11-11 14:44:04,913 [INFO] pyftpdlib: 127.0.0.1:54887-[] FTP session opened (connect)
+2026-11-11 14:44:04,913 [INFO] pyftpdlib: 127.0.0.1:54887-[] FTP session closed (disconnect).
+2026-11-11 14:44:09,915 [INFO] pyftpdlib: 127.0.0.1:54888-[] FTP session opened (connect)
+2026-11-11 14:44:09,915 [INFO] pyftpdlib: 127.0.0.1:54888-[] FTP session closed (disconnect).
+2026-11-11 14:44:14,925 [INFO] pyftpdlib: 127.0.0.1:54889-[] FTP session opened (connect)
+2026-11-11 14:44:14,926 [INFO] pyftpdlib: 127.0.0.1:54889-[] FTP session closed (disconnect).
+2026-11-11 14:44:19,700 [INFO] pyftpdlib: 127.0.0.1:54890-[] FTP session opened (connect)
+2026-11-11 14:44:19,700 [INFO] pyftpdlib: 127.0.0.1:54890-[] FTP session closed (disconnect).
+2026-11-11 14:44:24,920 [INFO] pyftpdlib: 127.0.0.1:54891-[] FTP session opened (connect)
+2026-11-11 14:44:24,920 [INFO] pyftpdlib: 127.0.0.1:54891-[] FTP session closed (disconnect).
+2026-11-11 14:44:29,912 [INFO] pyftpdlib: 127.0.0.1:54892-[] FTP session opened (connect)
+2026-11-11 14:44:29,912 [INFO] pyftpdlib: 127.0.0.1:54892-[] FTP session closed (disconnect).
+2026-11-11 14:44:34,915 [INFO] pyftpdlib: 127.0.0.1:54893-[] FTP session opened (connect)
+2026-11-11 14:44:34,915 [INFO] pyftpdlib: 127.0.0.1:54893-[] FTP session closed (disconnect).
+2026-11-11 14:44:39,914 [INFO] pyftpdlib: 127.0.0.1:54894-[] FTP session opened (connect)
+2026-11-11 14:44:39,915 [INFO] pyftpdlib: 127.0.0.1:54894-[] FTP session closed (disconnect).
+2026-11-11 14:44:44,914 [INFO] pyftpdlib: 127.0.0.1:54895-[] FTP session opened (connect)
+2026-11-11 14:44:44,914 [INFO] pyftpdlib: 127.0.0.1:54895-[] FTP session closed (disconnect).
+2026-11-11 14:44:49,909 [INFO] pyftpdlib: 127.0.0.1:54896-[] FTP session opened (connect)
+2026-11-11 14:44:49,910 [INFO] pyftpdlib: 127.0.0.1:54896-[] FTP session closed (disconnect).
+2026-11-11 14:44:54,919 [INFO] pyftpdlib: 127.0.0.1:54897-[] FTP session opened (connect)
+2026-11-11 14:44:54,920 [INFO] pyftpdlib: 127.0.0.1:54897-[] FTP session closed (disconnect).
+2026-11-11 14:44:59,920 [INFO] pyftpdlib: 127.0.0.1:54898-[] FTP session opened (connect)
+2026-11-11 14:44:59,921 [INFO] pyftpdlib: 127.0.0.1:54898-[] FTP session closed (disconnect).
+2026-11-11 14:45:04,918 [INFO] pyftpdlib: 127.0.0.1:54899-[] FTP session opened (connect)
+2026-11-11 14:45:04,918 [INFO] pyftpdlib: 127.0.0.1:54899-[] FTP session closed (disconnect).
+2026-11-11 14:45:09,911 [INFO] pyftpdlib: 127.0.0.1:54900-[] FTP session opened (connect)
+2026-11-11 14:45:09,911 [INFO] pyftpdlib: 127.0.0.1:54900-[] FTP session closed (disconnect).
+2026-11-11 14:45:14,922 [INFO] pyftpdlib: 127.0.0.1:54901-[] FTP session opened (connect)
+2026-11-11 14:45:14,922 [INFO] pyftpdlib: 127.0.0.1:54901-[] FTP session closed (disconnect).
+2026-11-11 14:45:19,923 [INFO] pyftpdlib: 127.0.0.1:54902-[] FTP session opened (connect)
+2026-11-11 14:45:19,923 [INFO] pyftpdlib: 127.0.0.1:54902-[] FTP session closed (disconnect).
+2026-11-11 14:46:14,914 [INFO] pyftpdlib: 127.0.0.1:64024-[] FTP session opened (connect)
+2026-11-11 14:46:14,914 [INFO] pyftpdlib: 127.0.0.1:64024-[] FTP session closed (disconnect).
+2026-11-11 14:47:14,929 [INFO] pyftpdlib: 127.0.0.1:54985-[] FTP session opened (connect)
+2026-11-11 14:47:14,930 [INFO] pyftpdlib: 127.0.0.1:54985-[] FTP session closed (disconnect).
+2026-11-11 14:48:14,926 [INFO] pyftpdlib: 127.0.0.1:52166-[] FTP session opened (connect)
+2026-11-11 14:48:14,926 [INFO] pyftpdlib: 127.0.0.1:52166-[] FTP session closed (disconnect).
+2026-11-11 14:49:14,925 [INFO] pyftpdlib: 127.0.0.1:65287-[] FTP session opened (connect)
+2026-11-11 14:49:14,926 [INFO] pyftpdlib: 127.0.0.1:65287-[] FTP session closed (disconnect).
+2026-11-11 14:50:14,928 [INFO] pyftpdlib: 127.0.0.1:58052-[] FTP session opened (connect)
+2026-11-11 14:50:14,929 [INFO] pyftpdlib: 127.0.0.1:58052-[] FTP session closed (disconnect).
+2026-11-11 14:51:14,929 [INFO] pyftpdlib: 127.0.0.1:64180-[] FTP session opened (connect)
+2026-11-11 14:51:14,929 [INFO] pyftpdlib: 127.0.0.1:64180-[] FTP session closed (disconnect).
+2026-11-11 14:52:14,916 [INFO] pyftpdlib: 127.0.0.1:58215-[] FTP session opened (connect)
+2026-11-11 14:52:14,916 [INFO] pyftpdlib: 127.0.0.1:58215-[] FTP session closed (disconnect).
+2026-11-11 14:53:14,930 [INFO] pyftpdlib: 127.0.0.1:63416-[] FTP session opened (connect)
+2026-11-11 14:53:14,930 [INFO] pyftpdlib: 127.0.0.1:63416-[] FTP session closed (disconnect).
+2026-11-11 14:54:14,918 [INFO] pyftpdlib: 127.0.0.1:60623-[] FTP session opened (connect)
+2026-11-11 14:54:14,919 [INFO] pyftpdlib: 127.0.0.1:60623-[] FTP session closed (disconnect).
+2026-11-11 14:55:14,919 [INFO] pyftpdlib: 127.0.0.1:62161-[] FTP session opened (connect)
+2026-11-11 14:55:14,919 [INFO] pyftpdlib: 127.0.0.1:62161-[] FTP session closed (disconnect).
+2026-11-11 14:55:49,917 [INFO] pyftpdlib: 127.0.0.1:56135-[] FTP session opened (connect)
+2026-11-11 14:55:49,917 [INFO] pyftpdlib: 127.0.0.1:56135-[] FTP session closed (disconnect).
+2026-11-11 14:56:19,919 [INFO] pyftpdlib: 127.0.0.1:60095-[] FTP session opened (connect)
+2026-11-11 14:56:19,919 [INFO] pyftpdlib: 127.0.0.1:60095-[] FTP session closed (disconnect).
+2026-11-11 14:57:14,913 [INFO] pyftpdlib: 127.0.0.1:60115-[] FTP session opened (connect)
+2026-11-11 14:57:14,914 [INFO] pyftpdlib: 127.0.0.1:60115-[] FTP session closed (disconnect).
+2026-11-11 14:58:14,929 [INFO] pyftpdlib: 127.0.0.1:54437-[] FTP session opened (connect)
+2026-11-11 14:58:14,929 [INFO] pyftpdlib: 127.0.0.1:54437-[] FTP session closed (disconnect).
+2026-11-11 14:59:14,926 [INFO] pyftpdlib: 127.0.0.1:53523-[] FTP session opened (connect)
+2026-11-11 14:59:14,927 [INFO] pyftpdlib: 127.0.0.1:53523-[] FTP session closed (disconnect).
+2026-11-11 15:00:14,911 [INFO] pyftpdlib: 127.0.0.1:49262-[] FTP session opened (connect)
+2026-11-11 15:00:14,911 [INFO] pyftpdlib: 127.0.0.1:49262-[] FTP session closed (disconnect).
+2026-11-11 15:01:14,917 [INFO] pyftpdlib: 127.0.0.1:54424-[] FTP session opened (connect)
+2026-11-11 15:01:14,917 [INFO] pyftpdlib: 127.0.0.1:54424-[] FTP session closed (disconnect).
+2026-11-11 15:02:14,921 [INFO] pyftpdlib: 127.0.0.1:64700-[] FTP session opened (connect)
+2026-11-11 15:02:14,921 [INFO] pyftpdlib: 127.0.0.1:64700-[] FTP session closed (disconnect).
+2026-11-11 15:03:14,917 [INFO] pyftpdlib: 127.0.0.1:54290-[] FTP session opened (connect)
+2026-11-11 15:03:14,917 [INFO] pyftpdlib: 127.0.0.1:54290-[] FTP session closed (disconnect).
+2026-11-11 15:04:14,921 [INFO] pyftpdlib: 127.0.0.1:56508-[] FTP session opened (connect)
+2026-11-11 15:04:14,921 [INFO] pyftpdlib: 127.0.0.1:56508-[] FTP session closed (disconnect).
+2026-11-11 15:05:14,924 [INFO] pyftpdlib: 127.0.0.1:58167-[] FTP session opened (connect)
+2026-11-11 15:05:14,925 [INFO] pyftpdlib: 127.0.0.1:58167-[] FTP session closed (disconnect).
+2026-11-11 15:06:14,918 [INFO] pyftpdlib: 127.0.0.1:58514-[] FTP session opened (connect)
+2026-11-11 15:06:14,918 [INFO] pyftpdlib: 127.0.0.1:58514-[] FTP session closed (disconnect).
+2026-11-11 15:07:14,918 [INFO] pyftpdlib: 127.0.0.1:51240-[] FTP session opened (connect)
+2026-11-11 15:07:14,919 [INFO] pyftpdlib: 127.0.0.1:51240-[] FTP session closed (disconnect).
+2026-11-11 15:08:14,916 [INFO] pyftpdlib: 127.0.0.1:60303-[] FTP session opened (connect)
+2026-11-11 15:08:14,916 [INFO] pyftpdlib: 127.0.0.1:60303-[] FTP session closed (disconnect).
+2026-11-11 15:09:14,919 [INFO] pyftpdlib: 127.0.0.1:60836-[] FTP session opened (connect)
+2026-11-11 15:09:14,920 [INFO] pyftpdlib: 127.0.0.1:60836-[] FTP session closed (disconnect).
+2026-11-11 15:10:14,913 [INFO] pyftpdlib: 127.0.0.1:52773-[] FTP session opened (connect)
+2026-11-11 15:10:14,914 [INFO] pyftpdlib: 127.0.0.1:52773-[] FTP session closed (disconnect).
+2026-11-11 15:11:14,925 [INFO] pyftpdlib: 127.0.0.1:61540-[] FTP session opened (connect)
+2026-11-11 15:11:14,926 [INFO] pyftpdlib: 127.0.0.1:61540-[] FTP session closed (disconnect).
+2026-11-11 15:12:14,911 [INFO] pyftpdlib: 127.0.0.1:65293-[] FTP session opened (connect)
+2026-11-11 15:12:14,911 [INFO] pyftpdlib: 127.0.0.1:65293-[] FTP session closed (disconnect).
+2026-11-11 15:13:14,913 [INFO] pyftpdlib: 127.0.0.1:62343-[] FTP session opened (connect)
+2026-11-11 15:13:14,914 [INFO] pyftpdlib: 127.0.0.1:62343-[] FTP session closed (disconnect).
+2026-11-11 15:14:14,924 [INFO] pyftpdlib: 127.0.0.1:52346-[] FTP session opened (connect)
+2026-11-11 15:14:14,924 [INFO] pyftpdlib: 127.0.0.1:52346-[] FTP session closed (disconnect).
+2026-11-11 15:15:14,923 [INFO] pyftpdlib: 127.0.0.1:59960-[] FTP session opened (connect)
+2026-11-11 15:15:14,924 [INFO] pyftpdlib: 127.0.0.1:59960-[] FTP session closed (disconnect).
+2026-11-11 15:16:14,934 [INFO] pyftpdlib: 127.0.0.1:50004-[] FTP session opened (connect)
+2026-11-11 15:16:14,936 [INFO] pyftpdlib: 127.0.0.1:50004-[] FTP session closed (disconnect).
+2026-11-11 15:17:14,918 [INFO] pyftpdlib: 127.0.0.1:57737-[] FTP session opened (connect)
+2026-11-11 15:17:14,919 [INFO] pyftpdlib: 127.0.0.1:57737-[] FTP session closed (disconnect).
+2026-11-11 15:18:14,914 [INFO] pyftpdlib: 127.0.0.1:49291-[] FTP session opened (connect)
+2026-11-11 15:18:14,915 [INFO] pyftpdlib: 127.0.0.1:49291-[] FTP session closed (disconnect).
+2026-11-11 15:19:14,923 [INFO] pyftpdlib: 127.0.0.1:63098-[] FTP session opened (connect)
+2026-11-11 15:19:14,923 [INFO] pyftpdlib: 127.0.0.1:63098-[] FTP session closed (disconnect).
+2026-11-11 15:20:14,922 [INFO] pyftpdlib: 127.0.0.1:52894-[] FTP session opened (connect)
+2026-11-11 15:20:14,922 [INFO] pyftpdlib: 127.0.0.1:52894-[] FTP session closed (disconnect).
+2026-11-11 15:21:14,926 [INFO] pyftpdlib: 127.0.0.1:49233-[] FTP session opened (connect)
+2026-11-11 15:21:14,926 [INFO] pyftpdlib: 127.0.0.1:49233-[] FTP session closed (disconnect).
+2026-11-11 15:22:14,924 [INFO] pyftpdlib: 127.0.0.1:64639-[] FTP session opened (connect)
+2026-11-11 15:22:14,925 [INFO] pyftpdlib: 127.0.0.1:64639-[] FTP session closed (disconnect).
+2026-11-11 15:23:14,918 [INFO] pyftpdlib: 127.0.0.1:53438-[] FTP session opened (connect)
+2026-11-11 15:23:14,919 [INFO] pyftpdlib: 127.0.0.1:53438-[] FTP session closed (disconnect).
+2026-11-11 15:24:14,919 [INFO] pyftpdlib: 127.0.0.1:53290-[] FTP session opened (connect)
+2026-11-11 15:24:14,920 [INFO] pyftpdlib: 127.0.0.1:53290-[] FTP session closed (disconnect).
+2026-11-11 15:25:14,924 [INFO] pyftpdlib: 127.0.0.1:57691-[] FTP session opened (connect)
+2026-11-11 15:25:14,924 [INFO] pyftpdlib: 127.0.0.1:57691-[] FTP session closed (disconnect).
+2026-11-11 15:26:14,923 [INFO] pyftpdlib: 127.0.0.1:61446-[] FTP session opened (connect)
+2026-11-11 15:26:14,924 [INFO] pyftpdlib: 127.0.0.1:61446-[] FTP session closed (disconnect).
+2026-11-11 15:27:14,914 [INFO] pyftpdlib: 127.0.0.1:52235-[] FTP session opened (connect)
+2026-11-11 15:27:14,914 [INFO] pyftpdlib: 127.0.0.1:52235-[] FTP session closed (disconnect).
+2026-11-11 15:28:14,915 [INFO] pyftpdlib: 127.0.0.1:65078-[] FTP session opened (connect)
+2026-11-11 15:28:14,916 [INFO] pyftpdlib: 127.0.0.1:65078-[] FTP session closed (disconnect).
+2026-11-11 15:29:14,918 [INFO] pyftpdlib: 127.0.0.1:49908-[] FTP session opened (connect)
+2026-11-11 15:29:14,919 [INFO] pyftpdlib: 127.0.0.1:49908-[] FTP session closed (disconnect).
+2026-11-11 15:29:23,983 [INFO] cytv.ftp: Senal 2: cerrando servidor...
+2026-11-11 15:29:23,984 [INFO] cytv.ftp: Servidor FTP detenido correctamente.
+2026-11-11 15:29:24,509 [INFO] cytv.ftp: Carpeta verificada (recibidos): C:\CytvAncon\ftp_recibidos
+2026-11-11 15:29:24,509 [INFO] cytv.ftp: Carpeta verificada (procesadas): C:\CytvAncon\imagenes_procesadas
+2026-11-11 15:29:24,509 [INFO] cytv.ftp: Carpeta verificada (logs): C:\CytvAncon\logs
+2026-11-11 15:29:24,509 [INFO] cytv.ftp: Carpeta verificada (heartbeat): C:\CytvAncon
+2026-11-11 15:29:24,509 [INFO] cytv.ftp: Carpeta verificada (vista placa): C:\CytvAncon\imagenes_procesadas\placa
+2026-11-11 15:29:24,509 [INFO] cytv.ftp: Carpeta verificada (vista vehiculo): C:\CytvAncon\imagenes_procesadas\vehiculo
+2026-11-11 15:29:24,509 [INFO] cytv.ftp: Registro verificado: C:\CytvAncon\registro.db
+2026-11-11 15:29:24,510 [INFO] cytv.ftp: Modelo verificado: C:\CytvAncon\modelo\placas.onnx (12265740 bytes)
+2026-11-11 15:29:24,512 [INFO] cytv.worker: Worker listo: registro en registro.db, 0 huellas y 0 placas cargadas (dedup del dia 2026-11-11, vistas: ninguna)
+2026-11-11 15:29:24,658 [INFO] cytv.modelo: Modelo ONNX cargado: placas.onnx (entrada 640x640, umbral 0.50)
+2026-11-11 15:29:24,658 [INFO] cytv.worker: Deteccion: MODELO ONNX activo (placas.onnx)
+2026-11-11 15:29:25,116 [INFO] cytv.ocr: OCR cargado (RapidOCR ONNX, CPU)
+2026-11-11 15:29:25,738 [INFO] cytv.worker: OCR: RapidOCR listo (dedup exacto por texto de placa)
+2026-11-11 15:29:25,740 [INFO] cytv.worker: Reporte JSON del dia 2026-11-11 actualizado: C:\CytvAncon\reportes\placas-2026-11-11.json
+2026-11-11 15:29:25,740 [INFO] cytv.worker: Bucle del worker iniciado
+2026-11-11 15:29:25,744 [INFO] cytv.ftp: ========================================================
+2026-11-11 15:29:25,744 [INFO] cytv.ftp: Servidor FTP CYTV Ancon - IP 192.168.1.26, puerto 2121
+2026-11-11 15:29:25,744 [INFO] cytv.ftp: Entrada : C:\CytvAncon\ftp_recibidos
+2026-11-11 15:29:25,744 [INFO] cytv.ftp: Salida  : C:\CytvAncon\imagenes_procesadas  (vehiculo\ = canal 01, placa\ = canal 02)
+2026-11-11 15:29:25,744 [INFO] cytv.ftp: Registro : C:\CytvAncon\registro.db
+2026-11-11 15:29:25,744 [INFO] cytv.ftp: Info de conexion para la camara: C:\CytvAncon\INFO_CAMARA.txt (IP 192.168.1.26, puerto 2121, usuario admin)
+2026-11-11 15:29:25,745 [INFO] cytv.ftp: ========================================================
+2026-11-11 15:29:25,745 [INFO] pyftpdlib: >>> starting FTP server on 0.0.0.0:2121, pid=6472 <<<
+2026-11-11 15:29:45,122 [INFO] pyftpdlib: 127.0.0.1:49911-[] FTP session opened (connect)
+2026-11-11 15:29:45,124 [INFO] pyftpdlib: 127.0.0.1:49911-[admin] USER 'admin' logged in.
+2026-11-11 15:29:45,131 [INFO] pyftpdlib: 127.0.0.1:49911-[admin] STOR C:\CytvAncon\ftp_recibidos\web_02_20261111152945126_MD_WITH_TARGET.jpg completed=1 bytes=170343 seconds=0.004
+2026-11-11 15:29:45,132 [INFO] cytv.ftp: Imagen recibida: web_02_20261111152945126_MD_WITH_TARGET.jpg (encolada)
+2026-11-11 15:29:45,134 [INFO] pyftpdlib: 127.0.0.1:49911-[admin] FTP session closed (disconnect).
+2026-11-11 15:29:45,714 [INFO] cytv.worker: Placa detectada (placa T9H-812): placa\2026-11-11\T9H-812.jpg (nitidez 4241.8, conf 0.90, 0.00% de cambio)
+2026-11-11 15:30:14,915 [INFO] pyftpdlib: 127.0.0.1:61708-[] FTP session opened (connect)
+2026-11-11 15:30:14,915 [INFO] pyftpdlib: 127.0.0.1:61708-[] FTP session closed (disconnect).
+2026-11-11 15:31:14,925 [INFO] pyftpdlib: 127.0.0.1:59073-[] FTP session opened (connect)
+2026-11-11 15:31:14,925 [INFO] pyftpdlib: 127.0.0.1:59073-[] FTP session closed (disconnect).
+2026-11-11 15:31:48,415 [INFO] pyftpdlib: 127.0.0.1:58456-[] FTP session opened (connect)
+2026-11-11 15:31:48,416 [INFO] pyftpdlib: 127.0.0.1:58456-[admin] USER 'admin' logged in.
+2026-11-11 15:31:48,419 [INFO] pyftpdlib: 127.0.0.1:58456-[admin] STOR C:\CytvAncon\ftp_recibidos\web_02_20261111153148416_MD_WITH_TARGET.jpg completed=1 bytes=160812 seconds=0.001
+2026-11-11 15:31:48,419 [INFO] cytv.ftp: Imagen recibida: web_02_20261111153148416_MD_WITH_TARGET.jpg (encolada)
+2026-11-11 15:31:48,420 [INFO] pyftpdlib: 127.0.0.1:58456-[admin] FTP session closed (disconnect).
+2026-11-11 15:31:48,423 [INFO] pyftpdlib: 127.0.0.1:58458-[] FTP session opened (connect)
+2026-11-11 15:31:48,424 [INFO] pyftpdlib: 127.0.0.1:58458-[] FTP session closed (disconnect).
+2026-11-11 15:31:48,517 [INFO] cytv.worker: No se detecta placa: web_02_20261111153148416_MD_WITH_TARGET.jpg
+2026-11-11 15:31:48,518 [INFO] cytv.worker: Imagen eliminada: web_02_20261111153148416_MD_WITH_TARGET.jpg | motivo: sin_placa
+2026-11-11 15:31:59,194 [INFO] pyftpdlib: 127.0.0.1:58459-[] FTP session opened (connect)
+2026-11-11 15:31:59,195 [INFO] pyftpdlib: 127.0.0.1:58459-[admin] USER 'admin' logged in.
+2026-11-11 15:31:59,198 [INFO] pyftpdlib: 127.0.0.1:58459-[admin] STOR C:\CytvAncon\ftp_recibidos\web_02_20261111153159195_MD_WITH_TARGET.jpg completed=1 bytes=161668 seconds=0.001
+2026-11-11 15:31:59,198 [INFO] cytv.ftp: Imagen recibida: web_02_20261111153159195_MD_WITH_TARGET.jpg (encolada)
+2026-11-11 15:31:59,199 [INFO] pyftpdlib: 127.0.0.1:58459-[admin] FTP session closed (disconnect).
+2026-11-11 15:31:59,892 [INFO] cytv.worker: Placa detectada (placa W2J-152): placa\2026-11-11\W2J-152.jpg (nitidez 2351.3, conf 0.90, 51.69% de cambio)
+2026-11-11 15:32:19,915 [INFO] pyftpdlib: 127.0.0.1:58320-[] FTP session opened (connect)
+2026-11-11 15:32:19,915 [INFO] pyftpdlib: 127.0.0.1:58320-[] FTP session closed (disconnect).
+2026-11-11 15:32:49,921 [INFO] pyftpdlib: 127.0.0.1:63927-[] FTP session opened (connect)
+2026-11-11 15:32:49,921 [INFO] pyftpdlib: 127.0.0.1:63927-[] FTP session closed (disconnect).
+2026-11-11 15:34:14,923 [INFO] pyftpdlib: 127.0.0.1:54152-[] FTP session opened (connect)
+2026-11-11 15:34:14,924 [INFO] pyftpdlib: 127.0.0.1:54152-[] FTP session closed (disconnect).
+2026-11-11 15:35:14,918 [INFO] pyftpdlib: 127.0.0.1:62818-[] FTP session opened (connect)
+2026-11-11 15:35:14,919 [INFO] pyftpdlib: 127.0.0.1:62818-[] FTP session closed (disconnect).
+2026-11-11 15:36:14,922 [INFO] pyftpdlib: 127.0.0.1:55074-[] FTP session opened (connect)
+2026-11-11 15:36:14,922 [INFO] pyftpdlib: 127.0.0.1:55074-[] FTP session closed (disconnect).
+2026-11-11 15:37:14,928 [INFO] pyftpdlib: 127.0.0.1:49734-[] FTP session opened (connect)
+2026-11-11 15:37:14,928 [INFO] pyftpdlib: 127.0.0.1:49734-[] FTP session closed (disconnect).
+2026-11-11 15:38:14,913 [INFO] pyftpdlib: 127.0.0.1:63585-[] FTP session opened (connect)
+2026-11-11 15:38:14,914 [INFO] pyftpdlib: 127.0.0.1:63585-[] FTP session closed (disconnect).
+2026-11-11 15:39:14,916 [INFO] pyftpdlib: 127.0.0.1:51631-[] FTP session opened (connect)
+2026-11-11 15:39:14,916 [INFO] pyftpdlib: 127.0.0.1:51631-[] FTP session closed (disconnect).
+2026-11-11 15:40:14,925 [INFO] pyftpdlib: 127.0.0.1:63395-[] FTP session opened (connect)
+2026-11-11 15:40:14,926 [INFO] pyftpdlib: 127.0.0.1:63395-[] FTP session closed (disconnect).
+2026-11-11 15:41:14,919 [INFO] pyftpdlib: 127.0.0.1:49527-[] FTP session opened (connect)
+2026-11-11 15:41:14,919 [INFO] pyftpdlib: 127.0.0.1:49527-[] FTP session closed (disconnect).
+2026-11-11 15:42:14,912 [INFO] pyftpdlib: 127.0.0.1:51177-[] FTP session opened (connect)
+2026-11-11 15:42:14,913 [INFO] pyftpdlib: 127.0.0.1:51177-[] FTP session closed (disconnect).
+2026-11-11 15:43:14,912 [INFO] pyftpdlib: 127.0.0.1:50810-[] FTP session opened (connect)
+2026-11-11 15:43:14,912 [INFO] pyftpdlib: 127.0.0.1:50810-[] FTP session closed (disconnect).
+2026-11-11 15:43:46,335 [INFO] pyftpdlib: 127.0.0.1:50811-[] FTP session opened (connect)
+2026-11-11 15:43:46,357 [INFO] pyftpdlib: 127.0.0.1:50811-[] FTP session closed (disconnect).
+2026-11-11 15:44:14,916 [INFO] pyftpdlib: 127.0.0.1:60849-[] FTP session opened (connect)
+2026-11-11 15:44:14,917 [INFO] pyftpdlib: 127.0.0.1:60849-[] FTP session closed (disconnect).
+2026-11-11 15:44:38,964 [INFO] pyftpdlib: 127.0.0.1:60850-[] FTP session opened (connect)
+2026-11-11 15:44:38,982 [INFO] pyftpdlib: 127.0.0.1:60850-[] FTP session closed (disconnect).
+2026-11-11 15:45:14,912 [INFO] pyftpdlib: 127.0.0.1:50584-[] FTP session opened (connect)
+2026-11-11 15:45:14,913 [INFO] pyftpdlib: 127.0.0.1:50584-[] FTP session closed (disconnect).
+2026-11-11 15:46:14,913 [INFO] pyftpdlib: 127.0.0.1:60808-[] FTP session opened (connect)
+2026-11-11 15:46:14,913 [INFO] pyftpdlib: 127.0.0.1:60808-[] FTP session closed (disconnect).
+2026-11-11 15:47:14,917 [INFO] pyftpdlib: 127.0.0.1:59016-[] FTP session opened (connect)
+2026-11-11 15:47:14,918 [INFO] pyftpdlib: 127.0.0.1:59016-[] FTP session closed (disconnect).
+2026-11-11 15:48:14,914 [INFO] pyftpdlib: 127.0.0.1:63417-[] FTP session opened (connect)
+2026-11-11 15:48:14,915 [INFO] pyftpdlib: 127.0.0.1:63417-[] FTP session closed (disconnect).
+2026-11-11 15:49:14,923 [INFO] pyftpdlib: 127.0.0.1:55238-[] FTP session opened (connect)
+2026-11-11 15:49:14,923 [INFO] pyftpdlib: 127.0.0.1:55238-[] FTP session closed (disconnect).
+2026-11-11 15:50:14,915 [INFO] pyftpdlib: 127.0.0.1:61492-[] FTP session opened (connect)
+2026-11-11 15:50:14,916 [INFO] pyftpdlib: 127.0.0.1:61492-[] FTP session closed (disconnect).
+2026-11-11 15:51:14,922 [INFO] pyftpdlib: 127.0.0.1:63181-[] FTP session opened (connect)
+2026-11-11 15:51:14,923 [INFO] pyftpdlib: 127.0.0.1:63181-[] FTP session closed (disconnect).
+2026-11-11 15:52:14,915 [INFO] pyftpdlib: 127.0.0.1:51371-[] FTP session opened (connect)
+2026-11-11 15:52:14,915 [INFO] pyftpdlib: 127.0.0.1:51371-[] FTP session closed (disconnect).
+2026-11-11 15:53:14,925 [INFO] pyftpdlib: 127.0.0.1:50456-[] FTP session opened (connect)
+2026-11-11 15:53:14,926 [INFO] pyftpdlib: 127.0.0.1:50456-[] FTP session closed (disconnect).
+2026-11-11 15:54:14,917 [INFO] pyftpdlib: 127.0.0.1:53849-[] FTP session opened (connect)
+2026-11-11 15:54:14,917 [INFO] pyftpdlib: 127.0.0.1:53849-[] FTP session closed (disconnect).
+2026-11-11 15:55:14,914 [INFO] pyftpdlib: 127.0.0.1:53266-[] FTP session opened (connect)
+2026-11-11 15:55:14,914 [INFO] pyftpdlib: 127.0.0.1:53266-[] FTP session closed (disconnect).
+2026-11-11 15:56:14,916 [INFO] pyftpdlib: 127.0.0.1:54902-[] FTP session opened (connect)
+2026-11-11 15:56:14,917 [INFO] pyftpdlib: 127.0.0.1:54902-[] FTP session closed (disconnect).
+2026-11-11 15:57:14,921 [INFO] pyftpdlib: 127.0.0.1:50224-[] FTP session opened (connect)
+2026-11-11 15:57:14,922 [INFO] pyftpdlib: 127.0.0.1:50224-[] FTP session closed (disconnect).
+2026-11-11 15:58:14,920 [INFO] pyftpdlib: 127.0.0.1:59805-[] FTP session opened (connect)
+2026-11-11 15:58:14,920 [INFO] pyftpdlib: 127.0.0.1:59805-[] FTP session closed (disconnect).
+2026-11-11 15:59:14,919 [INFO] pyftpdlib: 127.0.0.1:60311-[] FTP session opened (connect)
+2026-11-11 15:59:14,920 [INFO] pyftpdlib: 127.0.0.1:60311-[] FTP session closed (disconnect).
+2026-11-11 16:00:14,924 [INFO] pyftpdlib: 127.0.0.1:53670-[] FTP session opened (connect)
+2026-11-11 16:00:14,924 [INFO] pyftpdlib: 127.0.0.1:53670-[] FTP session closed (disconnect).
+2026-11-11 16:01:14,926 [INFO] pyftpdlib: 127.0.0.1:57326-[] FTP session opened (connect)
+2026-11-11 16:01:14,926 [INFO] pyftpdlib: 127.0.0.1:57326-[] FTP session closed (disconnect).
+2026-11-11 16:02:14,914 [INFO] pyftpdlib: 127.0.0.1:53363-[] FTP session opened (connect)
+2026-11-11 16:02:14,915 [INFO] pyftpdlib: 127.0.0.1:53363-[] FTP session closed (disconnect).
+2026-11-11 16:03:14,922 [INFO] pyftpdlib: 127.0.0.1:53561-[] FTP session opened (connect)
+2026-11-11 16:03:14,923 [INFO] pyftpdlib: 127.0.0.1:53561-[] FTP session closed (disconnect).
+2026-11-11 16:04:14,923 [INFO] pyftpdlib: 127.0.0.1:54806-[] FTP session opened (connect)
+2026-11-11 16:04:14,924 [INFO] pyftpdlib: 127.0.0.1:54806-[] FTP session closed (disconnect).
+2026-11-11 16:05:14,921 [INFO] pyftpdlib: 127.0.0.1:53551-[] FTP session opened (connect)
+2026-11-11 16:05:14,921 [INFO] pyftpdlib: 127.0.0.1:53551-[] FTP session closed (disconnect).
+2026-11-11 16:06:14,918 [INFO] pyftpdlib: 127.0.0.1:53308-[] FTP session opened (connect)
+2026-11-11 16:06:14,918 [INFO] pyftpdlib: 127.0.0.1:53308-[] FTP session closed (disconnect).
+2026-11-11 16:07:14,919 [INFO] pyftpdlib: 127.0.0.1:62177-[] FTP session opened (connect)
+2026-11-11 16:07:14,919 [INFO] pyftpdlib: 127.0.0.1:62177-[] FTP session closed (disconnect).
+2026-11-11 16:08:14,926 [INFO] pyftpdlib: 127.0.0.1:59547-[] FTP session opened (connect)
+2026-11-11 16:08:14,926 [INFO] pyftpdlib: 127.0.0.1:59547-[] FTP session closed (disconnect).
+2026-11-11 16:09:14,911 [INFO] pyftpdlib: 127.0.0.1:50481-[] FTP session opened (connect)
+2026-11-11 16:09:14,911 [INFO] pyftpdlib: 127.0.0.1:50481-[] FTP session closed (disconnect).
+2026-11-11 16:10:14,919 [INFO] pyftpdlib: 127.0.0.1:50036-[] FTP session opened (connect)
+2026-11-11 16:10:14,919 [INFO] pyftpdlib: 127.0.0.1:50036-[] FTP session closed (disconnect).
+2026-11-11 16:11:14,912 [INFO] pyftpdlib: 127.0.0.1:55833-[] FTP session opened (connect)
+2026-11-11 16:11:14,912 [INFO] pyftpdlib: 127.0.0.1:55833-[] FTP session closed (disconnect).
+2026-11-11 16:12:14,914 [INFO] pyftpdlib: 127.0.0.1:53799-[] FTP session opened (connect)
+2026-11-11 16:12:14,915 [INFO] pyftpdlib: 127.0.0.1:53799-[] FTP session closed (disconnect).
+2026-11-11 16:13:14,914 [INFO] pyftpdlib: 127.0.0.1:50038-[] FTP session opened (connect)
+2026-11-11 16:13:14,914 [INFO] pyftpdlib: 127.0.0.1:50038-[] FTP session closed (disconnect).
+2026-11-11 16:14:14,921 [INFO] pyftpdlib: 127.0.0.1:50835-[] FTP session opened (connect)
+2026-11-11 16:14:14,921 [INFO] pyftpdlib: 127.0.0.1:50835-[] FTP session closed (disconnect).
+2026-11-11 16:14:17,939 [INFO] cytv.ftp: Senal 2: cerrando servidor...
+2026-11-11 16:14:17,939 [INFO] cytv.ftp: Servidor FTP detenido correctamente.
+2026-11-11 17:57:27,228 [INFO] cytv.ftp: Carpeta verificada (recibidos): C:\CytvAncon\ftp_recibidos
+2026-11-11 17:57:27,228 [INFO] cytv.ftp: Carpeta verificada (procesadas): C:\CytvAncon\imagenes_procesadas
+2026-11-11 17:57:27,228 [INFO] cytv.ftp: Carpeta verificada (logs): C:\CytvAncon\logs
+2026-11-11 17:57:27,228 [INFO] cytv.ftp: Carpeta verificada (heartbeat): C:\CytvAncon
+2026-11-11 17:57:27,228 [INFO] cytv.ftp: Carpeta verificada (vista placa): C:\CytvAncon\imagenes_procesadas\placa
+2026-11-11 17:57:27,229 [INFO] cytv.ftp: Carpeta verificada (vista vehiculo): C:\CytvAncon\imagenes_procesadas\vehiculo
+2026-11-11 17:57:27,229 [INFO] cytv.ftp: Registro verificado: C:\CytvAncon\registro.db
+2026-11-11 17:57:27,229 [INFO] cytv.ftp: Modelo verificado: C:\CytvAncon\modelo\placas.onnx (12265740 bytes)
+2026-11-11 17:57:27,230 [INFO] cytv.worker: Worker listo: registro en registro.db, 2 huellas y 2 placas cargadas (dedup del dia 2026-11-11, vistas: placa=2 placas)
+2026-11-11 17:57:27,399 [INFO] cytv.modelo: Modelo ONNX cargado: placas.onnx (entrada 640x640, umbral 0.50)
+2026-11-11 17:57:27,399 [INFO] cytv.worker: Deteccion: MODELO ONNX activo (placas.onnx)
+2026-11-11 17:57:28,170 [INFO] cytv.ocr: OCR cargado (RapidOCR ONNX, CPU)
+2026-11-11 17:57:28,959 [INFO] cytv.worker: OCR: RapidOCR listo (dedup exacto por texto de placa)
+2026-11-11 17:57:28,961 [INFO] cytv.worker: Reporte JSON del dia 2026-11-11 actualizado: C:\CytvAncon\reportes\placas-2026-11-11.json
+2026-11-11 17:57:28,962 [INFO] cytv.worker: Bucle del worker iniciado
+2026-11-11 17:57:28,965 [INFO] cytv.ftp: ========================================================
+2026-11-11 17:57:28,966 [INFO] cytv.ftp: Servidor FTP CYTV Ancon - IP 192.168.1.26, puerto 2121
+2026-11-11 17:57:28,966 [INFO] cytv.ftp: Entrada : C:\CytvAncon\ftp_recibidos
+2026-11-11 17:57:28,966 [INFO] cytv.ftp: Salida  : C:\CytvAncon\imagenes_procesadas  (vehiculo\ = canal 01, placa\ = canal 02)
+2026-11-11 17:57:28,966 [INFO] cytv.ftp: Registro : C:\CytvAncon\registro.db
+2026-11-11 17:57:28,967 [INFO] cytv.ftp: Info de conexion para la camara: C:\CytvAncon\INFO_CAMARA.txt (IP 192.168.1.26, puerto 2121, usuario admin)
+2026-11-11 17:57:28,967 [INFO] cytv.ftp: ========================================================
+2026-11-11 17:57:28,967 [INFO] pyftpdlib: >>> starting FTP server on 0.0.0.0:2121, pid=4548 <<<
+2026-11-11 17:57:31,291 [INFO] pyftpdlib: 127.0.0.1:63007-[] FTP session opened (connect)
+2026-11-11 17:57:31,296 [INFO] pyftpdlib: 127.0.0.1:63007-[] FTP session closed (disconnect).
+2026-11-11 17:57:32,082 [INFO] pyftpdlib: 127.0.0.1:63008-[] FTP session opened (connect)
+2026-11-11 17:57:32,087 [INFO] pyftpdlib: 127.0.0.1:63008-[] FTP session closed (disconnect).
+2026-11-11 17:57:37,873 [INFO] pyftpdlib: 127.0.0.1:63009-[] FTP session opened (connect)
+2026-11-11 17:57:37,879 [INFO] pyftpdlib: 127.0.0.1:63009-[] FTP session closed (disconnect).
+2026-11-11 17:57:51,324 [INFO] pyftpdlib: 127.0.0.1:63011-[] FTP session opened (connect)
+2026-11-11 17:57:51,329 [INFO] pyftpdlib: 127.0.0.1:63011-[] FTP session closed (disconnect).
+2026-11-11 17:58:14,917 [INFO] pyftpdlib: 127.0.0.1:52529-[] FTP session opened (connect)
+2026-11-11 17:58:14,918 [INFO] pyftpdlib: 127.0.0.1:52529-[] FTP session closed (disconnect).
+2026-11-11 17:58:29,192 [INFO] pyftpdlib: 127.0.0.1:52531-[] FTP session opened (connect)
+2026-11-11 17:58:29,192 [INFO] pyftpdlib: 127.0.0.1:52531-[] FTP session closed (disconnect).
+2026-11-11 17:59:14,919 [INFO] pyftpdlib: 127.0.0.1:61890-[] FTP session opened (connect)
+2026-11-11 17:59:14,919 [INFO] pyftpdlib: 127.0.0.1:61890-[] FTP session closed (disconnect).
+2026-11-11 18:00:14,916 [INFO] pyftpdlib: 127.0.0.1:60267-[] FTP session opened (connect)
+2026-11-11 18:00:14,916 [INFO] pyftpdlib: 127.0.0.1:60267-[] FTP session closed (disconnect).
+2026-11-11 18:01:14,927 [INFO] pyftpdlib: 127.0.0.1:63867-[] FTP session opened (connect)
+2026-11-11 18:01:14,927 [INFO] pyftpdlib: 127.0.0.1:63867-[] FTP session closed (disconnect).
+2026-11-11 18:02:14,911 [INFO] pyftpdlib: 127.0.0.1:55494-[] FTP session opened (connect)
+2026-11-11 18:02:14,911 [INFO] pyftpdlib: 127.0.0.1:55494-[] FTP session closed (disconnect).
+2026-11-11 18:03:14,913 [INFO] pyftpdlib: 127.0.0.1:60877-[] FTP session opened (connect)
+2026-11-11 18:03:14,914 [INFO] pyftpdlib: 127.0.0.1:60877-[] FTP session closed (disconnect).
+2026-11-11 18:04:14,928 [INFO] pyftpdlib: 127.0.0.1:50714-[] FTP session opened (connect)
+2026-11-11 18:04:14,929 [INFO] pyftpdlib: 127.0.0.1:50714-[] FTP session closed (disconnect).
+2026-11-11 18:05:14,918 [INFO] pyftpdlib: 127.0.0.1:50706-[] FTP session opened (connect)
+2026-11-11 18:05:14,919 [INFO] pyftpdlib: 127.0.0.1:50706-[] FTP session closed (disconnect).
+2026-11-11 18:06:14,920 [INFO] pyftpdlib: 127.0.0.1:61681-[] FTP session opened (connect)
+2026-11-11 18:06:14,921 [INFO] pyftpdlib: 127.0.0.1:61681-[] FTP session closed (disconnect).
+2026-11-11 18:06:44,929 [INFO] pyftpdlib: 127.0.0.1:55357-[] FTP session opened (connect)
+2026-11-11 18:06:44,930 [INFO] pyftpdlib: 127.0.0.1:55357-[] FTP session closed (disconnect).
+2026-11-11 18:07:14,934 [INFO] pyftpdlib: 127.0.0.1:55358-[] FTP session opened (connect)
+2026-11-11 18:07:14,934 [INFO] pyftpdlib: 127.0.0.1:55358-[] FTP session closed (disconnect).
+2026-11-11 18:08:14,937 [INFO] pyftpdlib: 127.0.0.1:58730-[] FTP session opened (connect)
+2026-11-11 18:08:14,937 [INFO] pyftpdlib: 127.0.0.1:58730-[] FTP session closed (disconnect).
+2026-11-11 18:09:14,930 [INFO] pyftpdlib: 127.0.0.1:54109-[] FTP session opened (connect)
+2026-11-11 18:09:14,931 [INFO] pyftpdlib: 127.0.0.1:54109-[] FTP session closed (disconnect).
+2026-11-11 18:10:14,909 [INFO] pyftpdlib: 127.0.0.1:50962-[] FTP session opened (connect)
+2026-11-11 18:10:14,910 [INFO] pyftpdlib: 127.0.0.1:50962-[] FTP session closed (disconnect).
+2026-11-11 18:11:14,925 [INFO] pyftpdlib: 127.0.0.1:52005-[] FTP session opened (connect)
+2026-11-11 18:11:14,925 [INFO] pyftpdlib: 127.0.0.1:52005-[] FTP session closed (disconnect).
+2026-11-11 18:12:14,934 [INFO] pyftpdlib: 127.0.0.1:65151-[] FTP session opened (connect)
+2026-11-11 18:12:14,935 [INFO] pyftpdlib: 127.0.0.1:65151-[] FTP session closed (disconnect).
+2026-11-11 18:13:14,918 [INFO] pyftpdlib: 127.0.0.1:59052-[] FTP session opened (connect)
+2026-11-11 18:13:14,919 [INFO] pyftpdlib: 127.0.0.1:59052-[] FTP session closed (disconnect).
+2026-11-11 18:14:14,933 [INFO] pyftpdlib: 127.0.0.1:59342-[] FTP session opened (connect)
+2026-11-11 18:14:14,933 [INFO] pyftpdlib: 127.0.0.1:59342-[] FTP session closed (disconnect).
+2026-11-11 18:15:14,918 [INFO] pyftpdlib: 127.0.0.1:60527-[] FTP session opened (connect)
+2026-11-11 18:15:14,919 [INFO] pyftpdlib: 127.0.0.1:60527-[] FTP session closed (disconnect).
+2026-11-11 18:16:14,929 [INFO] pyftpdlib: 127.0.0.1:59564-[] FTP session opened (connect)
+2026-11-11 18:16:14,930 [INFO] pyftpdlib: 127.0.0.1:59564-[] FTP session closed (disconnect).
+2026-11-11 18:17:14,916 [INFO] pyftpdlib: 127.0.0.1:50567-[] FTP session opened (connect)
+2026-11-11 18:17:14,917 [INFO] pyftpdlib: 127.0.0.1:50567-[] FTP session closed (disconnect).
+2026-11-11 18:18:14,925 [INFO] pyftpdlib: 127.0.0.1:50603-[] FTP session opened (connect)
+2026-11-11 18:18:14,925 [INFO] pyftpdlib: 127.0.0.1:50603-[] FTP session closed (disconnect).
+2026-11-11 18:19:14,926 [INFO] pyftpdlib: 127.0.0.1:50886-[] FTP session opened (connect)
+2026-11-11 18:19:14,926 [INFO] pyftpdlib: 127.0.0.1:50886-[] FTP session closed (disconnect).
+2026-11-11 18:20:14,922 [INFO] pyftpdlib: 127.0.0.1:58268-[] FTP session opened (connect)
+2026-11-11 18:20:14,923 [INFO] pyftpdlib: 127.0.0.1:58268-[] FTP session closed (disconnect).
+2026-11-11 18:21:14,912 [INFO] pyftpdlib: 127.0.0.1:51219-[] FTP session opened (connect)
+2026-11-11 18:21:14,913 [INFO] pyftpdlib: 127.0.0.1:51219-[] FTP session closed (disconnect).
+2026-11-11 18:22:14,928 [INFO] pyftpdlib: 127.0.0.1:56958-[] FTP session opened (connect)
+2026-11-11 18:22:14,929 [INFO] pyftpdlib: 127.0.0.1:56958-[] FTP session closed (disconnect).
+2026-11-11 18:23:15,043 [INFO] pyftpdlib: 127.0.0.1:58842-[] FTP session opened (connect)
+2026-11-11 18:23:15,044 [INFO] pyftpdlib: 127.0.0.1:58842-[] FTP session closed (disconnect).
+2026-11-11 18:24:14,942 [INFO] pyftpdlib: 127.0.0.1:63814-[] FTP session opened (connect)
+2026-11-11 18:24:14,943 [INFO] pyftpdlib: 127.0.0.1:63814-[] FTP session closed (disconnect).
+2026-11-11 18:25:14,960 [INFO] pyftpdlib: 127.0.0.1:62970-[] FTP session opened (connect)
+2026-11-11 18:25:14,960 [INFO] pyftpdlib: 127.0.0.1:62970-[] FTP session closed (disconnect).
+2026-11-11 18:26:15,011 [INFO] pyftpdlib: 127.0.0.1:51033-[] FTP session opened (connect)
+2026-11-11 18:26:15,012 [INFO] pyftpdlib: 127.0.0.1:51033-[] FTP session closed (disconnect).
+2026-11-11 18:27:14,977 [INFO] pyftpdlib: 127.0.0.1:55273-[] FTP session opened (connect)
+2026-11-11 18:27:14,977 [INFO] pyftpdlib: 127.0.0.1:55273-[] FTP session closed (disconnect).
+2026-11-11 18:28:14,984 [INFO] pyftpdlib: 127.0.0.1:65139-[] FTP session opened (connect)
+2026-11-11 18:28:14,985 [INFO] pyftpdlib: 127.0.0.1:65139-[] FTP session closed (disconnect).
+2026-11-11 18:29:14,944 [INFO] pyftpdlib: 127.0.0.1:62455-[] FTP session opened (connect)
+2026-11-11 18:29:14,944 [INFO] pyftpdlib: 127.0.0.1:62455-[] FTP session closed (disconnect).
+2026-11-11 18:30:14,932 [INFO] pyftpdlib: 127.0.0.1:56456-[] FTP session opened (connect)
+2026-11-11 18:30:14,932 [INFO] pyftpdlib: 127.0.0.1:56456-[] FTP session closed (disconnect).
+2026-11-11 18:31:14,943 [INFO] pyftpdlib: 127.0.0.1:51191-[] FTP session opened (connect)
+2026-11-11 18:31:14,943 [INFO] pyftpdlib: 127.0.0.1:51191-[] FTP session closed (disconnect).
+2026-11-11 18:32:14,925 [INFO] pyftpdlib: 127.0.0.1:60781-[] FTP session opened (connect)
+2026-11-11 18:32:14,926 [INFO] pyftpdlib: 127.0.0.1:60781-[] FTP session closed (disconnect).
+2026-11-11 18:33:14,950 [INFO] pyftpdlib: 127.0.0.1:57015-[] FTP session opened (connect)
+2026-11-11 18:33:14,950 [INFO] pyftpdlib: 127.0.0.1:57015-[] FTP session closed (disconnect).
+2026-11-11 18:34:14,956 [INFO] pyftpdlib: 127.0.0.1:61976-[] FTP session opened (connect)
+2026-11-11 18:34:14,957 [INFO] pyftpdlib: 127.0.0.1:61976-[] FTP session closed (disconnect).
+2026-11-11 18:35:14,943 [INFO] pyftpdlib: 127.0.0.1:57157-[] FTP session opened (connect)
+2026-11-11 18:35:14,943 [INFO] pyftpdlib: 127.0.0.1:57157-[] FTP session closed (disconnect).
+2026-11-11 18:36:14,956 [INFO] pyftpdlib: 127.0.0.1:58623-[] FTP session opened (connect)
+2026-11-11 18:36:14,956 [INFO] pyftpdlib: 127.0.0.1:58623-[] FTP session closed (disconnect).
+2026-11-11 18:37:14,931 [INFO] pyftpdlib: 127.0.0.1:53713-[] FTP session opened (connect)
+2026-11-11 18:37:14,931 [INFO] pyftpdlib: 127.0.0.1:53713-[] FTP session closed (disconnect).
+2026-11-11 18:38:14,939 [INFO] pyftpdlib: 127.0.0.1:58370-[] FTP session opened (connect)
+2026-11-11 18:38:14,940 [INFO] pyftpdlib: 127.0.0.1:58370-[] FTP session closed (disconnect).
+2026-11-11 18:39:14,939 [INFO] pyftpdlib: 127.0.0.1:55613-[] FTP session opened (connect)
+2026-11-11 18:39:14,940 [INFO] pyftpdlib: 127.0.0.1:55613-[] FTP session closed (disconnect).
+2026-11-11 18:40:14,934 [INFO] pyftpdlib: 127.0.0.1:62982-[] FTP session opened (connect)
+2026-11-11 18:40:14,934 [INFO] pyftpdlib: 127.0.0.1:62982-[] FTP session closed (disconnect).
+2026-11-11 18:41:14,967 [INFO] pyftpdlib: 127.0.0.1:58567-[] FTP session opened (connect)
+2026-11-11 18:41:14,967 [INFO] pyftpdlib: 127.0.0.1:58567-[] FTP session closed (disconnect).
+2026-11-11 18:42:14,946 [INFO] pyftpdlib: 127.0.0.1:56384-[] FTP session opened (connect)
+2026-11-11 18:42:14,946 [INFO] pyftpdlib: 127.0.0.1:56384-[] FTP session closed (disconnect).
+2026-11-11 18:43:14,935 [INFO] pyftpdlib: 127.0.0.1:50081-[] FTP session opened (connect)
+2026-11-11 18:43:14,935 [INFO] pyftpdlib: 127.0.0.1:50081-[] FTP session closed (disconnect).
+2026-11-11 18:44:14,986 [INFO] pyftpdlib: 127.0.0.1:57219-[] FTP session opened (connect)
+2026-11-11 18:44:14,987 [INFO] pyftpdlib: 127.0.0.1:57219-[] FTP session closed (disconnect).
+2026-11-11 18:45:14,949 [INFO] pyftpdlib: 127.0.0.1:51135-[] FTP session opened (connect)
+2026-11-11 18:45:14,949 [INFO] pyftpdlib: 127.0.0.1:51135-[] FTP session closed (disconnect).
+2026-11-11 18:46:14,970 [INFO] pyftpdlib: 127.0.0.1:53615-[] FTP session opened (connect)
+2026-11-11 18:46:14,970 [INFO] pyftpdlib: 127.0.0.1:53615-[] FTP session closed (disconnect).
+2026-11-11 18:47:14,962 [INFO] pyftpdlib: 127.0.0.1:50457-[] FTP session opened (connect)
+2026-11-11 18:47:14,962 [INFO] pyftpdlib: 127.0.0.1:50457-[] FTP session closed (disconnect).
+2026-11-11 18:48:14,984 [INFO] pyftpdlib: 127.0.0.1:57540-[] FTP session opened (connect)
+2026-11-11 18:48:14,985 [INFO] pyftpdlib: 127.0.0.1:57540-[] FTP session closed (disconnect).
+2026-11-11 18:49:14,950 [INFO] pyftpdlib: 127.0.0.1:54590-[] FTP session opened (connect)
+2026-11-11 18:49:14,951 [INFO] pyftpdlib: 127.0.0.1:54590-[] FTP session closed (disconnect).
+2026-11-11 18:50:14,947 [INFO] pyftpdlib: 127.0.0.1:56685-[] FTP session opened (connect)
+2026-11-11 18:50:14,947 [INFO] pyftpdlib: 127.0.0.1:56685-[] FTP session closed (disconnect).
+2026-11-11 18:51:14,937 [INFO] pyftpdlib: 127.0.0.1:63267-[] FTP session opened (connect)
+2026-11-11 18:51:14,937 [INFO] pyftpdlib: 127.0.0.1:63267-[] FTP session closed (disconnect).
+2026-11-11 18:52:14,928 [INFO] pyftpdlib: 127.0.0.1:63382-[] FTP session opened (connect)
+2026-11-11 18:52:14,928 [INFO] pyftpdlib: 127.0.0.1:63382-[] FTP session closed (disconnect).
+2026-11-11 18:53:14,934 [INFO] pyftpdlib: 127.0.0.1:51046-[] FTP session opened (connect)
+2026-11-11 18:53:14,935 [INFO] pyftpdlib: 127.0.0.1:51046-[] FTP session closed (disconnect).
+2026-11-11 18:54:14,968 [INFO] pyftpdlib: 127.0.0.1:57403-[] FTP session opened (connect)
+2026-11-11 18:54:14,968 [INFO] pyftpdlib: 127.0.0.1:57403-[] FTP session closed (disconnect).
+2026-11-11 18:55:14,948 [INFO] pyftpdlib: 127.0.0.1:50186-[] FTP session opened (connect)
+2026-11-11 18:55:14,948 [INFO] pyftpdlib: 127.0.0.1:50186-[] FTP session closed (disconnect).
+2026-11-11 18:56:14,961 [INFO] pyftpdlib: 127.0.0.1:51177-[] FTP session opened (connect)
+2026-11-11 18:56:14,961 [INFO] pyftpdlib: 127.0.0.1:51177-[] FTP session closed (disconnect).
+2026-11-11 18:57:14,945 [INFO] pyftpdlib: 127.0.0.1:55300-[] FTP session opened (connect)
+2026-11-11 18:57:14,946 [INFO] pyftpdlib: 127.0.0.1:55300-[] FTP session closed (disconnect).
+2026-11-11 18:58:14,935 [INFO] pyftpdlib: 127.0.0.1:65495-[] FTP session opened (connect)
+2026-11-11 18:58:14,936 [INFO] pyftpdlib: 127.0.0.1:65495-[] FTP session closed (disconnect).
+2026-11-11 18:59:14,938 [INFO] pyftpdlib: 127.0.0.1:50883-[] FTP session opened (connect)
+2026-11-11 18:59:14,938 [INFO] pyftpdlib: 127.0.0.1:50883-[] FTP session closed (disconnect).
+2026-11-11 19:00:14,941 [INFO] pyftpdlib: 127.0.0.1:55455-[] FTP session opened (connect)
+2026-11-11 19:00:14,941 [INFO] pyftpdlib: 127.0.0.1:55455-[] FTP session closed (disconnect).
+2026-11-11 19:01:14,967 [INFO] pyftpdlib: 127.0.0.1:52682-[] FTP session opened (connect)
+2026-11-11 19:01:14,968 [INFO] pyftpdlib: 127.0.0.1:52682-[] FTP session closed (disconnect).
+2026-11-11 19:02:14,980 [INFO] pyftpdlib: 127.0.0.1:58149-[] FTP session opened (connect)
+2026-11-11 19:02:14,980 [INFO] pyftpdlib: 127.0.0.1:58149-[] FTP session closed (disconnect).
+2026-11-11 19:03:14,969 [INFO] pyftpdlib: 127.0.0.1:56863-[] FTP session opened (connect)
+2026-11-11 19:03:14,969 [INFO] pyftpdlib: 127.0.0.1:56863-[] FTP session closed (disconnect).
+2026-11-11 19:04:14,942 [INFO] pyftpdlib: 127.0.0.1:53916-[] FTP session opened (connect)
+2026-11-11 19:04:14,943 [INFO] pyftpdlib: 127.0.0.1:53916-[] FTP session closed (disconnect).
+2026-11-11 19:05:14,934 [INFO] pyftpdlib: 127.0.0.1:56795-[] FTP session opened (connect)
+2026-11-11 19:05:14,935 [INFO] pyftpdlib: 127.0.0.1:56795-[] FTP session closed (disconnect).
+2026-11-11 19:06:14,944 [INFO] pyftpdlib: 127.0.0.1:57313-[] FTP session opened (connect)
+2026-11-11 19:06:14,945 [INFO] pyftpdlib: 127.0.0.1:57313-[] FTP session closed (disconnect).
+2026-11-11 19:07:14,951 [INFO] pyftpdlib: 127.0.0.1:63293-[] FTP session opened (connect)
+2026-11-11 19:07:14,951 [INFO] pyftpdlib: 127.0.0.1:63293-[] FTP session closed (disconnect).
+2026-11-11 19:08:14,990 [INFO] pyftpdlib: 127.0.0.1:63753-[] FTP session opened (connect)
+2026-11-11 19:08:14,990 [INFO] pyftpdlib: 127.0.0.1:63753-[] FTP session closed (disconnect).
+2026-11-11 19:09:14,941 [INFO] pyftpdlib: 127.0.0.1:58112-[] FTP session opened (connect)
+2026-11-11 19:09:14,942 [INFO] pyftpdlib: 127.0.0.1:58112-[] FTP session closed (disconnect).
+2026-11-11 19:10:15,022 [INFO] pyftpdlib: 127.0.0.1:53090-[] FTP session opened (connect)
+2026-11-11 19:10:15,022 [INFO] pyftpdlib: 127.0.0.1:53090-[] FTP session closed (disconnect).
+2026-11-11 19:11:14,940 [INFO] pyftpdlib: 127.0.0.1:57863-[] FTP session opened (connect)
+2026-11-11 19:11:14,941 [INFO] pyftpdlib: 127.0.0.1:57863-[] FTP session closed (disconnect).
+2026-11-11 19:12:14,945 [INFO] pyftpdlib: 127.0.0.1:53278-[] FTP session opened (connect)
+2026-11-11 19:12:14,946 [INFO] pyftpdlib: 127.0.0.1:53278-[] FTP session closed (disconnect).
+2026-11-11 19:13:14,930 [INFO] pyftpdlib: 127.0.0.1:61715-[] FTP session opened (connect)
+2026-11-11 19:13:14,931 [INFO] pyftpdlib: 127.0.0.1:61715-[] FTP session closed (disconnect).
+2026-11-11 19:14:14,995 [INFO] pyftpdlib: 127.0.0.1:49180-[] FTP session opened (connect)
+2026-11-11 19:14:14,996 [INFO] pyftpdlib: 127.0.0.1:49180-[] FTP session closed (disconnect).
+2026-11-11 19:15:14,962 [INFO] pyftpdlib: 127.0.0.1:50092-[] FTP session opened (connect)
+2026-11-11 19:15:14,962 [INFO] pyftpdlib: 127.0.0.1:50092-[] FTP session closed (disconnect).
+2026-11-11 19:16:14,937 [INFO] pyftpdlib: 127.0.0.1:64983-[] FTP session opened (connect)
+2026-11-11 19:16:14,938 [INFO] pyftpdlib: 127.0.0.1:64983-[] FTP session closed (disconnect).
+2026-11-11 19:17:14,935 [INFO] pyftpdlib: 127.0.0.1:63469-[] FTP session opened (connect)
+2026-11-11 19:17:14,935 [INFO] pyftpdlib: 127.0.0.1:63469-[] FTP session closed (disconnect).
+2026-11-11 19:18:14,958 [INFO] pyftpdlib: 127.0.0.1:53368-[] FTP session opened (connect)
+2026-11-11 19:18:14,959 [INFO] pyftpdlib: 127.0.0.1:53368-[] FTP session closed (disconnect).
+2026-11-11 19:19:15,021 [INFO] pyftpdlib: 127.0.0.1:61727-[] FTP session opened (connect)
+2026-11-11 19:19:15,022 [INFO] pyftpdlib: 127.0.0.1:61727-[] FTP session closed (disconnect).
+2026-11-11 19:20:14,946 [INFO] pyftpdlib: 127.0.0.1:50689-[] FTP session opened (connect)
+2026-11-11 19:20:14,947 [INFO] pyftpdlib: 127.0.0.1:50689-[] FTP session closed (disconnect).
+2026-11-11 19:21:14,938 [INFO] pyftpdlib: 127.0.0.1:61432-[] FTP session opened (connect)
+2026-11-11 19:21:14,939 [INFO] pyftpdlib: 127.0.0.1:61432-[] FTP session closed (disconnect).
+2026-11-11 19:22:14,976 [INFO] pyftpdlib: 127.0.0.1:64879-[] FTP session opened (connect)
+2026-11-11 19:22:14,976 [INFO] pyftpdlib: 127.0.0.1:64879-[] FTP session closed (disconnect).
+2026-11-11 19:23:14,914 [INFO] pyftpdlib: 127.0.0.1:60085-[] FTP session opened (connect)
+2026-11-11 19:23:14,914 [INFO] pyftpdlib: 127.0.0.1:60085-[] FTP session closed (disconnect).
+2026-11-11 19:24:14,945 [INFO] pyftpdlib: 127.0.0.1:49502-[] FTP session opened (connect)
+2026-11-11 19:24:14,945 [INFO] pyftpdlib: 127.0.0.1:49502-[] FTP session closed (disconnect).
+2026-11-11 19:25:14,999 [INFO] pyftpdlib: 127.0.0.1:54248-[] FTP session opened (connect)
+2026-11-11 19:25:15,000 [INFO] pyftpdlib: 127.0.0.1:54248-[] FTP session closed (disconnect).
+2026-11-11 19:26:14,940 [INFO] pyftpdlib: 127.0.0.1:51190-[] FTP session opened (connect)
+2026-11-11 19:26:14,940 [INFO] pyftpdlib: 127.0.0.1:51190-[] FTP session closed (disconnect).
+2026-11-11 19:27:14,929 [INFO] pyftpdlib: 127.0.0.1:61541-[] FTP session opened (connect)
+2026-11-11 19:27:14,929 [INFO] pyftpdlib: 127.0.0.1:61541-[] FTP session closed (disconnect).
+2026-11-11 19:28:15,050 [INFO] pyftpdlib: 127.0.0.1:49279-[] FTP session opened (connect)
+2026-11-11 19:28:15,051 [INFO] pyftpdlib: 127.0.0.1:49279-[] FTP session closed (disconnect).
+2026-11-11 19:29:14,921 [INFO] pyftpdlib: 127.0.0.1:59819-[] FTP session opened (connect)
+2026-11-11 19:29:14,922 [INFO] pyftpdlib: 127.0.0.1:59819-[] FTP session closed (disconnect).
+2026-11-11 19:30:14,982 [INFO] pyftpdlib: 127.0.0.1:59784-[] FTP session opened (connect)
+2026-11-11 19:30:14,982 [INFO] pyftpdlib: 127.0.0.1:59784-[] FTP session closed (disconnect).
+2026-11-11 19:30:48,615 [INFO] pyftpdlib: 127.0.0.1:59658-[] FTP session opened (connect)
+2026-11-11 19:30:48,616 [INFO] pyftpdlib: 127.0.0.1:59658-[] FTP session closed (disconnect).

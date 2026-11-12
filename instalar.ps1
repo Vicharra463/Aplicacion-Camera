@@ -1,0 +1,293 @@
+#requires -Version 3.0
+# ============================================================
+#  Instalador universal - Servidor FTP Camara CYTV Ancon
+#  Compatible con PowerShell 3.0+ (Windows Server 2012 R2 = PS4
+#  incluido). Corre en cualquier Windows de 64 bits:
+#    - Win 10/11 (Home, Pro...) y Server 2016+  -> Python 3.13
+#    - Win 8.1 y Server 2012 R2                 -> Python 3.9
+#
+#  Lecciones aplicadas (no quitar, vuelven a romper el servicio):
+#    1. Python SIEMPRE de python.org en C:\Program Files, nunca
+#       del PATH ni de Microsoft Store (alias por usuario).
+#    2. El servicio vive en C:\CytvAncon - FUERA de C:\Users:
+#       SYSTEM no puede ejecutar .exe dentro del perfil de usuario.
+#    3. Comillas de AppParameters via REGISTRO: PowerShell se come
+#       las comillas si pasan por nssm set.
+#    4. Rutas absolutas en config.ini y verificacion+aviso de
+#       cada carpeta al arrancar.
+#
+#  Uso (elevado): powershell -ExecutionPolicy Bypass -File instalar.ps1
+# ============================================================
+$ErrorActionPreference = 'Continue'
+$raiz = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+$dest = 'C:\CytvAncon'
+$serv = 'CamaraCytvAncon'
+$log  = Join-Path $raiz 'instalacion.log'
+
+function L($m) {
+    $l = '{0} {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $m
+    Add-Content -LiteralPath $log -Value $l -Encoding UTF8
+    Write-Host $l
+}
+
+# Puerto en escucha -> PID  (netstat: funciona en PS4; Get-NetTCPConnection no)
+function Get-PidEnPuerto($puerto) {
+    $pat = ':' + $puerto + ' '
+    foreach ($ln in (& netstat -ano -p tcp)) {
+        if ($ln -match 'LISTENING' -and $ln -match $pat) {
+            $toks = ($ln -split '\s+') | Where-Object { $_ -ne '' }
+            try { return [int]$toks[$toks.Count - 1] } catch { return $null }
+        }
+    }
+    return $null
+}
+
+# Localiza python.org Python3* en Program Files con version en rango
+function Find-PythonBase($lo, $hi) {
+    $dirs = @()
+    foreach ($pf in @($env:ProgramFiles, ${env:ProgramFiles(x86)})) {
+        if ($pf) {
+            $dirs += Get-ChildItem -LiteralPath $pf -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -like 'Python3*' }
+        }
+    }
+    foreach ($d in $dirs) {
+        $exe = Join-Path $d.FullName 'python.exe'
+        if (Test-Path -LiteralPath $exe) {
+            $v = & $exe -c "import sys; print(str(sys.version_info[0])+'.'+str(sys.version_info[1]))" 2>$null
+            if ($v -match '^(\d+)\.(\d+)$') {
+                $maj = [int]$Matches[1]; $mn = [int]$Matches[2]
+                $num = $maj * 100 + $mn
+                if ($num -ge $lo -and ($hi -eq 0 -or $num -le $hi)) {
+                    return $exe
+                }
+            }
+        }
+    }
+    return $null
+}
+
+L '============================================================'
+L ' Instalador universal - Servidor FTP Camara CYTV Ancon'
+L '============================================================'
+
+# --- [0] Administrador ---
+$id = [Security.Principal.WindowsIdentity]::GetCurrent()
+$pr = New-Object Security.Principal.WindowsPrincipal($id)
+if (-not $pr.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    L 'ERROR: hace falta elevacion. Corra instalar_servicio.bat (pide permiso solo).'
+    exit 1
+}
+
+# --- [1] Arquitectura y sistema ---
+if ($env:PROCESSOR_ARCHITECTURE -ne 'AMD64') {
+    L "ERROR: se necesita Windows de 64 bits (detectado: $env:PROCESSOR_ARCHITECTURE)."
+    exit 1
+}
+$cv = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction SilentlyContinue
+$build = 0
+try { $build = [int]$cv.CurrentBuild } catch { }
+$prod = $cv.ProductName
+L "Sistema detectado: $prod (build $build)"
+if ($build -lt 9600) {
+    L 'ERROR: se necesita Windows 8.1 / Server 2012 R2 o superior de 64 bits.'
+    L '       (En sistemas mas viejos el Python 3.9+ ya no corre.)'
+    exit 1
+}
+if ($build -lt 14393) {
+    $pyVer = '3.9.13'
+    $pyUrl = 'https://www.python.org/ftp/python/3.9.13/python-3.9.13-amd64.exe'
+    $req   = 'requirements-py39.txt'
+    $loNum = 309; $hiNum = 309
+    L 'Ruta: Windows viejo -> Python 3.9.13 + dependencias pineadas'
+} else {
+    $pyVer = '3.13.14'
+    $pyUrl = 'https://www.python.org/ftp/python/3.13.14/python-3.13.14-amd64.exe'
+    $req   = 'requirements.txt'
+    $loNum = 310; $hiNum = 0
+    L 'Ruta: Windows moderno -> Python 3.13.14 + requirements.txt'
+}
+
+# --- [2] Puerto 2121 libre ---
+$pid2121 = Get-PidEnPuerto 2121
+if ($pid2121) {
+    $dueno = Get-CimInstance Win32_Process -Filter "ProcessId=$pid2121" -ErrorAction SilentlyContinue
+    $nom = if ($dueno) { $dueno.Name } else { 'desconocido' }
+    L "ERROR: el puerto 2121 ya lo usa otro proceso (PID $pid2121, $nom)."
+    L '       Detengalo primero o cambie el puerto en config.ini.'
+    exit 1
+}
+L 'Puerto 2121: libre'
+
+# --- [3] Destino y copia del proyecto ---
+if ($dest -like ($env:UserProfile + '\*')) {
+    L "ERROR: el destino ($dest) no puede vivir en el perfil de usuario:"
+    L '       el servicio corre como SYSTEM y SYSTEM no ejecuta .exe de C:\Users.'
+    exit 1
+}
+if ($raiz -ne $dest) {
+    L "Paso 3: copiando proyecto $raiz -> $dest"
+    New-Item -ItemType Directory -Path $dest -Force | Out-Null
+    robocopy $raiz $dest /E /XD venv __pycache__ logs ftp_recibidos imagenes_procesadas descartadas `
+        /XF instalacion.log /R:1 /W:1 /NFL /NDL /NJH /NJS | Out-Null
+    if ($LASTEXITCODE -ge 8) { L "ERROR: robocopy fallo (codigo $LASTEXITCODE)"; exit 1 }
+    L '       Copia terminada (sin venv, sin imagenes de maquinas anteriores)'
+} else {
+    L "Paso 3: ya se corre desde $dest - no hace falta copiar"
+}
+New-Item -ItemType Directory -Path (Join-Path $dest 'logs') -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $dest 'ftp_recibidos') -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $dest 'imagenes_procesadas') -Force | Out-Null
+
+# --- [4] config.ini con rutas absolutas del destino ---
+$cfg = Join-Path $dest 'config.ini'
+if (-not (Test-Path -LiteralPath $cfg)) {
+    L "ERROR: falta config.ini en $dest - copie el proyecto completo."
+    exit 1
+}
+L ('Paso 4: config.ini -> rutas absolutas de ' + $dest)
+$map = @{
+    'recibidos'  = (Join-Path $dest 'ftp_recibidos')
+    'procesadas' = (Join-Path $dest 'imagenes_procesadas')
+    'registro'   = (Join-Path $dest 'registro.db')
+    'logs'       = (Join-Path $dest 'logs')
+    'heartbeat'  = (Join-Path $dest 'heartbeat.txt')
+    'descartes'  = (Join-Path $dest 'descartadas')
+    'reportes'   = (Join-Path $dest 'reportes')
+}
+$lines = @(Get-Content -LiteralPath $cfg)
+for ($i = 0; $i -lt $lines.Count; $i++) {
+    foreach ($k in $map.Keys) {
+        if ($lines[$i] -match ('^\s*' + $k + '\s*=')) { $lines[$i] = ($k + ' = ' + $map[$k]) }
+    }
+}
+[IO.File]::WriteAllLines($cfg, $lines, (New-Object System.Text.UTF8Encoding($false)))
+L '       OK'
+
+# --- [5] Python oficial en Program Files ---
+L ('Paso 5: localizando/instalando Python ' + $pyVer)
+$pyBase = Find-PythonBase $loNum $hiNum
+if (-not $pyBase) {
+    L '       No esta - descargando desde python.org (puede tardar)'
+    $setup = Join-Path $env:TEMP ("python-" + $pyVer + "-amd64.exe")
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -UseBasicParsing -Uri $pyUrl -OutFile $setup -TimeoutSec 600
+        Unblock-File -LiteralPath $setup -ErrorAction SilentlyContinue
+    } catch {
+        L ('       ERROR de descarga: ' + $_.Exception.Message)
+        L '       Si no hay internet, descarge el instalador a mano y coloquelo en:'
+        L ('       ' + $setup)
+        exit 1
+    }
+    $p = Start-Process -FilePath $setup -ArgumentList '/quiet','InstallAllUsers=1','PrependPath=0','AssociateFiles=0','Shortcuts=0','Include_test=0' -Wait -PassThru
+    L ('       Instalador python exit=' + $p.ExitCode)
+    $pyBase = Find-PythonBase $loNum $hiNum
+}
+if (-not $pyBase) {
+    L '       ERROR: no se instalo el Python esperado.'
+    exit 1
+}
+L ('       Python base: ' + $pyBase)
+
+# --- [6] venv + dependencias ---
+$vp = Join-Path $dest 'venv\Scripts\python.exe'
+$venvOk = $false
+if (Test-Path -LiteralPath $vp) {
+    $v = & $vp -c "import sys; print(str(sys.version_info[0])+'.'+str(sys.version_info[1]))" 2>$null
+    $n = 0
+    if ($v -match '^(\d+)\.(\d+)$') { $n = [int]$Matches[1] * 100 + [int]$Matches[2] }
+    if ($n -ge $loNum -and ($hiNum -eq 0 -or $n -le $hiNum)) { $venvOk = $true }
+}
+if (-not $venvOk) {
+    L ('Paso 6: creando venv en ' + $dest)
+    if (Test-Path -LiteralPath (Join-Path $dest 'venv')) {
+        Remove-Item -LiteralPath (Join-Path $dest 'venv') -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    & $pyBase -m venv (Join-Path $dest 'venv') 2>&1 | ForEach-Object { L ('       venv: ' + $_) }
+} else {
+    L 'Paso 6: venv existente compatible - se reutiliza'
+}
+if (-not (Test-Path -LiteralPath $vp)) { L '       ERROR: no se pudo crear el venv.'; exit 1 }
+
+$reqPath = Join-Path $dest $req
+if (-not (Test-Path -LiteralPath $reqPath)) { L ("ERROR: falta $req en $dest"); exit 1 }
+L ('       pip install -r ' + $req + ' (varios minutos)')
+& $vp -m pip install --disable-pip-version-check --quiet -r $reqPath 2>&1 |
+    Select-Object -Last 5 | ForEach-Object { L ('       pip: ' + $_) }
+if ($LASTEXITCODE -ne 0) { L '       ERROR: fallo pip. Revise internet/config.'; exit 1 }
+
+L '       prueba de humo: imports'
+& $vp -c "import pyftpdlib, cv2, numpy, onnxruntime; from rapidocr_onnxruntime import RapidOCR; print('imports OK')" 2>&1 |
+    ForEach-Object { L ('       | ' + $_) }
+if (-not (Test-Path -LiteralPath (Join-Path $dest 'modelo\placas.onnx'))) {
+    L '       AVISO: falta modelo\placas.onnx - arrancara SIN detector de placas.'
+}
+
+# --- [7] NSSM + servicio ---
+$nssm = Join-Path $dest 'nssm.exe'
+if (-not (Test-Path -LiteralPath $nssm)) { L '       AVISO: falta nssm.exe en la carpeta - el servicio no se puede registrar.'; exit 1 }
+L ('Paso 7: registrando servicio ' + $serv)
+$existe = Get-Service -Name $serv -ErrorAction SilentlyContinue
+if ($existe) { Stop-Service -Name $serv -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2 }
+if (-not $existe) {
+    & $nssm install $serv $vp (Join-Path $dest 'ftp_server.py') 2>&1 | ForEach-Object { L ('       nssm: ' + $_) }
+}
+& $nssm set $serv Application $vp 2>&1 | Out-Null
+& $nssm set $serv AppDirectory $dest 2>&1 | Out-Null
+# AppParameters CON comillas via registro (nssm set + PowerShell se come las comillas)
+$par = 'HKLM:\SYSTEM\CurrentControlSet\Services\' + $serv + '\Parameters'
+Set-ItemProperty -LiteralPath $par -Name AppDirectory -Value $dest -Type String
+Set-ItemProperty -LiteralPath $par -Name AppParameters -Value ('"' + (Join-Path $dest 'ftp_server.py') + '"') -Type String
+& $nssm set $serv DisplayName 'Servidor FTP Camara CYTV Ancon' 2>&1 | Out-Null
+& $nssm set $serv Description 'Recibe las fotos de la camara Hikvision, las archiva por fecha y registra las placas' 2>&1 | Out-Null
+& $nssm set $serv Start SERVICE_AUTO_START 2>&1 | Out-Null
+& $nssm set $serv AppExit Default Restart 2>&1 | Out-Null
+& $nssm set $serv AppRestartDelay 5000 2>&1 | Out-Null
+& $nssm set $serv AppStdout (Join-Path $dest 'logs\stdout.log') 2>&1 | Out-Null
+& $nssm set $serv AppStderr (Join-Path $dest 'logs\stderr.log') 2>&1 | Out-Null
+& $nssm set $serv AppRotateFiles 1 2>&1 | Out-Null
+$regAppDir  = (Get-ItemProperty -LiteralPath $par -Name AppDirectory -ErrorAction SilentlyContinue).AppDirectory
+$regAppArgs = (Get-ItemProperty -LiteralPath $par -Name AppParameters -ErrorAction SilentlyContinue).AppParameters
+L ('       verif AppDirectory  = ' + $regAppDir)
+L ('       verif AppParameters = ' + $regAppArgs)
+if ($regAppDir -ne $dest) { L '       ERROR: AppDirectory quedo mal.'; exit 1 }
+
+# --- [8] Firewall ---
+L 'Paso 8: firewall'
+$puerto = '2121'; $pas = '60000-60099'
+foreach ($ln in (Get-Content -LiteralPath $cfg)) {
+    if ($ln -match '^\s*puerto\s*=\s*(\d+)') { $puerto = $Matches[1] }
+    if ($ln -match '^\s*puertos_pasivos\s*=\s*([\d\-]+)') { $pas = $Matches[1] }
+}
+& netsh advfirewall firewall delete rule name='CYTV Ancon FTP' | Out-Null
+& netsh advfirewall firewall add rule name='CYTV Ancon FTP' dir=in action=allow protocol=TCP localport="$puerto,$pas" | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    L ('       AVISO: no se pudo crear la regla. Abra a mano TCP ' + $puerto + ' y ' + $pas)
+} else {
+    L ('       OK: TCP ' + $puerto + ' y pasivos ' + $pas)
+}
+
+# --- [9] Arranque y verificacion final ---
+L 'Paso 9: iniciando servicio...'
+Start-Service -Name $serv -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 15
+$st = (Get-Service -Name $serv).Status
+L ('       estado del servicio: ' + $st)
+$pidFinal = Get-PidEnPuerto $puerto
+if ($pidFinal) {
+    L ('       EXITO: FTP escuchando en 0.0.0.0:' + $puerto + ' (PID ' + $pidFinal + ')')
+    L '============================================================'
+    L ' INSTALACION TERMINADA'
+    L ' Servicio: services.msc -> "Servidor FTP Camara CYTV Ancon"'
+    L (' Log:      ' + (Join-Path $dest 'logs\servidor.log'))
+    L (' Info para la camara (IP, usuario): ' + (Join-Path $dest 'INFO_CAMARA.txt'))
+    L ' La IP se regenera en cada arranque - apunte la camara ahi.'
+    L '============================================================'
+    exit 0
+} else {
+    L '       ERROR: el servicio no levanto el FTP. Tail de stderr.log:'
+    Get-Content -LiteralPath (Join-Path $dest 'logs\stderr.log') -Tail 6 -ErrorAction SilentlyContinue |
+        ForEach-Object { L ('       ! ' + $_) }
+    exit 1
+}

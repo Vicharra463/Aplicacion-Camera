@@ -1,0 +1,49 @@
+================================================================
+ INFO DE CONEXION - Servidor FTP Camara CYTV Ancon
+ Generado: 2026-11-11T17:57:28
+================================================================
+
+--- DONDE ESTA CORRIENDO ESTE SERVIDOR -------------------------
+  PC / IP ............ 192.168.1.26
+  Puerto FTP ......... 2121
+  Usuario ............ admin
+  Password ........... Kratos2005
+  Modo pasivo ........ si, puertos TCP 60000-60099
+  Carpeta de entrada . C:\CytvAncon\ftp_recibidos
+  Carpeta de salidas . C:\CytvAncon\imagenes_procesadas
+  Registro (SQLite) .. C:\CytvAncon\registro.db
+  Log ................ C:\CytvAncon\logs\servidor.log
+  Heartbeat .......... C:\CytvAncon\heartbeat.txt
+
+--- COMO PONERLO EN LA CAMARA (Hikvision) ----------------------
+  En la web de la camara (http://192.168.18.42):
+    Servidor (Server) ... 192.168.1.26
+    Puerto (Port) ....... 2121
+    Usuario ............. admin
+    Password ............ Kratos2005
+    Protocolo ........... FTP
+    Ruta destino ........ /   (o el subcarpeta que prefiera)
+    Modo ............... Pasivo  (si la camara lo pide)
+
+  IMPORTANTE - las DOS vistas tienen que subir:
+    Canal 01 (panoramico) y Canal 02 (PT): en
+    Storage -> Schedule Settings -> Picture Capture y en el linkage de
+    movimiento (MD_WITH_TARGET), active la subida por FTP en AMBOS
+    canales. Si solo sube el 01, la carpeta placa\ no recibe fotos.
+
+--- QUE GUARDA EL SERVIDOR ------------------------------------
+  imagenes_procesadas\vehiculo\AAAA-MM-DD\  canal 01: vehiculo
+      completo (comparar precios por categoria)
+  imagenes_procesadas\placa\AAAA-MM-DD\     canal 02: vista con
+      ~2x pixeles en la placa (entrenar el modelo)
+  Cada foto lleva su etiqueta YOLO (.txt) al lado.
+
+--- CAMBIOS DE CONFIGURACION ----------------------------------
+  instalar_servicio.bat config              ver config.ini
+  instalar_servicio.bat config set CLAVE V  cambiar un valor
+      (puerto usuario password cooldown_segundos umbral_modelo ...)
+
+  NOTA: si cambia la password aqui, cambielo TAMBIEN en la camara.
+  NOTA: para que la IP no cambie, pida al router una reserva DHCP
+        para esta PC (192.168.1.26).
+================================================================
