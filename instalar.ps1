@@ -191,42 +191,106 @@ if (-not $pyBase) {
 L ('       Python base: ' + $pyBase)
 
 # --- [5.5] Visual C++ Redistributable (solo Windows viejo) ---
-# opencv-python trae DLLs compiladas con MSVC 2015-2019; sin el runtime
-# vcruntime140.dll el import de cv2 falla con "DLL load failed".
-# El VC++ 2015-2022 mas nuevo YA NO soporta Server 2012 R2; hay que usar
-# el VC++ 2015 Update 3 (14.0.24215.1) que si lista Server 2012.
+# Verificado con parseo de PE: onnxruntime 1.18 (lo usa RapidOCR) importa
+# MSVCP140.dll, MSVCP140_1.dll, VCRUNTIME140.dll, VCRUNTIME140_1.dll y el
+# UCRT (api-ms-win-crt-*.dll). VCRUNTIME140_1 es de VS2019: el VC++ 2015
+# Update 3 NO lo trae. El VC++ 2022 mas nuevo ya no soporta Server 2012 R2.
+# Estrategia: si falta el UCRT -> instalar VC++ 2015 U3 (lo trae embebido);
+# si falta cualquier CRT de VS2015/2019 -> instalar el redist de VS2019
+# (14.29 LTSC, soporta Server 2012 R2).
 if ($build -lt 14393) {
-    L 'Paso 5.5: Windows viejo - verificando Visual C++ 2015 Runtime'
-    $vcruntime = Join-Path $env:SystemRoot 'System32\vcruntime140.dll'
-    $msvcp = Join-Path $env:SystemRoot 'System32\msvcp140.dll'
-    if ((Test-Path -LiteralPath $vcruntime) -and (Test-Path -LiteralPath $msvcp)) {
-        L '       VC++ 2015 Runtime ya presente - se omite'
+    L 'Paso 5.5: Windows viejo - verificando Visual C++ Runtime (VS2015/2019)'
+    $sys32 = Join-Path $env:SystemRoot 'System32'
+    $dllsCrt = @('vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll', 'msvcp140_1.dll')
+    $ucrtDll = Join-Path $sys32 'api-ms-win-crt-runtime-l1-1-0.dll'
+    $faltaCrt  = @($dllsCrt  | Where-Object { -not (Test-Path -LiteralPath (Join-Path $sys32 $_)) })
+    $faltaUcrt = -not (Test-Path -LiteralPath $ucrtDll)
+    if (-not $faltaCrt -and -not $faltaUcrt) {
+        L '       VC++ Runtime completo ya presente - se omite'
     } else {
-        L '       Falta VC++ 2015 Runtime - descargando desde Microsoft...'
-        # VC++ 2015 Update 3 x64 - compatible con Windows Server 2012 / 2012 R2
-        # Fuente: https://www.microsoft.com/en-us/download/details.aspx?id=53840
-        $vcUrl = 'https://download.microsoft.com/download/6/A/A/6AA4EDFF-645B-48C5-81CC-ED5963AEAD48/vc_redist.x64.exe'
-        $vcSetup = Join-Path $env:TEMP 'vc_redist_2015_x64.exe'
-        try {
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            Invoke-WebRequest -UseBasicParsing -Uri $vcUrl -OutFile $vcSetup -TimeoutSec 300
-            Unblock-File -LiteralPath $vcSetup -ErrorAction SilentlyContinue
-        } catch {
-            L ('       ERROR de descarga VC++: ' + $_.Exception.Message)
-            L '       Descarguelo a mano desde:'
-            L '       https://www.microsoft.com/en-us/download/details.aspx?id=53840'
-            L '       (vc_redist.x64.exe) y ejecutelo, luego vuelva a correr este instalador.'
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        if ($faltaUcrt) {
+            # VC++ 2015 Update 3 x64 - unico que trae el UCRT embebido y
+            # soportado en Server 2012 R2 (id=53840)
+            L '       Falta Universal CRT - instalando VC++ 2015 Update 3...'
+            $url15 = 'https://download.microsoft.com/download/6/A/A/6AA4EDFF-645B-48C5-81CC-ED5963AEAD48/vc_redist.x64.exe'
+            $exe15 = Join-Path $env:TEMP 'vc_redist_2015u3_x64.exe'
+            try {
+                Invoke-WebRequest -UseBasicParsing -Uri $url15 -OutFile $exe15 -TimeoutSec 300
+                Unblock-File -LiteralPath $exe15 -ErrorAction SilentlyContinue
+            } catch {
+                L ('       ERROR de descarga VC++ 2015: ' + $_.Exception.Message)
+                L '       Descarguelo a mano (id=53840, vc_redist.x64.exe), ejecutelo'
+                L '       y vuelva a correr este instalador.'
+                exit 1
+            }
+            $p = Start-Process -FilePath $exe15 -ArgumentList '/install','/quiet','/norestart' -Wait -PassThru
+            L ('       VC++ 2015 U3 exit=' + $p.ExitCode + ' (0 o 3010 = OK)')
+            $faltaCrt = @($dllsCrt | Where-Object { -not (Test-Path -LiteralPath (Join-Path $sys32 $_)) })
+        }
+        if ($faltaCrt.Count -gt 0) {
+            # Redist de Visual Studio 2019 14.29 (LTSC) - trae VCRUNTIME140_1 y
+            # MSVCP140_1, y si aun soporta Server 2012 R2. El 2022 no.
+            L ('       Faltan: ' + ($faltaCrt -join ', ') + ' - instalando VC++ VS2019 Runtime...')
+            $url19 = 'https://aka.ms/vs/16/release/vc_redist.x64.exe'
+            $exe19 = Join-Path $env:TEMP 'vc_redist_vs2019_x64.exe'
+            try {
+                Invoke-WebRequest -UseBasicParsing -Uri $url19 -OutFile $exe19 -TimeoutSec 300
+                Unblock-File -LiteralPath $exe19 -ErrorAction SilentlyContinue
+            } catch {
+                L ('       ERROR de descarga VC++ VS2019: ' + $_.Exception.Message)
+                L '       Descarguelo a mano desde https://aka.ms/vs/16/release/vc_redist.x64.exe'
+                L '       y vuelva a correr este instalador.'
+                exit 1
+            }
+            $p = Start-Process -FilePath $exe19 -ArgumentList '/install','/quiet','/norestart' -Wait -PassThru
+            L ('       VC++ VS2019 exit=' + $p.ExitCode + ' (0 o 3010 = OK)')
+        }
+        # Verificacion final de las 5 piezas
+        $aunFaltan = @()
+        foreach ($d in $dllsCrt) { if (-not (Test-Path -LiteralPath (Join-Path $sys32 $d))) { $aunFaltan += $d } }
+        if (-not (Test-Path -LiteralPath $ucrtDll)) { $aunFaltan += 'api-ms-win-crt-runtime-l1-1-0.dll' }
+        if ($aunFaltan.Count -gt 0) {
+            L ('       ERROR: siguen faltando DLLs: ' + ($aunFaltan -join ', '))
+            L '       Instale los vc_redist a mano y vuelva a correr este instalador.'
             exit 1
         }
-        L '       Instalando VC++ 2015 Runtime (silencioso)...'
-        $p = Start-Process -FilePath $vcSetup -ArgumentList '/install','/quiet','/norestart' -Wait -PassThru
-        L ('       VC++ 2015 exit=' + $p.ExitCode + ' (0 o 3010 = OK)')
-        if (-not ((Test-Path -LiteralPath $vcruntime) -and (Test-Path -LiteralPath $msvcp))) {
-            L '       ERROR: vcruntime140.dll sigue sin aparecer en System32.'
-            L '       Instale vc_redist.x64.exe a mano y vuelva a correr.'
+        L '       VC++ Runtime completo instalado OK'
+    }
+}
+
+# --- [5.6] Media Foundation (solo Windows viejo) ---
+# Verificado con parseo de PE: cv2.pyd (opencv-python normal o headless)
+# importa MFPlat.DLL, MF.dll y MFReadWrite.dll - Media Foundation es
+# OBLIGATORIO para el import de cv2. Server 2012 R2 no lo trae de fabrica:
+# hay que habilitar la feature "Server-Media-Foundation" con DISM.
+if ($build -lt 14393) {
+    $mfplat = Join-Path $env:SystemRoot 'System32\mfplat.dll'
+    if (Test-Path -LiteralPath $mfplat) {
+        L 'Paso 5.6: Media Foundation ya presente - se omite'
+    } else {
+        L 'Paso 5.6: habilitando feature Media Foundation con DISM (varios minutos)...'
+        # ProductType: 1=Workstation -> feature "MediaFoundation";
+        # 2/3=Server/DC -> "Server-Media-Foundation"
+        $os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
+        $feat = if ($os -and $os.ProductType -eq 1) { 'MediaFoundation' } else { 'Server-Media-Foundation' }
+        L ('       feature: ' + $feat)
+        $p = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\dism.exe') `
+            -ArgumentList '/Online','/Enable-Feature','/FeatureName:'+$feat,'/All','/NoRestart' `
+            -Wait -PassThru -NoNewWindow
+        L ('       DISM exit=' + $p.ExitCode + ' (0=OK, 3010=reinicio pendiente)')
+        if (Test-Path -LiteralPath $mfplat) {
+            L '       Media Foundation habilitado OK'
+        } elseif ($p.ExitCode -eq 3010) {
+            L '       Media Foundation quedo pendiente de REINICIO.'
+            L '       Reinicie la Windows Server y vuelva a correr instalar_servicio.bat'
+            L '       (el instalador es repebile - continuara donde quedo).'
+            exit 1
+        } else {
+            L '       ERROR: DISM no habilito Media Foundation y no pide reinicio.'
+            L '       Revise Servicio de actualizaciones de Windows / imagen de instalacion.'
             exit 1
         }
-        L '       VC++ 2015 Runtime instalado OK'
     }
 }
 
@@ -277,8 +341,16 @@ $humo = & $vp -c "import pyftpdlib, cv2, numpy, onnxruntime; from rapidocr_onnxr
                         L '       ERROR: los imports no cargan - el venv o el sistema estan incompletos.'
                         L ('       detalle: ' + ($humo -replace '\s+', ' ').Trim())
                         if ($build -lt 14393) {
-                            L '       En Windows viejo (Server 2012 R2) descargue VC++ 2015 Update 3 x64:'
-                            L '       https://www.microsoft.com/en-us/download/details.aspx?id=53840'
+                            if ($humo -match 'MFPlat|Media Foundation' -or
+                                -not (Test-Path -LiteralPath (Join-Path $env:SystemRoot 'System32\mfplat.dll'))) {
+                                L '       Parece faltar Media Foundation - habilite la feature y reintente:'
+                                L '       dism /Online /Enable-Feature /FeatureName:Server-Media-Foundation /All'
+                            }
+                            if ($humo -match 'vcruntime|msvcp|DLL load failed' -and
+                                -not (Test-Path -LiteralPath (Join-Path $env:SystemRoot 'System32\vcruntime140_1.dll'))) {
+                                L '       Parece faltar el VC++ VS2019 Runtime - corra los pasos 5.5 otra vez'
+                                L '       o instale https://aka.ms/vs/16/release/vc_redist.x64.exe a mano.'
+                            }
                         } else {
                             L '       Instale Visual C++ Redistributable 2015-2022 y vuelva a correr.'
                             L '       https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist'
