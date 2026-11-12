@@ -194,19 +194,33 @@ L ('       Python base: ' + $pyBase)
 $vp = Join-Path $dest 'venv\Scripts\python.exe'
 $venvOk = $false
 if (Test-Path -LiteralPath $vp) {
+    # 1) Version compatible
     $v = & $vp -c "import sys; print(str(sys.version_info[0])+'.'+str(sys.version_info[1]))" 2>$null
     $n = 0
     if ($v -match '^(\d+)\.(\d+)$') { $n = [int]$Matches[1] * 100 + [int]$Matches[2] }
-    if ($n -ge $loNum -and ($hiNum -eq 0 -or $n -le $hiNum)) { $venvOk = $true }
+    if ($n -ge $loNum -and ($hiNum -eq 0 -or $n -le $hiNum)) {
+        # 2) Que los imports criticos carguen (cv2 trae DLLs de la maquina
+        #    donde se creo el venv; si se copio de otra, falla aqui)
+        $smoke = & $vp -c "import cv2, numpy, onnxruntime, pyftpdlib; print('OK')" 2>&1 | Out-String
+        if ($smoke -match 'OK') {
+            $venvOk = $true
+            L 'Paso 6: venv existente compatible y funcional - se reutiliza'
+        } else {
+            L 'Paso 6: venv existente pero ROTO (imports fallan) - se recrea'
+            L ('       detalle: ' + ($smoke -replace '\s+', ' ').Trim())
+        }
+    } else {
+        L ('Paso 6: venv existente con Python ' + $v + ' - incompatible, se recrea')
+    }
+} else {
+    L 'Paso 6: no hay venv - se crea'
 }
 if (-not $venvOk) {
-    L ('Paso 6: creando venv en ' + $dest)
+    L ('       creando venv limpio en ' + $dest)
     if (Test-Path -LiteralPath (Join-Path $dest 'venv')) {
         Remove-Item -LiteralPath (Join-Path $dest 'venv') -Recurse -Force -ErrorAction SilentlyContinue
     }
     & $pyBase -m venv (Join-Path $dest 'venv') 2>&1 | ForEach-Object { L ('       venv: ' + $_) }
-} else {
-    L 'Paso 6: venv existente compatible - se reutiliza'
 }
 if (-not (Test-Path -LiteralPath $vp)) { L '       ERROR: no se pudo crear el venv.'; exit 1 }
 
@@ -217,9 +231,16 @@ L ('       pip install -r ' + $req + ' (varios minutos)')
     Select-Object -Last 5 | ForEach-Object { L ('       pip: ' + $_) }
 if ($LASTEXITCODE -ne 0) { L '       ERROR: fallo pip. Revise internet/config.'; exit 1 }
 
-L '       prueba de humo: imports'
-& $vp -c "import pyftpdlib, cv2, numpy, onnxruntime; from rapidocr_onnxruntime import RapidOCR; print('imports OK')" 2>&1 |
-    ForEach-Object { L ('       | ' + $_) }
+L '       prueba de humo: imports criticos'
+$humo = & $vp -c "import pyftpdlib, cv2, numpy, onnxruntime; from rapidocr_onnxruntime import RapidOCR; print('imports OK')" 2>&1 | Out-String
+if ($humo -notmatch 'imports OK') {
+    L '       ERROR: los imports no cargan - el venv o el sistema estan incompletos.'
+    L ('       detalle: ' + ($humo -replace '\s+', ' ').Trim())
+    L '       Solucion: instale Visual C++ Redistributable 2015-2022 y vuelva a correr.'
+    L '       https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist'
+    exit 1
+}
+L ('       ' + ($humo -replace '\s+', ' ').Trim())
 if (-not (Test-Path -LiteralPath (Join-Path $dest 'modelo\placas.onnx'))) {
     L '       AVISO: falta modelo\placas.onnx - arrancara SIN detector de placas.'
 }
