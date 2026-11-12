@@ -190,6 +190,46 @@ if (-not $pyBase) {
 }
 L ('       Python base: ' + $pyBase)
 
+# --- [5.5] Visual C++ Redistributable (solo Windows viejo) ---
+# opencv-python trae DLLs compiladas con MSVC 2015-2019; sin el runtime
+# vcruntime140.dll el import de cv2 falla con "DLL load failed".
+# El VC++ 2015-2022 mas nuevo YA NO soporta Server 2012 R2; hay que usar
+# el VC++ 2015 Update 3 (14.0.24215.1) que si lista Server 2012.
+if ($build -lt 14393) {
+    L 'Paso 5.5: Windows viejo - verificando Visual C++ 2015 Runtime'
+    $vcruntime = Join-Path $env:SystemRoot 'System32\vcruntime140.dll'
+    $msvcp = Join-Path $env:SystemRoot 'System32\msvcp140.dll'
+    if ((Test-Path -LiteralPath $vcruntime) -and (Test-Path -LiteralPath $msvcp)) {
+        L '       VC++ 2015 Runtime ya presente - se omite'
+    } else {
+        L '       Falta VC++ 2015 Runtime - descargando desde Microsoft...'
+        # VC++ 2015 Update 3 x64 - compatible con Windows Server 2012 / 2012 R2
+        # Fuente: https://www.microsoft.com/en-us/download/details.aspx?id=53840
+        $vcUrl = 'https://download.microsoft.com/download/6/A/A/6AA4EDFF-645B-48C5-81CC-ED5963AEAD48/vc_redist.x64.exe'
+        $vcSetup = Join-Path $env:TEMP 'vc_redist_2015_x64.exe'
+        try {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            Invoke-WebRequest -UseBasicParsing -Uri $vcUrl -OutFile $vcSetup -TimeoutSec 300
+            Unblock-File -LiteralPath $vcSetup -ErrorAction SilentlyContinue
+        } catch {
+            L ('       ERROR de descarga VC++: ' + $_.Exception.Message)
+            L '       Descarguelo a mano desde:'
+            L '       https://www.microsoft.com/en-us/download/details.aspx?id=53840'
+            L '       (vc_redist.x64.exe) y ejecutelo, luego vuelva a correr este instalador.'
+            exit 1
+        }
+        L '       Instalando VC++ 2015 Runtime (silencioso)...'
+        $p = Start-Process -FilePath $vcSetup -ArgumentList '/install','/quiet','/norestart' -Wait -PassThru
+        L ('       VC++ 2015 exit=' + $p.ExitCode + ' (0 o 3010 = OK)')
+        if (-not ((Test-Path -LiteralPath $vcruntime) -and (Test-Path -LiteralPath $msvcp))) {
+            L '       ERROR: vcruntime140.dll sigue sin aparecer en System32.'
+            L '       Instale vc_redist.x64.exe a mano y vuelva a correr.'
+            exit 1
+        }
+        L '       VC++ 2015 Runtime instalado OK'
+    }
+}
+
 # --- [6] venv + dependencias ---
 $vp = Join-Path $dest 'venv\Scripts\python.exe'
 $venvOk = $false
@@ -233,13 +273,18 @@ if ($LASTEXITCODE -ne 0) { L '       ERROR: fallo pip. Revise internet/config.';
 
 L '       prueba de humo: imports criticos'
 $humo = & $vp -c "import pyftpdlib, cv2, numpy, onnxruntime; from rapidocr_onnxruntime import RapidOCR; print('imports OK')" 2>&1 | Out-String
-if ($humo -notmatch 'imports OK') {
-    L '       ERROR: los imports no cargan - el venv o el sistema estan incompletos.'
-    L ('       detalle: ' + ($humo -replace '\s+', ' ').Trim())
-    L '       Solucion: instale Visual C++ Redistributable 2015-2022 y vuelva a correr.'
-    L '       https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist'
-    exit 1
-}
+                    if ($humo -notmatch 'imports OK') {
+                        L '       ERROR: los imports no cargan - el venv o el sistema estan incompletos.'
+                        L ('       detalle: ' + ($humo -replace '\s+', ' ').Trim())
+                        if ($build -lt 14393) {
+                            L '       En Windows viejo (Server 2012 R2) descargue VC++ 2015 Update 3 x64:'
+                            L '       https://www.microsoft.com/en-us/download/details.aspx?id=53840'
+                        } else {
+                            L '       Instale Visual C++ Redistributable 2015-2022 y vuelva a correr.'
+                            L '       https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist'
+                        }
+                        exit 1
+                    }
 L ('       ' + ($humo -replace '\s+', ' ').Trim())
 if (-not (Test-Path -LiteralPath (Join-Path $dest 'modelo\placas.onnx'))) {
     L '       AVISO: falta modelo\placas.onnx - arrancara SIN detector de placas.'
