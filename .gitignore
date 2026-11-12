@@ -13,14 +13,11 @@ venv/
 logs/
 heartbeat.txt
 registro.db
+INFO_CAMARA.txt
 ftp_recibidos/
 descartadas/
 imagenes_procesadas/
 reportes/
-
-# Webapp
-webapp/node_modules/
-webapp/dist/assets/*.map
 
 # Windows
 Thumbs.db
