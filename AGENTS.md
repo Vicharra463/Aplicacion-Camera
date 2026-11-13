@@ -159,7 +159,7 @@ C:\Users\FELIPE\anaconda3\python.exe -m pytest tests\test_descartes_minimos.py -
 ## Estado del proyecto (2026-11-12 — ACTUALIZAR AL CAMBIAR)
 
 **Último fix (Opción A, placas REPETIDAS B7B-820/BIB-820)** — TDD
-281/281 verde, **SIN COMMITEAR**:
+281/281 verde, **commiteado y pusheado** (`23e7788` fix + `c6ca00d` docs):
 - `app/worker.py`: `_EQUIV_COMPARAR = {"I":"1","O":"0","Z":"1","7":"1"}`
   (familia visual {Z,7,I,1} unida; maketrans es de UNA pasada) +
   canónica en el bloque de previa de `procesar_imagen` (si la
