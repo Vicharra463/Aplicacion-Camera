@@ -1589,7 +1589,11 @@ def _sin_guion(texto: str) -> str:
     return texto.replace("-", "")
 
 
-_EQUIV_COMPARAR = str.maketrans({"I": "1", "O": "0", "Z": "7"})
+# 2026-11-12 (FELIPE, REPETIDOS): 7 se une a la familia {Z, I, 1} —
+# PlateRecognizer leyo B7B-820 y devolvio BIB-820 (7 confundido con
+# I). La tabla es de UNA pasada: Z y 7 apuntan a "1" para que sigan
+# matcheando entre si.
+_EQUIV_COMPARAR = str.maketrans({"I": "1", "O": "0", "Z": "1", "7": "1"})
 
 
 def _forma_comparable(texto: str) -> str:
@@ -2385,6 +2389,12 @@ def procesar_imagen(ruta: Path) -> None:
         previa = _buscar_misma(vista, huella, texto_placa,
                                confiable=confiable)
         if previa is not None:
+            # Relectura con la MISMA forma (7 confundido con I, etc.):
+            # la lectura ya guardada es la canonica (B7B-820 gana a
+            # BIB-820, 2026-11-12 FELIPE: REPETIDOS).
+            if _forma_comparable(texto_placa) == _forma_comparable(
+                    previa[1]):
+                texto_placa = previa[1]
             # Texto similar pero hash lejano = placa del costado con otra
             # lectura: no reemplazar la placa guardada; archivar sin
             # registrar pasada nueva.

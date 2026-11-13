@@ -645,9 +645,79 @@ def test_pasada_de_placa_confiable_no_falla_por_levenshtein(proc,
                                    confiable=True)[0] == 2
 
 
+def test_forma_comparable_une_7_con_i():
+    # 2026-11-12 (FELIPE, REPETIDOS): PlateRecognizer leyo B7B-820 y
+    # 60 s despues devolvio BIB-820 (7 confundido con I): misma forma.
+    assert (worker._forma_comparable("B7B-820")
+            == worker._forma_comparable("BIB-820"))
+    # 7 sigue unido a Z (familia de confusion visual)
+    assert (worker._forma_comparable("AZK-980")
+            == worker._forma_comparable("A7K-980"))
+
+
+def test_relectura_ocr_equivalente_usa_lectura_previa(proc, monkeypatch):
+    # 2026-11-12 (FELIPE, REPETIDOS): B7B-820 guardada y 60 s despues
+    # la API devuelve BIB-820 (7->I). Misma forma con confiable
+    # (umbral 0): NO es placa nueva — manda la lectura ya guardada y
+    # la relectura vive en segunda/ bajo B7B-820, sin carpeta BIB-820.
+    monkeypatch.setattr(worker, "_buscar_misma", _buscar_misma_real)
+    # DB real (patron del test de MEJOR FOTO) para el bloque de previa.
+    monkeypatch.setattr(worker, "_ruta_registro", proc.tmp / "registro.db")
+    monkeypatch.setattr(worker, "_dia_dedup",
+                        datetime.now().strftime("%Y-%m-%d"))
+    con = worker._conexion()
+    try:
+        con.execute(
+            "CREATE TABLE registros ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "fecha_hora TEXT NOT NULL, archivo TEXT NOT NULL,"
+            "placa TEXT, confianza REAL,"
+            "estado TEXT NOT NULL DEFAULT 'guardado',"
+            "evidencia INTEGER, semaforo TEXT, phash TEXT, fuente TEXT,"
+            "provisional INTEGER, placa_api TEXT, placa_modelo TEXT,"
+            "motivo_sin_api TEXT)")
+        con.execute(
+            "CREATE TABLE pasadas ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "placa TEXT NOT NULL, pasada INTEGER NOT NULL,"
+            "fecha_hora TEXT NOT NULL, excedida INTEGER NOT NULL DEFAULT 0)")
+        con.commit()
+    finally:
+        con.close()
+
+    # lectura con fuente API: confiable -> umbral 0 en el match
+    def _leer_api(img, bbox, **kw):
+        t = proc.state["texto"]
+        return t, proc.state["conf"], [
+            ("platerecognizer", t, proc.state["conf"])]
+
+    monkeypatch.setattr(worker, "leer_placa_6", _leer_api)
+
+    # 1a lectura: la placa real
+    proc.state["texto"] = "B7B-820"
+    ruta1 = proc.foto("p1.jpg", 70, 100, color=ROJO)
+    worker.procesar_imagen(ruta1)
+    assert len(_guardadas(proc)) == 1
+
+    # 2a lectura: la API se equivoco en un digito (7 -> I)
+    proc.state["texto"] = "BIB-820"
+    monkeypatch.setattr(worker, "_pasada_de_placa",
+                        lambda *a, **k: (2, 0.0))
+    ruta2 = proc.foto("p2.jpg", 70, 100, color=AZUL_CLARO)
+    worker.procesar_imagen(ruta2)
+
+    guardadas = _guardadas(proc)
+    # NO aparece una carpeta nueva BIB-820 ...
+    assert not any(p.parent.name == "BIB-820" for p in guardadas)
+    # ... y la relectura vive como 2a pasada bajo B7B-820/
+    assert any(p.parent.name == "segunda"
+               and p.parent.parent.name == "B7B-820"
+               for p in guardadas)
+
+
 # ------------------------------------------------------- config ---
 
-def test_config_ini_ventana_en_cero():
+def test_config_ini_ventana_cinco_min():
     import configparser
     p = configparser.ConfigParser()
     p.read(RAIZ / "config.ini", encoding="utf-8-sig")
@@ -659,7 +729,9 @@ def test_config_ini_ventana_en_cero():
     for linea in texto.splitlines():
         if "ventana_reinspeccion_min" in linea and not linea.strip().startswith(";"):
             valor = linea.split("=", 1)[1].strip()
-            assert valor == "0", f"ventana debe ser 0, es {valor}"
+            # 2026-11-12 (FELIPE): 5 min conserva pasadas reales (24/36
+            # min) y descarta falsas segundas de la misma escena (28 s).
+            assert valor == "5", f"ventana debe ser 5, es {valor}"
             break
     else:
         raise AssertionError("falta ventana_reinspeccion_min en config.ini")
